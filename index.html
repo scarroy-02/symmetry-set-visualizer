@@ -53,6 +53,19 @@
         .btn:hover { background: #4b5563; }
         .btn:active { background: #1f2937; }
         
+        select {
+            width: 100%;
+            background: #374151;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            border: 1px solid #4b5563;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        select:focus { outline: none; border-color: #60a5fa; }
+
         /* Scrollbar */
         .controls::-webkit-scrollbar { width: 6px; }
         .controls::-webkit-scrollbar-track { background: #222; }
@@ -65,6 +78,17 @@
     <div class="controls">
         <h2 class="text-xl font-bold mb-2 text-white">Symmetry Set Visualizer</h2>
 
+        <div class="mb-4">
+            <label>Load Preset Shape</label>
+            <select id="presetSelect">
+                <option value="" disabled selected>Select a shape...</option>
+                <!-- <option value="circle">Circle (8 pts)</option> -->
+                <option value="ellipse">Ellipse (8 pts)</option>
+                <option value="astroid">Astroid (12 pts)</option>
+                <option value="bean">Kidney Bean (10 pts)</option>
+            </select>
+        </div>
+
         <div id="status">Add points to start...</div>
 
         <div class="btn-group">
@@ -74,7 +98,7 @@
 
         <div class="slider-container">
             <label for="resolution">Resolution</label>
-            <input type="range" id="resolution" min="500" max="30000" step="100" value="1000">
+            <input type="range" id="resolution" min="500" max="50000" step="100" value="1000">
             <div id="res-val" class="text-xs text-right text-gray-400">1000 points</div>
         </div>
 
@@ -105,7 +129,6 @@
         <a href="deformed_ellipse.html" class="block w-full text-center bg-teal-700 hover:bg-teal-600 text-white px-4 py-2 rounded text-sm mb-4 transition shadow-lg border border-teal-500">
             View Deformed Ellipse
         </a>
-
     </div>
 
     <!-- RIGHT PANEL: Instructions & Visibility -->
@@ -402,6 +425,53 @@ function computeSymmetrySet(data, resolutionLimit) {
     return centers;
 }
 
+// --- Presets ---
+
+function loadPreset(type) {
+    saveState();
+    controlPoints = [];
+    
+    // Reset view
+    view.x = 0; view.y = 0; view.scale = 50;
+    
+    let count = 8;
+    
+    // if (type === 'circle') {
+    //     const r = 3.0;
+    //     for(let i=0; i<count; i++) {
+    //         const t = (i/count) * Math.PI * 2;
+    //         controlPoints.push(new Point(r*Math.cos(t), r*Math.sin(t)));
+    //     }
+    // } else 
+    if (type === 'ellipse') {
+        const a = 4.0, b = 2.5;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            controlPoints.push(new Point(a*Math.cos(t), b*Math.sin(t)));
+        }
+    } else if (type === 'astroid') {
+        count = 12;
+        const r = 3.5;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            controlPoints.push(new Point(
+                r * Math.pow(Math.cos(t), 3),
+                r * Math.pow(Math.sin(t), 3)
+            ));
+        }
+    } else if (type === 'bean') {
+        count = 10;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            const r = 2.0 + Math.cos(t) + Math.pow(Math.sin(t), 2);
+            controlPoints.push(new Point(r*Math.cos(t), r*Math.sin(t)));
+        }
+    }
+    
+    triggerComputation(true);
+    document.getElementById('presetSelect').value = ""; // Reset selector
+}
+
 // --- UI & Interaction ---
 
 const canvas = document.getElementById('canvas');
@@ -586,6 +656,11 @@ animSlider.addEventListener('input', e => {
         stopAnimBtn.classList.remove('hidden');
     }
     draw();
+});
+
+// Preset Handler
+document.getElementById('presetSelect').addEventListener('change', (e) => {
+    if (e.target.value) loadPreset(e.target.value);
 });
 
 document.getElementById('resolution').addEventListener('input', e => {

@@ -86,7 +86,7 @@
                 <option value="ellipse">Ellipse (8 pts)</option>
                 <option value="astroid">Astroid (12 pts)</option>
                 <option value="bean">Kidney Bean (10 pts)</option>
-                <option value="two_circles">Two Circles (External SS)</option>
+                <!-- <option value="two_circles">Two Circles (External SS)</option> -->
             </select>
         </div>
 
@@ -495,20 +495,21 @@ function loadPreset(type) {
             const r = 2.0 + Math.cos(t) + Math.pow(Math.sin(t), 2);
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
-    } else if (type === 'two_circles') {
-        // Circle 1
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            curves[0].push(new Point(3.0*Math.cos(t) - 2, 3.0*Math.sin(t)));
-        }
-        // Circle 2
-        activeCurveIdx = 1;
-        curves.push([]);
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            curves[1].push(new Point(2.0*Math.cos(t) + 3, 2.0*Math.sin(t)));
-        }
-    }
+    } 
+    // else if (type === 'two_circles') {
+    //     // Circle 1
+    //     for(let i=0; i<count; i++) {
+    //         const t = (i/count) * Math.PI * 2;
+    //         curves[0].push(new Point(3.0*Math.cos(t) - 2, 3.0*Math.sin(t)));
+    //     }
+    //     // Circle 2
+    //     activeCurveIdx = 1;
+    //     curves.push([]);
+    //     for(let i=0; i<count; i++) {
+    //         const t = (i/count) * Math.PI * 2;
+    //         curves[1].push(new Point(2.0*Math.cos(t) + 3, 2.0*Math.sin(t)));
+    //     }
+    // }
     
     updateUI();
     triggerComputation(true);

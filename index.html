@@ -97,8 +97,8 @@
         </div>
 
         <div class="slider-container">
-            <label for="resolution">Resolution</label>
-            <input type="range" id="resolution" min="500" max="50000" step="100" value="1000">
+            <label for="resolution">SS Resolution (Max N)</label>
+            <input type="range" id="resolution" min="500" max="30000" step="100" value="1000">
             <div id="res-val" class="text-xs text-right text-gray-400">1000 points</div>
         </div>
 
@@ -124,8 +124,9 @@
             <div class="flex items-center gap-1"><span class="dot bg-green-400"></span> Focal</div>
             <div class="flex items-center gap-1"><span class="dot bg-red-500"></span> Symm</div>
         </div>
-        
+
         <br/>
+
         <a href="deformed_ellipse.html" class="block w-full text-center bg-teal-700 hover:bg-teal-600 text-white px-4 py-2 rounded text-sm mb-4 transition shadow-lg border border-teal-500">
             View Deformed Ellipse
         </a>
@@ -186,7 +187,6 @@ const R_MAX = 100000.0;
 
 // State
 let controlPoints = []; 
-// Curve is implicitly always closed now
 let cachedCurveData = null; 
 let cachedSSData = null;
 let ssResolution = 1000;
@@ -210,6 +210,43 @@ let historyStack = [];
 // Animation State
 let isFocalAnim = false;
 let focalIdx = 0;
+
+// --- Helper for Insertion ---
+function pointToSegmentDistSq(p, v, w) {
+    const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+    if (l2 === 0) return (p.x - v.x)**2 + (p.y - v.y)**2;
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const projX = v.x + t * (w.x - v.x);
+    const projY = v.y + t * (w.y - v.y);
+    return (p.x - projX)**2 + (p.y - projY)**2;
+}
+
+function insertPointSmart(newPt) {
+    if (controlPoints.length < 3) {
+        controlPoints.push(newPt);
+        selectedIndex = controlPoints.length - 1;
+        return;
+    }
+
+    let bestIdx = -1;
+    let minDistSq = Infinity;
+
+    for (let i = 0; i < controlPoints.length; i++) {
+        const p1 = controlPoints[i];
+        const p2 = controlPoints[(i + 1) % controlPoints.length];
+        
+        const distSq = pointToSegmentDistSq(newPt, p1, p2);
+        if (distSq < minDistSq) {
+            minDistSq = distSq;
+            bestIdx = i;
+        }
+    }
+    
+    // Insert after bestIdx to maintain polygon order
+    controlPoints.splice(bestIdx + 1, 0, newPt);
+    selectedIndex = bestIdx + 1;
+}
 
 // --- History Management ---
 
@@ -578,8 +615,8 @@ canvas.addEventListener('mouseup', e => {
     if (interactionType === 'POTENTIAL_PAN') {
         saveState();
         const mousePos = screenToWorld(e.clientX, e.clientY);
-        controlPoints.push(mousePos);
-        selectedIndex = controlPoints.length - 1;
+        // Use SMART INSERTION logic instead of simple push
+        insertPointSmart(mousePos);
         statusDiv.innerText = `${controlPoints.length} points.`;
         triggerComputation(true);
     }

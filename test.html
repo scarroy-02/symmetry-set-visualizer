@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symmetry Set Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: #eee; font-family: sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+        
+        /* Left Panel: Main Actions */
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        /* Right Panel: Guidelines & Toggles */
+        .controls-right {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            width: 260px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        /* PD Animation Overlay */
+        #pdOverlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 900px;
+            height: 500px;
+            background: rgba(20, 20, 20, 0.98);
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: none;
+            z-index: 50;
+            pointer-events: auto;
+            flex-direction: column;
+        }
+
+        .slider-container { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: #ccc; font-weight: bold; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #60a5fa; }
+        
+        .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.8rem; margin-top: 15px; border-top: 1px solid #444; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        
+        #status { font-size: 0.8rem; color: #fbbf24; min-height: 1.2em; margin-bottom: 10px; font-weight: bold; }
+        
+        .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
+        .btn { flex: 1; padding: 6px; font-size: 0.85rem; background: #374151; color: white; border-radius: 4px; transition: background 0.2s; }
+        .btn:hover { background: #4b5563; }
+        .btn:active { background: #1f2937; }
+        
+        select {
+            width: 100%;
+            background: #374151;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            border: 1px solid #4b5563;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        select:focus { outline: none; border-color: #60a5fa; }
+
+        /* Scrollbar */
+        .controls::-webkit-scrollbar { width: 6px; }
+        .controls::-webkit-scrollbar-track { background: #222; }
+        .controls::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <!-- LEFT PANEL: Actions & Params -->
+    <div class="controls">
+        <h2 class="text-xl font-bold mb-2 text-white">Symmetry Set</h2>
+        
+        <a href="deformed_ellipse.html" class="block w-full text-center bg-teal-700 hover:bg-teal-600 text-white px-4 py-2 rounded text-sm mb-4 transition shadow-lg border border-teal-500">
+            View Deformed Ellipse &rarr;
+        </a>
+
+        <div class="mb-4">
+            <label>Load Preset Shape</label>
+            <select id="presetSelect">
+                <option value="" disabled selected>Select a shape...</option>
+                <option value="circle">Circle (8 pts)</option>
+                <option value="ellipse">Ellipse (8 pts)</option>
+                <option value="astroid">Astroid (12 pts)</option>
+                <option value="bean">Kidney Bean (10 pts)</option>
+                <option value="two_circles">Two Circles (External SS)</option>
+            </select>
+        </div>
+
+        <div id="status">Add points to start...</div>
+
+        <!-- Curve Management -->
+        <button id="newCurveBtn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold mb-2 transition border border-emerald-500 flex justify-between items-center">
+            <span>+ New Curve</span>
+            <span id="curveCountBadge" class="bg-black bg-opacity-30 px-2 rounded text-xs">1</span>
+        </button>
+
+        <div class="btn-group">
+            <button id="undoBtn" class="btn">Undo (Ctrl+Z)</button>
+            <button id="clearBtn" class="btn bg-red-900 hover:bg-red-800">Clear All</button>
+        </div>
+
+        <div class="slider-container">
+            <label for="resolution">SS Resolution (Max N)</label>
+            <input type="range" id="resolution" min="500" max="30000" step="100" value="1000">
+            <div id="res-val" class="text-xs text-right text-gray-400">1000 points</div>
+        </div>
+
+        <button id="computeBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm w-full font-bold transition mb-4">Re-Compute</button>
+        
+        <!-- Focal Animation Controls -->
+        <div class="mb-4 p-3 bg-gray-800 rounded border border-gray-700">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-purple-400">Focal Animation</span>
+                <div class="flex gap-2">
+                    <button id="animStopBtn" class="bg-red-900 hover:bg-red-800 text-white px-2 py-1 rounded text-xs transition hidden border border-red-700">Stop</button>
+                    <button id="animFocalBtn" class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-bold transition w-16">Play</button>
+                </div>
+            </div>
+            <input type="range" id="animSlider" min="0" max="1000" value="0" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500">
+        </div>
+
+        <button id="resetViewBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm w-full mt-4">Reset View</button>
+
+        <div class="legend">
+            <div class="flex items-center gap-1"><span class="dot bg-blue-400"></span> Curve</div>
+            <div class="flex items-center gap-1"><span class="dot bg-white border border-gray-500"></span> Ctrl Pts</div>
+            <div class="flex items-center gap-1"><span class="dot bg-green-400"></span> Focal</div>
+            <div class="flex items-center gap-1"><span class="dot bg-red-500"></span> Symm</div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: Instructions & Visibility -->
+    <div class="controls-right">
+        <!-- Visibility -->
+        <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">Visibility</h3>
+        <div class="space-y-2 mb-6">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-300">Show Curve</span>
+                <input type="checkbox" id="showCurve" checked class="accent-blue-500 h-4 w-4 cursor-pointer">
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-300">Show Control Points</span>
+                <input type="checkbox" id="showControls" checked class="accent-blue-500 h-4 w-4 cursor-pointer">
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-300">Show Focal Set</span>
+                <input type="checkbox" id="showEvolute" checked class="accent-green-500 h-4 w-4 cursor-pointer">
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-300">Show Symmetry Set</span>
+                <input type="checkbox" id="showSS" checked class="accent-red-500 h-4 w-4 cursor-pointer">
+            </div>
+        </div>
+
+        <!-- Vineyard Tool -->
+        <div class="border-t border-gray-700 pt-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xs font-bold text-purple-400 uppercase tracking-wider">Vineyard Tool</h3>
+                <input type="checkbox" id="vineyardMode" class="accent-purple-500 h-4 w-4 cursor-pointer">
+            </div>
+            <div id="vineyardControls" class="opacity-50 pointer-events-none transition-opacity">
+                <div class="text-[10px] text-gray-400 mb-2">
+                    1. Enable Mode<br>
+                    2. Click canvas to set Center<br>
+                    3. Compute/Animate
+                </div>
+                <div class="mb-2">
+                    <label class="text-xs text-gray-300">Circle Radius</label>
+                    <input type="range" id="vineyardRadius" min="0" max="10" step="0.1" value="3" class="w-full accent-purple-500">
+                </div>
+                <div class="flex gap-2">
+                    <button id="computeVineyardBtn" class="flex-1 bg-purple-700 hover:bg-purple-600 text-white px-2 py-1.5 rounded text-xs font-bold transition">CSV</button>
+                    <button id="playVineyardAnimBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 rounded text-xs font-bold transition">Play Animation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PD Animation Overlay -->
+    <div id="pdOverlay" class="flex flex-col">
+        <div class="bg-gray-800 px-4 py-2 border-b border-gray-600 flex justify-between items-center">
+            <span class="text-sm font-bold text-white">Persistence Animation</span>
+            <button id="closePDBtn" class="text-gray-400 hover:text-white text-lg leading-none">&times;</button>
+        </div>
+        <div class="flex-1 relative">
+            <canvas id="pdCanvas" width="900" height="450"></canvas>
+        </div>
+        <div class="bg-gray-900 px-4 py-2 border-t border-gray-700 flex justify-between items-center text-xs text-gray-400">
+            <div class="flex gap-4">
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> H0</span>
+                <span class="flex items-center gap-1"><span class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-blue-500"></span> H1</span>
+            </div>
+            <div id="pdFrameInfo">Frame: 0</div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+<script>
+// --- Math Classes ---
+
+class Point {
+    constructor(x, y) { this.x = x; this.y = y; }
+    add(o) { return new Point(this.x + o.x, this.y + o.y); }
+    sub(o) { return new Point(this.x - o.x, this.y - o.y); }
+    mult(s) { return new Point(this.x * s, this.y * s); }
+    dot(o) { return this.x * o.x + this.y * o.y; }
+    norm() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+    normalize() { const n = this.norm(); return n < 1e-15 ? new Point(0,0) : this.mult(1/n); }
+}
+
+class UnionFind {
+    constructor(n, birthValues) {
+        this.parent = new Int32Array(n);
+        for(let i=0; i<n; i++) this.parent[i] = i;
+        this.birth = birthValues; // Array of birth times
+    }
+    find(i) {
+        let root = i;
+        while(root !== this.parent[root]) root = this.parent[root];
+        let curr = i;
+        while(curr !== root) {
+            let next = this.parent[curr];
+            this.parent[curr] = root;
+            curr = next;
+        }
+        return root;
+    }
+    union(i, j, deathTime) {
+        const rootI = this.find(i);
+        const rootJ = this.find(j);
+        
+        if (rootI !== rootJ) {
+            let elder, younger;
+            if (this.birth[rootI] < this.birth[rootJ]) {
+                elder = rootI; younger = rootJ;
+            } else {
+                elder = rootJ; younger = rootI;
+            }
+            this.parent[younger] = elder;
+            return { pair: [this.birth[younger], deathTime], isH1: false };
+        } else {
+            return { pair: [deathTime, Infinity], isH1: true };
+        }
+    }
+}
+
+// Global Config
+const SAMPLING_DENSITY = 40000; 
+const LAMBDA_MAX = 5000.0;
+const R_MAX = 100000.0;
+
+// State
+let curves = [[]]; 
+let activeCurveIdx = 0;
+
+let cachedCurveData = null; 
+let cachedSSData = null;
+let ssResolution = 1000;
+
+// Interaction State
+let dragInfo = null; 
+let hoverInfo = null; 
+let selectedInfo = null; 
+let view = { x: 0, y: 0, scale: 50 };
+
+// Interaction Logic
+let isInteractionActive = false;
+let interactionType = null;
+let mouseStart = { x: 0, y: 0 };
+let viewStart = { x: 0, y: 0 };
+
+// Vineyard State
+let isVineyardMode = false;
+let vineyardCenter = new Point(0, 3);
+let vineyardRadius = 3;
+
+// PD Animation State
+let pdAnimFrame = 0;
+let isPDAnimPlaying = false;
+let pdSimplifiedCurve = [];
+let pdMaxDist = 0;
+
+// Undo History
+const MAX_HISTORY = 50;
+let historyStack = [];
+
+// Animation State
+let isFocalAnim = false;
+let focalIdx = 0;
+
+// --- Persistence Logic ---
+
+function computePersistence(center, curvePoints) {
+    const n = curvePoints.length;
+    const dists = new Float64Array(n);
+    const indices = new Int32Array(n);
+    
+    for(let i=0; i<n; i++) {
+        const dx = curvePoints[i].p.x - center.x;
+        const dy = curvePoints[i].p.y - center.y;
+        dists[i] = Math.sqrt(dx*dx + dy*dy);
+        indices[i] = i;
+    }
+    
+    indices.sort((a, b) => dists[a] - dists[b]);
+    
+    const uf = new UnionFind(n, dists);
+    const pairs = [];
+    const processed = new Uint8Array(n); 
+    
+    for(let i=0; i<n; i++) {
+        const v = indices[i];
+        const currentR = dists[v];
+        processed[v] = 1;
+        
+        const myCurveId = curvePoints[v].curveId;
+        
+        // Neighbor 1: v-1
+        if (v > 0 && curvePoints[v-1].curveId === myCurveId) {
+            if (processed[v-1]) {
+                const res = uf.union(v-1, v, currentR);
+                if (res) pairs.push(res);
+            }
+        } else {
+            let end = v; 
+            while(end < n && curvePoints[end].curveId === myCurveId) end++;
+            end--; 
+            
+            if (curvePoints[end].curveId === myCurveId && processed[end]) {
+                 const res = uf.union(end, v, currentR);
+                 if (res) pairs.push(res);
+            }
+        }
+        
+        // Neighbor 2: v+1
+        if (v < n - 1 && curvePoints[v+1].curveId === myCurveId) {
+            if (processed[v+1]) {
+                const res = uf.union(v+1, v, currentR);
+                if (res) pairs.push(res);
+            }
+        } else {
+            let start = v;
+            while(start >= 0 && curvePoints[start].curveId === myCurveId) start--;
+            start++; 
+            
+            if (curvePoints[start].curveId === myCurveId && processed[start]) {
+                const res = uf.union(start, v, currentR);
+                if (res) pairs.push(res);
+            }
+        }
+    }
+    
+    const uniqueRoots = new Set();
+    for(let i=0; i<n; i++) uniqueRoots.add(uf.find(i));
+    
+    uniqueRoots.forEach(r => {
+        pairs.push({ pair: [uf.birth[r], Infinity], isH1: false });
+    });
+    
+    return pairs;
+}
+
+// --- History & Spline Logic ---
+
+function saveState() {
+    const state = {
+        curves: curves.map(curve => curve.map(p => new Point(p.x, p.y))),
+        active: activeCurveIdx
+    };
+    historyStack.push(state);
+    if (historyStack.length > MAX_HISTORY) historyStack.shift();
+}
+
+function performUndo() {
+    if (historyStack.length === 0) return;
+    const state = historyStack.pop();
+    curves = state.curves;
+    activeCurveIdx = state.active;
+    if (activeCurveIdx >= curves.length) activeCurveIdx = curves.length - 1;
+    if (activeCurveIdx < 0) { activeCurveIdx = 0; curves = [[]]; }
+    selectedInfo = null;
+    updateUI();
+    triggerComputation(true);
+}
+
+function solveControlPoints(points) {
+    const n = points.length;
+    if (n < 3) return points;
+    const rhsX = new Float64Array(n), rhsY = new Float64Array(n);
+    for(let i=0; i<n; i++) { rhsX[i] = 6.0 * points[i].x; rhsY[i] = 6.0 * points[i].y; }
+    const solX = new Float64Array(n), solY = new Float64Array(n);
+    for(let i=0; i<n; i++) { solX[i] = points[i].x; solY[i] = points[i].y; }
+    for(let iter=0; iter<20; iter++) {
+        for(let i=0; i<n; i++) {
+            const prev = (i === 0) ? n - 1 : i - 1;
+            const next = (i === n - 1) ? 0 : i + 1;
+            solX[i] = (rhsX[i] - solX[prev] - solX[next]) * 0.25;
+            solY[i] = (rhsY[i] - solY[prev] - solY[next]) * 0.25;
+        }
+    }
+    const res = [];
+    for(let i=0; i<n; i++) res.push(new Point(solX[i], solY[i]));
+    return res;
+}
+
+function bSplineEval(p0, p1, p2, p3, t) {
+    const t2 = t*t, t3 = t2*t;
+    const b0 = (-t3 + 3*t2 - 3*t + 1)/6, b1 = (3*t3 - 6*t2 + 4)/6, b2 = (-3*t3 + 3*t2 + 3*t + 1)/6, b3 = t3/6;
+    return new Point(p0.x*b0 + p1.x*b1 + p2.x*b2 + p3.x*b3, p0.y*b0 + p1.y*b1 + p2.y*b2 + p3.y*b3);
+}
+function bSplineDeriv1(p0, p1, p2, p3, t) {
+    const t2 = t*t;
+    const d0 = (-3*t2 + 6*t - 3)/6, d1 = (9*t2 - 12*t)/6, d2 = (-9*t2 + 6*t + 3)/6, d3 = (3*t2)/6;
+    return new Point(p0.x*d0 + p1.x*d1 + p2.x*d2 + p3.x*d3, p0.y*d0 + p1.y*d1 + p2.y*d2 + p3.y*d3);
+}
+function bSplineDeriv2(p0, p1, p2, p3, t) {
+    const dd0 = (-6*t + 6)/6, dd1 = (18*t - 12)/6, dd2 = (-18*t + 6)/6, dd3 = (6*t)/6;
+    return new Point(p0.x*dd0 + p1.x*dd1 + p2.x*dd2 + p3.x*dd3, p0.y*dd0 + p1.y*dd1 + p2.y*dd2 + p3.y*dd3);
+}
+
+function computeSplineData() {
+    const allData = [];
+    for (let cIdx = 0; cIdx < curves.length; cIdx++) {
+        const pts = curves[cIdx];
+        if (pts.length < 3) continue;
+        const C = solveControlPoints(pts);
+        const n = C.length;
+        const drawC = [C[n-1], ...C, C[0], C[1]]; 
+        const numSegments = pts.length;
+        const budget = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
+        const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
+        for (let i = 0; i < numSegments; i++) {
+            const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+            for (let j = 0; j < pointsPerSeg; j++) {
+                const t = j / pointsPerSeg;
+                const P = bSplineEval(p0, p1, p2, p3, t);
+                const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
+                const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
+                const velSq = d1.dot(d1);
+                if (velSq < 1e-15) continue;
+                const T = d1.normalize();
+                const N = new Point(-T.y, T.x);
+                const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
+                allData.push({ p: P, T: T, N: N, curvature: k, curveId: cIdx });
+            }
+        }
+    }
+    return allData;
+}
+
+function computeSymmetrySet(data, resolutionLimit) {
+    if (!data || data.length === 0) return [];
+    const centers = [];
+    const step = Math.max(1, Math.floor(data.length / resolutionLimit));
+    const activeIndices = [];
+    for (let i = 0; i < data.length; i += step) activeIndices.push(i);
+    const n = activeIndices.length;
+    const Px = new Float64Array(n), Py = new Float64Array(n);
+    const Tx = new Float64Array(n), Ty = new Float64Array(n);
+    const Nx = new Float64Array(n), Ny = new Float64Array(n);
+    const Id = new Int32Array(n);
+    for(let k=0; k<n; k++) {
+        const idx = activeIndices[k];
+        Px[k] = data[idx].p.x; Py[k] = data[idx].p.y;
+        Tx[k] = data[idx].T.x; Ty[k] = data[idx].T.y;
+        Nx[k] = data[idx].N.x; Ny[k] = data[idx].N.y;
+        Id[k] = data[idx].curveId;
+    }
+    const minChordSq = 0.3 * 0.3;
+    const radiusTol = 0.15; 
+    for (let i = 0; i < n; i++) {
+        const px = Px[i], py = Py[i];
+        const tx = Tx[i], ty = Ty[i];
+        const nx = Nx[i], ny = Ny[i];
+        const id1 = Id[i];
+        let prev_check1 = NaN, prev_check2 = NaN;
+        for (let j = i + 1; j < n; j++) {
+            if (id1 === Id[j]) {
+                const dx = px - Px[j], dy = py - Py[j];
+                if (dx*dx + dy*dy < minChordSq) continue;
+            }
+            const dx = px - Px[j], dy = py - Py[j];
+            const t2x = Tx[j], t2y = Ty[j];
+            const dotT = tx*t2x + ty*t2y;
+            if (dotT > -0.9999) {
+                const eq1 = dx * (tx + t2x) + dy * (ty + t2y);
+                if (!isNaN(prev_check1) && prev_check1 * eq1 < 0) {
+                    const nsx = nx + Nx[j], nsy = ny + Ny[j];
+                    const den = nsx*nsx + nsy*nsy;
+                    if (den > 1e-10) {
+                        const lam = (-dx*nsx - dy*nsy) / den;
+                        if (Math.abs(lam) < LAMBDA_MAX) {
+                            const cx = px + nx*lam, cy = py + ny*lam;
+                            const r1 = Math.abs(lam), r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
+                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy});
+                        }
+                    }
+                }
+                prev_check1 = eq1;
+            } else prev_check1 = NaN;
+            if (dotT < 0.9999) {
+                const eq2 = dx * (tx - t2x) + dy * (ty - t2y);
+                if (!isNaN(prev_check2) && prev_check2 * eq2 < 0) {
+                    const nsx = nx - Nx[j], nsy = ny - Ny[j];
+                    const den = nsx*nsx + nsy*nsy;
+                    if (den > 1e-10) {
+                        const lam = (-dx*nsx - dy*nsy) / den;
+                        if (Math.abs(lam) < LAMBDA_MAX) {
+                            const cx = px + nx*lam, cy = py + ny*lam;
+                            const r1 = Math.abs(lam), r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
+                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy});
+                        }
+                    }
+                }
+                prev_check2 = eq2;
+            } else prev_check2 = NaN;
+        }
+    }
+    return centers;
+}
+
+// --- Presets ---
+function loadPreset(type) {
+    saveState();
+    curves = [[]];
+    activeCurveIdx = 0;
+    view.x = 0; view.y = 0; view.scale = 50;
+    let count = 8;
+    if (type === 'circle') {
+        const r = 3.0;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
+        }
+    } else if (type === 'ellipse') {
+        const a = 4.0, b = 2.5;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            curves[0].push(new Point(a*Math.cos(t), b*Math.sin(t)));
+        }
+    } else if (type === 'astroid') {
+        count = 12;
+        const r = 3.5;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
+        }
+    } else if (type === 'bean') {
+        count = 10;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            const r = 2.0 + Math.cos(t) + Math.pow(Math.sin(t), 2);
+            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
+        }
+    } else if (type === 'two_circles') {
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            curves[0].push(new Point(3.0*Math.cos(t) - 2, 3.0*Math.sin(t)));
+        }
+        activeCurveIdx = 1;
+        curves.push([]);
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            curves[1].push(new Point(2.0*Math.cos(t) + 3, 2.0*Math.sin(t)));
+        }
+    }
+    updateUI();
+    triggerComputation(true);
+    document.getElementById('presetSelect').value = ""; 
+}
+
+// --- UI & Interaction ---
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const statusDiv = document.getElementById('status');
+const animBtn = document.getElementById('animFocalBtn');
+const stopAnimBtn = document.getElementById('animStopBtn');
+const animSlider = document.getElementById('animSlider');
+const curveCountBadge = document.getElementById('curveCountBadge');
+const pdOverlay = document.getElementById('pdOverlay');
+const pdCanvas = document.getElementById('pdCanvas');
+const pdCtx = pdCanvas.getContext('2d');
+
+function updateUI() {
+    curveCountBadge.innerText = curves.length;
+}
+
+function pointToSegmentDistSq(p, v, w) {
+    const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+    if (l2 === 0) return (p.x - v.x)**2 + (p.y - v.y)**2;
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const projX = v.x + t * (w.x - v.x);
+    const projY = v.y + t * (w.y - v.y);
+    return (p.x - projX)**2 + (p.y - projY)**2;
+}
+
+function insertPointSmart(newPt) {
+    const pts = curves[activeCurveIdx];
+    if (pts.length < 3) {
+        pts.push(newPt);
+        selectedInfo = { cIdx: activeCurveIdx, pIdx: pts.length - 1 };
+        return;
+    }
+    let bestIdx = -1;
+    let minDistSq = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % pts.length];
+        const distSq = pointToSegmentDistSq(newPt, p1, p2);
+        if (distSq < minDistSq) {
+            minDistSq = distSq;
+            bestIdx = i;
+        }
+    }
+    pts.splice(bestIdx + 1, 0, newPt);
+    selectedInfo = { cIdx: activeCurveIdx, pIdx: bestIdx + 1 };
+}
+
+// Handlers
+canvas.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const mousePos = screenToWorld(e.clientX, e.clientY);
+    
+    // Vineyard Mode Handling
+    if (isVineyardMode) {
+        vineyardCenter = mousePos;
+        draw();
+        return;
+    }
+
+    const hit = findHitControlPoint(e.clientX, e.clientY);
+    mouseStart = { x: e.clientX, y: e.clientY };
+    viewStart = { x: view.x, y: view.y };
+    isInteractionActive = true;
+
+    if (e.button === 2 || e.altKey) {
+        interactionType = 'PAN';
+        canvas.style.cursor = 'grabbing';
+        return;
+    }
+
+    if (e.button === 0) {
+        if (hit) {
+            selectedInfo = { ...hit };
+            activeCurveIdx = hit.cIdx; 
+            saveState(); 
+            dragInfo = hit;
+            interactionType = 'DRAG_POINT';
+            draw(); 
+            return;
+        }
+        interactionType = 'POTENTIAL_PAN';
+        return;
+    }
+});
+
+canvas.addEventListener('mousemove', e => {
+    const dx = e.clientX - mouseStart.x;
+    const dy = e.clientY - mouseStart.y;
+    const distSq = dx*dx + dy*dy;
+
+    if (interactionType === 'DRAG_POINT' && dragInfo) {
+        const p = screenToWorld(e.clientX, e.clientY);
+        curves[dragInfo.cIdx][dragInfo.pIdx] = p;
+        triggerComputation(false); 
+        return;
+    }
+    if (interactionType === 'PAN') {
+        view.x = viewStart.x + dx;
+        view.y = viewStart.y + dy;
+        draw();
+        return;
+    }
+    if (interactionType === 'POTENTIAL_PAN') {
+        if (distSq > 25) { 
+            interactionType = 'PAN';
+            canvas.style.cursor = 'grabbing';
+        }
+        return;
+    }
+    if (!isInteractionActive) {
+        const hit = findHitControlPoint(e.clientX, e.clientY);
+        if (hit) {
+            canvas.style.cursor = 'grab';
+            hoverInfo = hit;
+            statusDiv.innerText = `Curve ${hit.cIdx}, Point ${hit.pIdx}`;
+            statusDiv.style.color = "#fbbf24";
+        } else {
+            canvas.style.cursor = isVineyardMode ? 'crosshair' : 'crosshair';
+            hoverInfo = null;
+            statusDiv.innerText = isVineyardMode ? "Click to set Vineyard Center" : `Active: Curve ${activeCurveIdx}`;
+            statusDiv.style.color = "#9ca3af";
+        }
+        draw();
+    }
+});
+
+canvas.addEventListener('mouseup', e => {
+    if (!isInteractionActive) return;
+    if (interactionType === 'DRAG_POINT') {
+        dragInfo = null;
+        triggerComputation(true);
+    }
+    if (interactionType === 'POTENTIAL_PAN') {
+        saveState();
+        const mousePos = screenToWorld(e.clientX, e.clientY);
+        insertPointSmart(mousePos);
+        statusDiv.innerText = `Points: ${curves[activeCurveIdx].length}`;
+        triggerComputation(true);
+    }
+    isInteractionActive = false;
+    interactionType = null;
+    canvas.style.cursor = 'crosshair';
+    draw();
+});
+
+window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); performUndo(); return; }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedInfo) {
+            const pts = curves[selectedInfo.cIdx];
+            if (selectedInfo.pIdx < pts.length) {
+                saveState();
+                pts.splice(selectedInfo.pIdx, 1);
+                if (pts.length === 0 && curves.length > 1) {
+                    curves.splice(selectedInfo.cIdx, 1);
+                    activeCurveIdx = Math.max(0, activeCurveIdx - 1);
+                }
+                selectedInfo = null;
+                updateUI();
+                triggerComputation(true);
+            }
+        }
+    }
+});
+
+document.getElementById('newCurveBtn').addEventListener('click', () => {
+    saveState();
+    curves.push([]); 
+    activeCurveIdx = curves.length - 1;
+    selectedInfo = null;
+    updateUI();
+    statusDiv.innerText = `Active: Curve ${activeCurveIdx} (Empty)`;
+    draw();
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = Math.exp(e.deltaY > 0 ? -0.1 : 0.1);
+    view.scale *= factor;
+    draw();
+}, { passive: false });
+
+document.getElementById('undoBtn').addEventListener('click', performUndo);
+document.getElementById('clearBtn').addEventListener('click', () => {
+    saveState();
+    curves = [[]];
+    activeCurveIdx = 0;
+    selectedInfo = null;
+    cachedCurveData = null;
+    cachedSSData = null;
+    if (isFocalAnim) { isFocalAnim = false; resetAnimControls(); }
+    updateUI();
+    draw();
+    statusDiv.innerText = "Cleared.";
+});
+document.getElementById('resetViewBtn').addEventListener('click', () => { view.x = 0; view.y = 0; view.scale = 50; draw(); });
+document.getElementById('computeBtn').addEventListener('click', () => triggerComputation(true));
+
+stopAnimBtn.addEventListener('click', () => { isFocalAnim = false; resetAnimControls(); draw(); });
+animBtn.addEventListener('click', toggleFocalAnim);
+animSlider.addEventListener('input', e => {
+    if (!cachedCurveData) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    focalIdx = Math.floor(pct * (cachedCurveData.length - 1));
+    isFocalAnim = true; 
+    if (stopAnimBtn.classList.contains('hidden')) stopAnimBtn.classList.remove('hidden');
+    draw();
+});
+
+document.getElementById('presetSelect').addEventListener('change', (e) => { if (e.target.value) loadPreset(e.target.value); });
+document.getElementById('resolution').addEventListener('input', e => {
+    ssResolution = parseInt(e.target.value);
+    document.getElementById('res-val').innerText = `${ssResolution} points`;
+});
+
+// Vineyard Mode Logic
+const vineyardCheckbox = document.getElementById('vineyardMode');
+const vineyardControls = document.getElementById('vineyardControls');
+const vineyardRadiusSlider = document.getElementById('vineyardRadius');
+const computeVineyardBtn = document.getElementById('computeVineyardBtn');
+const playVineyardAnimBtn = document.getElementById('playVineyardAnimBtn');
+const closePDBtn = document.getElementById('closePDBtn');
+
+vineyardCheckbox.addEventListener('change', e => {
+    isVineyardMode = e.target.checked;
+    vineyardControls.style.opacity = isVineyardMode ? '1' : '0.5';
+    vineyardControls.style.pointerEvents = isVineyardMode ? 'auto' : 'none';
+    draw();
+});
+
+vineyardRadiusSlider.addEventListener('input', e => {
+    vineyardRadius = parseFloat(e.target.value);
+    draw();
+});
+
+computeVineyardBtn.addEventListener('click', () => {
+    if (!cachedCurveData) return;
+    statusDiv.innerText = "Computing Vineyard...";
+    setTimeout(() => {
+        const csvContent = runVineyardComputationCSV();
+        downloadCSV(csvContent, "vineyard_persistence.csv");
+        statusDiv.innerText = "Vineyard CSV Downloaded.";
+    }, 10);
+});
+
+// PD Animation Logic
+playVineyardAnimBtn.addEventListener('click', () => {
+    if (!cachedCurveData) return;
+    isPDAnimPlaying = true;
+    pdAnimFrame = 0;
+    pdOverlay.style.display = 'flex';
+    preparePDAnimation();
+    animatePDLoop();
+});
+
+closePDBtn.addEventListener('click', () => {
+    isPDAnimPlaying = false;
+    pdOverlay.style.display = 'none';
+});
+
+function preparePDAnimation() {
+    // Downsample curve for speed
+    const stepSize = Math.ceil(cachedCurveData.length / 20);
+    pdSimplifiedCurve = [];
+    for(let i=0; i<cachedCurveData.length; i+=stepSize) pdSimplifiedCurve.push(cachedCurveData[i]);
+    
+    // Compute global bounds for plots
+    // Find bounding box radius of entire curve relative to vineyard center
+    let maxDist = 0;
+    for(let pt of pdSimplifiedCurve) {
+        const dx = pt.p.x - vineyardCenter.x;
+        const dy = pt.p.y - vineyardCenter.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if(d > maxDist) maxDist = d;
+    }
+    // Add vineyard radius to be safe
+    pdMaxDist = maxDist + vineyardRadius;
+}
+
+function animatePDLoop() {
+    if(!isPDAnimPlaying) return;
+    
+    const steps = 360; // 1 degree per frame
+    const theta = (pdAnimFrame % steps) * (Math.PI*2 / steps);
+    
+    // Current Center on Circle
+    const cx = vineyardCenter.x + vineyardRadius * Math.cos(theta);
+    const cy = vineyardCenter.y + vineyardRadius * Math.sin(theta);
+    const center = {x: cx, y: cy};
+    
+    // Compute Persistence Real-time
+    const pairs = computePersistence(center, pdSimplifiedCurve);
+    
+    // Draw Split Views
+    drawPDSplitView(center, pairs);
+    
+    document.getElementById('pdFrameInfo').innerText = `Frame: ${pdAnimFrame} (${Math.round(theta * 180/Math.PI)}°)`;
+    
+    pdAnimFrame++;
+    requestAnimationFrame(animatePDLoop);
+}
+
+function drawPDSplitView(center, pairs) {
+    const w = pdCanvas.width;
+    const h = pdCanvas.height;
+    const hw = w/2;
+    
+    pdCtx.fillStyle = '#111';
+    pdCtx.fillRect(0, 0, w, h);
+    
+    // --- LEFT: Potato Plot (Spatial) ---
+    // Setup transform to fit curve in half screen
+    pdCtx.save();
+    pdCtx.beginPath();
+    pdCtx.rect(0, 0, hw, h);
+    pdCtx.clip();
+    
+    // Center view on vineyard center
+    const scale = Math.min(hw, h) / (pdMaxDist * 2.2);
+    pdCtx.translate(hw/2, h/2);
+    pdCtx.scale(scale, -scale); // Flip Y
+    pdCtx.translate(-vineyardCenter.x, -vineyardCenter.y);
+    
+    // 1. Draw Curve Points (Gray)
+    pdCtx.fillStyle = '#555';
+    for(let pt of pdSimplifiedCurve) {
+        pdCtx.fillRect(pt.p.x - 2/scale, pt.p.y - 2/scale, 4/scale, 4/scale);
+    }
+    
+    // 2. Draw Symmetry Set (Red)
+    if(cachedSSData) {
+        pdCtx.fillStyle = '#ef4444';
+        for(let p of cachedSSData) pdCtx.fillRect(p.x - 1/scale, p.y - 1/scale, 2/scale, 2/scale);
+    }
+    
+    // 3. Draw Focal Set (Green)
+    pdCtx.fillStyle = '#4ade80';
+    for(let pt of pdSimplifiedCurve) {
+        if(Math.abs(pt.curvature) > 0.01) {
+            const r = 1.0/pt.curvature;
+            if(Math.abs(r) < 100) {
+                pdCtx.fillRect(pt.p.x + pt.N.x*r - 1/scale, pt.p.y + pt.N.y*r - 1/scale, 2/scale, 2/scale);
+            }
+        }
+    }
+    
+    // 4. Draw Vineyard Circle (Orange)
+    pdCtx.strokeStyle = '#f97316';
+    pdCtx.lineWidth = 2/scale;
+    pdCtx.beginPath();
+    pdCtx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI*2);
+    pdCtx.stroke();
+    
+    // 5. Draw Current Center (Blue)
+    pdCtx.fillStyle = '#3b82f6';
+    pdCtx.beginPath();
+    pdCtx.arc(center.x, center.y, 8/scale, 0, Math.PI*2);
+    pdCtx.fill();
+    
+    pdCtx.restore();
+    
+    // --- RIGHT: Persistence Diagram ---
+    pdCtx.save();
+    pdCtx.translate(hw, 0);
+    pdCtx.beginPath();
+    pdCtx.rect(0, 0, hw, h);
+    pdCtx.clip();
+    
+    // Setup PD coords: (0,0) bottom-left to (max,max) top-right
+    // Margin
+    const m = 40;
+    const plotW = hw - 2*m;
+    const plotH = h - 2*m;
+    
+    // Draw Axes
+    pdCtx.strokeStyle = '#666';
+    pdCtx.lineWidth = 1;
+    pdCtx.beginPath();
+    pdCtx.moveTo(m, h-m); pdCtx.lineTo(m+plotW, h-m); // X
+    pdCtx.moveTo(m, h-m); pdCtx.lineTo(m, h-m-plotH); // Y
+    pdCtx.stroke();
+    
+    // Diagonal
+    pdCtx.setLineDash([5, 5]);
+    pdCtx.beginPath();
+    pdCtx.moveTo(m, h-m);
+    pdCtx.lineTo(m+plotW, h-m-plotH);
+    pdCtx.stroke();
+    pdCtx.setLineDash([]);
+    
+    // Infinity Line (Top)
+    const infY = h-m-plotH + 20;
+    pdCtx.strokeStyle = '#888';
+    pdCtx.setLineDash([2, 2]);
+    pdCtx.beginPath();
+    pdCtx.moveTo(m, infY); pdCtx.lineTo(m+plotW, infY);
+    pdCtx.stroke();
+    pdCtx.setLineDash([]);
+    pdCtx.fillStyle = '#aaa';
+    pdCtx.fillText('∞', m-15, infY+3);
+    
+    // Plot Points
+    const maxVal = pdMaxDist * 2.0; // Normalization factor for birth/death
+    
+    for(let p of pairs) {
+        const birth = p.pair[0];
+        let death = p.pair[1];
+        
+        const x = m + (birth / maxVal) * plotW;
+        let y;
+        
+        if (death === Infinity || death > maxVal) {
+            y = infY;
+        } else {
+            y = h - m - (death / maxVal) * plotH;
+        }
+        
+        pdCtx.fillStyle = p.isH1 ? '#3b82f6' : '#ef4444';
+        
+        if (p.isH1) {
+            // Triangle
+            pdCtx.beginPath();
+            pdCtx.moveTo(x, y-4);
+            pdCtx.lineTo(x-4, y+4);
+            pdCtx.lineTo(x+4, y+4);
+            pdCtx.fill();
+        } else {
+            // Circle
+            pdCtx.beginPath();
+            pdCtx.arc(x, y, 3, 0, Math.PI*2);
+            pdCtx.fill();
+        }
+    }
+    
+    pdCtx.restore();
+    
+    // Divider
+    pdCtx.strokeStyle = '#333';
+    pdCtx.lineWidth = 2;
+    pdCtx.beginPath(); pdCtx.moveTo(hw, 0); pdCtx.lineTo(hw, h); pdCtx.stroke();
+}
+
+function runVineyardComputationCSV() {
+    const steps = 250;
+    let csv = "birth,death,center_index,dimension\n";
+    
+    // Sample curve to a manageable size for rapid filtration (e.g., 500-1000 pts)
+    const stepSize = Math.ceil(cachedCurveData.length / 2);
+    const simplifiedCurve = [];
+    for(let i=0; i<cachedCurveData.length; i+=stepSize) simplifiedCurve.push(cachedCurveData[i]);
+    
+    // First pass: Compute max finite death for normalization
+    let maxDeath = 0;
+    const allPairs = []; // Cache to avoid recomputing
+
+    for(let s=0; s<steps; s++) {
+        const theta = (s/steps) * Math.PI * 2;
+        const cx = vineyardCenter.x + vineyardRadius * Math.cos(theta);
+        const cy = vineyardCenter.y + vineyardRadius * Math.sin(theta);
+        
+        const pairs = computePersistence({x: cx, y: cy}, simplifiedCurve);
+        allPairs.push(pairs);
+        
+        for(let p of pairs) {
+            if(p.pair[1] !== Infinity && p.pair[1] > maxDeath) maxDeath = p.pair[1];
+        }
+    }
+    
+    const infinityVal = maxDeath === 0 ? 10 : maxDeath * 1.1;
+
+    // Second pass: Generate CSV
+    for(let s=0; s<steps; s++) {
+        const pairs = allPairs[s];
+        for(let p of pairs) {
+            const b = p.pair[0];
+            const d = p.pair[1] === Infinity ? infinityVal : p.pair[1];
+            const dim = p.isH1 ? 1 : 0;
+            csv += `${b},${d},${s},${dim}\n`;
+        }
+    }
+    return csv;
+}
+
+function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function screenToWorld(sx, sy) {
+    const cx = canvas.width/2 + view.x;
+    const cy = canvas.height/2 + view.y;
+    return new Point( (sx - cx) / view.scale, -(sy - cy) / view.scale );
+}
+
+function worldToScreen(p) {
+    const cx = canvas.width/2 + view.x;
+    const cy = canvas.height/2 + view.y;
+    return { x: cx + p.x * view.scale, y: cy - p.y * view.scale };
+}
+
+function findHitControlPoint(sx, sy) {
+    const threshSq = 144; 
+    for(let c=0; c<curves.length; c++) {
+        for(let i=0; i<curves[c].length; i++) {
+            const sp = worldToScreen(curves[c][i]);
+            const dx = sp.x - sx;
+            const dy = sp.y - sy;
+            if (dx*dx + dy*dy < threshSq) return { cIdx: c, pIdx: i };
+        }
+    }
+    return null;
+}
+
+let computeTimer = null;
+function triggerComputation(fullCompute = true) {
+    // Check if any curve has points
+    if (!curves.some(c => c.length >= 3)) { draw(); return; }
+    
+    if (!fullCompute) {
+        cachedCurveData = computeSplineData();
+        cachedSSData = null; 
+        statusDiv.innerText = `Dragging...`;
+        draw();
+        return;
+    }
+
+    if (computeTimer) clearTimeout(computeTimer);
+    
+    computeTimer = setTimeout(() => {
+        cachedCurveData = computeSplineData();
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+        statusDiv.innerText = `SS Points: ${cachedSSData.length}`;
+        draw();
+    }, 10);
+}
+
+function resetAnimControls() {
+    animBtn.innerText = "Play";
+    animBtn.classList.replace('bg-red-600', 'bg-purple-700');
+    animBtn.classList.replace('hover:bg-red-500', 'hover:bg-purple-600');
+    stopAnimBtn.classList.add('hidden');
+}
+
+function toggleFocalAnim() {
+    if (isFocalAnim && animBtn.innerText === "Pause") {
+        animBtn.innerText = "Play";
+        animBtn.classList.replace('bg-red-600', 'bg-purple-700');
+        animBtn.classList.replace('hover:bg-red-500', 'hover:bg-purple-600');
+    } else {
+        if (!cachedCurveData) return;
+        isFocalAnim = true; 
+        animBtn.innerText = "Pause";
+        animBtn.classList.replace('bg-purple-700', 'bg-red-600');
+        animBtn.classList.replace('hover:bg-purple-600', 'hover:bg-red-500');
+        stopAnimBtn.classList.remove('hidden');
+        animLoop();
+    }
+}
+
+function animLoop() {
+    if (animBtn.innerText !== "Pause") return;
+    if (!cachedCurveData) { toggleFocalAnim(); return; }
+    
+    focalIdx = (focalIdx + 15) % cachedCurveData.length;
+    const pct = focalIdx / cachedCurveData.length;
+    animSlider.value = Math.floor(pct * 1000);
+
+    draw();
+    requestAnimationFrame(animLoop);
+}
+
+function draw() {
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    ctx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
+    ctx.scale(view.scale, -view.scale);
+    
+    // Grid
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1 / view.scale;
+    ctx.beginPath(); ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0); ctx.moveTo(0, -1000); ctx.lineTo(0, 1000); ctx.stroke();
+
+    // Vineyard UI on Main Canvas
+    if (isVineyardMode) {
+        ctx.strokeStyle = '#9333ea'; // Purple
+        ctx.lineWidth = 2 / view.scale;
+        ctx.beginPath();
+        ctx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI*2);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#fcd34d'; // Yellow center
+        ctx.beginPath();
+        ctx.arc(vineyardCenter.x, vineyardCenter.y, 6/view.scale, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Draw observation points roughly
+        ctx.fillStyle = '#9333ea';
+        for(let i=0; i<12; i++) {
+            const th = (i/12)*Math.PI*2;
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x + vineyardRadius*Math.cos(th), vineyardCenter.y + vineyardRadius*Math.sin(th), 2/view.scale, 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    if (cachedCurveData) {
+        if (document.getElementById('showEvolute').checked) {
+            ctx.fillStyle = '#4ade80'; 
+            const s = 1.5 / view.scale; 
+            for (let i=0; i<cachedCurveData.length; i++) {
+                const k = cachedCurveData[i].curvature;
+                if (Math.abs(k) > 0.00000001) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = cachedCurveData[i].p.x + cachedCurveData[i].N.x * R;
+                        const ey = cachedCurveData[i].p.y + cachedCurveData[i].N.y * R;
+                        ctx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            ctx.fillStyle = '#ef4444'; 
+            const s = 1.5 / view.scale; 
+            for (let p of cachedSSData) ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+        }
+
+        if (document.getElementById('showCurve').checked) {
+            ctx.lineWidth = 3 / view.scale;
+            let currentId = -1;
+            ctx.beginPath();
+            for (let i=0; i<cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) ctx.closePath(); 
+                    ctx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    ctx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            ctx.closePath(); 
+            ctx.strokeStyle = '#60a5fa'; 
+            ctx.stroke();
+        }
+
+        if (isFocalAnim && cachedCurveData && focalIdx < cachedCurveData.length) {
+            const i = Math.floor(focalIdx);
+            const pt = cachedCurveData[i];
+            ctx.save();
+            ctx.strokeStyle = '#fcd34d'; ctx.fillStyle = '#fcd34d'; ctx.lineWidth = 2 / view.scale;
+            const s = 10 / view.scale;
+            ctx.beginPath(); ctx.arc(pt.p.x, pt.p.y, s/2, 0, Math.PI*2); ctx.fill();
+            const k = pt.curvature;
+            if (Math.abs(k) > 0.00000001) {
+                const R = 1.0 / k;
+                if (Math.abs(R) < R_MAX) {
+                    const ex = pt.p.x + pt.N.x * R;
+                    const ey = pt.p.y + pt.N.y * R;
+                    ctx.beginPath(); ctx.arc(ex, ey, s/2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(pt.p.x, pt.p.y); ctx.lineTo(ex, ey); ctx.stroke();
+                    ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)'; ctx.lineWidth = 1 / view.scale;
+                    ctx.beginPath(); ctx.arc(ex, ey, Math.abs(R), 0, Math.PI*2); ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+    }
+
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 8 / view.scale;
+        const hoverSize = 12 / view.scale;
+        for(let c=0; c<curves.length; c++) {
+            const pts = curves[c];
+            for (let i=0; i<pts.length; i++) {
+                const p = pts[i];
+                const isHover = (hoverInfo && hoverInfo.cIdx === c && hoverInfo.pIdx === i) || (dragInfo && dragInfo.cIdx === c && dragInfo.pIdx === i);
+                const isSelected = (selectedInfo && selectedInfo.cIdx === c && selectedInfo.pIdx === i);
+                const isActiveCurve = (c === activeCurveIdx);
+                if (isSelected) ctx.fillStyle = '#3b82f6';
+                else if (isHover) ctx.fillStyle = '#fcd34d';
+                else ctx.fillStyle = isActiveCurve ? '#fff' : '#666'; 
+                const s = (isHover || isSelected) ? hoverSize : baseSize;
+                ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+                if (isSelected) {
+                    ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2 / view.scale;
+                    ctx.strokeRect(p.x - s/2 - 2/view.scale, p.y - s/2 - 2/view.scale, s + 4/view.scale, s + 4/view.scale);
+                }
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    draw();
+}
+window.addEventListener('resize', resize);
+
+resize();
+</script>
+</body>
+</html>

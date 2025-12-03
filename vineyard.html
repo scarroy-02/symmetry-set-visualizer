@@ -295,12 +295,6 @@
         </select>
     </div>
     
-    <!-- Curve Management -->
-    <button id="newCurveBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-        <span>+ New Curve</span>
-        <span id="curveCountBadge" style="background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">1</span>
-    </button>
-    
     <div class="btn-group">
         <button class="btn btn-secondary" id="undoBtn">Undo</button>
         <button class="btn btn-secondary" id="clearBtn">Clear</button>
@@ -480,18 +474,15 @@ const SAMPLING_DENSITY = 40000;
 const LAMBDA_MAX = 500.0;
 const R_MAX = 100000.0;
 
-// Multi-curve support
-let curves = [[]];
-let activeCurveIdx = 0;
-
+let controlPoints = [];
 let cachedCurveData = null;
 let cachedSSData = null;
 let ssResolution = 5000;
 
 // Interaction
-let dragInfo = null;  // { cIdx, pIdx }
-let hoverInfo = null; // { cIdx, pIdx }
-let selectedInfo = null; // { cIdx, pIdx }
+let dragIdx = null;
+let hoverIdx = null;
+let selectedIdx = null;
 let view = { x: 0, y: 0, scale: 50 };
 
 let isInteractionActive = false;
@@ -522,8 +513,7 @@ const ctx = canvas.getContext('2d');
 // ========== History ==========
 function saveState() {
     const state = {
-        curves: curves.map(curve => curve.map(p => new Point(p.x, p.y))),
-        activeCurveIdx: activeCurveIdx,
+        points: controlPoints.map(p => new Point(p.x, p.y)),
         vineyardCenter: vineyardCenter ? new Point(vineyardCenter.x, vineyardCenter.y) : null
     };
     historyStack.push(state);
@@ -533,17 +523,10 @@ function saveState() {
 function performUndo() {
     if (historyStack.length === 0) return;
     const state = historyStack.pop();
-    curves = state.curves;
-    activeCurveIdx = state.activeCurveIdx;
+    controlPoints = state.points;
     vineyardCenter = state.vineyardCenter;
-    
-    // Validate active index
-    if (activeCurveIdx >= curves.length) activeCurveIdx = curves.length - 1;
-    if (activeCurveIdx < 0) { activeCurveIdx = 0; curves = [[]]; }
-    
-    selectedInfo = null;
+    selectedIdx = null;
     updateStatus();
-    updateUI();
     triggerComputation(true);
 }
 
@@ -604,40 +587,32 @@ function bSplineDeriv2(p0, p1, p2, p3, t) {
 }
 
 function computeSplineData() {
-    const allData = [];
+    if (controlPoints.length < 3) return [];
     
-    // Process each curve independently
-    for (let cIdx = 0; cIdx < curves.length; cIdx++) {
-        const pts = curves[cIdx];
-        if (pts.length < 3) continue;
+    const C = solveControlPoints(controlPoints);
+    const n = C.length;
+    const drawC = [C[n-1], ...C, C[0], C[1]];
+    
+    const pointsPerSeg = Math.floor(SAMPLING_DENSITY / n);
+    const allData = [];
 
-        const C = solveControlPoints(pts);
-        const n = C.length;
-        const drawC = [C[n-1], ...C, C[0], C[1]];
+    for (let i = 0; i < n; i++) {
+        const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
 
-        const numSegments = pts.length;
-        // Split total density budget among curves
-        const budget = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
-        const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
+        for (let j = 0; j < pointsPerSeg; j++) {
+            const t = j / pointsPerSeg;
+            const P = bSplineEval(p0, p1, p2, p3, t);
+            const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
+            const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
+            
+            const velSq = d1.dot(d1);
+            if (velSq < 1e-15) continue;
 
-        for (let i = 0; i < numSegments; i++) {
-            const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+            const T = d1.normalize();
+            const N = new Point(-T.y, T.x);
+            const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
 
-            for (let j = 0; j < pointsPerSeg; j++) {
-                const t = j / pointsPerSeg;
-                const P = bSplineEval(p0, p1, p2, p3, t);
-                const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
-                const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
-                
-                const velSq = d1.dot(d1);
-                if (velSq < 1e-15) continue;
-
-                const T = d1.normalize();
-                const N = new Point(-T.y, T.x);
-                const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
-
-                allData.push({ p: P, T: T, N: N, curvature: k, curveId: cIdx });
-            }
+            allData.push({ p: P, T: T, N: N, curvature: k });
         }
     }
     return allData;
@@ -656,31 +631,24 @@ function computeSymmetrySet(data, resolutionLimit) {
     const Px = new Float64Array(n), Py = new Float64Array(n);
     const Tx = new Float64Array(n), Ty = new Float64Array(n);
     const Nx = new Float64Array(n), Ny = new Float64Array(n);
-    const Id = new Int32Array(n); // Store curve ID
     
     for(let k=0; k<n; k++) {
         const idx = activeIndices[k];
         Px[k] = data[idx].p.x; Py[k] = data[idx].p.y;
         Tx[k] = data[idx].T.x; Ty[k] = data[idx].T.y;
         Nx[k] = data[idx].N.x; Ny[k] = data[idx].N.y;
-        Id[k] = data[idx].curveId || 0;
     }
 
-    const minChordSq = 0.4 * 0.3;
+    const minChordSq = 0.11;
     const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {
         const px = Px[i], py = Py[i], tx = Tx[i], ty = Ty[i], nx = Nx[i], ny = Ny[i];
-        const id1 = Id[i];
         let prev_check1 = NaN, prev_check2 = NaN;
 
         for (let j = i + 1; j < n; j++) {
             const dx = px - Px[j], dy = py - Py[j];
-            
-            // If on same curve, check distance. If different curves, no min distance needed.
-            if (id1 === Id[j]) {
-                if (dx*dx + dy*dy < minChordSq) continue;
-            }
+            if (dx*dx + dy*dy < minChordSq) continue;
 
             const t2x = Tx[j], t2y = Ty[j];
             const dotT = tx*t2x + ty*t2y;
@@ -733,7 +701,7 @@ function computePersistence(center, curveData) {
     const n = coords.length;
     
     // Compute distances from center to each curve point
-    const dists = coords.map(p => Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2));
+    const dists = coords.map(p => ((p.x - center.x)**2 + (p.y - center.y)**2));
     
     // Sort indices by distance
     const sortedIndices = Array.from({length: n}, (_, i) => i)
@@ -796,7 +764,7 @@ function computeVineyard() {
         for (const d of cachedCurveData) {
             const dx = d.p.x - center.x;
             const dy = d.p.y - center.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
+            const dist = (dx*dx + dy*dy);
             if (dist > globalMaxDist) globalMaxDist = dist;
         }
     }
@@ -1085,8 +1053,7 @@ function updatePersistenceDiagram(centerIdx) {
 // ========== Presets ==========
 function loadPreset(type) {
     saveState();
-    curves = [[]];
-    activeCurveIdx = 0;
+    controlPoints = [];
     view.x = 0; view.y = 0; view.scale = 50;
     
     let count = 8;
@@ -1095,21 +1062,21 @@ function loadPreset(type) {
         const a = 4.0, b = 2.5;
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
-            curves[0].push(new Point(a*Math.cos(t), b*Math.sin(t)));
+            controlPoints.push(new Point(a*Math.cos(t), b*Math.sin(t)));
         }
     } else if (type === 'astroid') {
         count = 12;
         const r = 3.5;
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
-            curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
+            controlPoints.push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
         }
     } else if (type === 'bean') {
         count = 10;
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
             const r = 2.0 + Math.cos(t) + Math.pow(Math.sin(t), 2);
-            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
+            controlPoints.push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
     } else if (type === 'cardioid') {
         count = 10;
@@ -1117,23 +1084,17 @@ function loadPreset(type) {
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
             const r = 2*a*(1 + Math.cos(t));
-            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
+            controlPoints.push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
     }
     
-    updateUI();
     triggerComputation(true);
     document.getElementById('presetSelect').value = "";
 }
 
 // ========== UI Helpers ==========
 function updateStatus(msg) {
-    const pts = curves[activeCurveIdx] || [];
-    document.getElementById('status').innerText = msg || `Curve ${activeCurveIdx}: ${pts.length} pts`;
-}
-
-function updateUI() {
-    document.getElementById('curveCountBadge').innerText = curves.length;
+    document.getElementById('status').innerText = msg || `Points: ${controlPoints.length}`;
 }
 
 function updateModeIndicator() {
@@ -1161,13 +1122,10 @@ function worldToScreen(p) {
 
 function findHitControlPoint(sx, sy) {
     const threshSq = 144;
-    // Iterate all curves
-    for(let c=0; c<curves.length; c++) {
-        for(let i=0; i<curves[c].length; i++) {
-            const sp = worldToScreen(curves[c][i]);
-            const dx = sp.x - sx, dy = sp.y - sy;
-            if (dx*dx + dy*dy < threshSq) return { cIdx: c, pIdx: i };
-        }
+    for(let i=0; i<controlPoints.length; i++) {
+        const sp = worldToScreen(controlPoints[i]);
+        const dx = sp.x - sx, dy = sp.y - sy;
+        if (dx*dx + dy*dy < threshSq) return i;
     }
     return null;
 }
@@ -1183,25 +1141,22 @@ function pointToSegmentDistSq(p, v, w) {
 }
 
 function insertPointSmart(newPt) {
-    // Always insert into ACTIVE curve
-    const pts = curves[activeCurveIdx];
-    
-    if (pts.length < 3) {
-        pts.push(newPt);
-        selectedInfo = { cIdx: activeCurveIdx, pIdx: pts.length - 1 };
+    if (controlPoints.length < 3) {
+        controlPoints.push(newPt);
+        selectedIdx = controlPoints.length - 1;
         return;
     }
 
     let bestIdx = -1, minDistSq = Infinity;
-    for (let i = 0; i < pts.length; i++) {
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % pts.length];
+    for (let i = 0; i < controlPoints.length; i++) {
+        const p1 = controlPoints[i];
+        const p2 = controlPoints[(i + 1) % controlPoints.length];
         const distSq = pointToSegmentDistSq(newPt, p1, p2);
         if (distSq < minDistSq) { minDistSq = distSq; bestIdx = i; }
     }
     
-    pts.splice(bestIdx + 1, 0, newPt);
-    selectedInfo = { cIdx: activeCurveIdx, pIdx: bestIdx + 1 };
+    controlPoints.splice(bestIdx + 1, 0, newPt);
+    selectedIdx = bestIdx + 1;
 }
 
 // ========== Event Handlers ==========
@@ -1238,10 +1193,9 @@ canvas.addEventListener('mousedown', e => {
         // Normal mode: check for point hit
         const hit = findHitControlPoint(e.clientX, e.clientY);
         if (hit !== null) {
-            selectedInfo = { ...hit };
-            activeCurveIdx = hit.cIdx; // Switch active curve on selection
+            selectedIdx = hit;
             saveState();
-            dragInfo = hit;
+            dragIdx = hit;
             interactionType = 'DRAG_POINT';
             draw();
             return;
@@ -1256,9 +1210,9 @@ canvas.addEventListener('mousemove', e => {
     const dy = e.clientY - mouseStart.y;
     const distSq = dx*dx + dy*dy;
 
-    if (interactionType === 'DRAG_POINT' && dragInfo) {
+    if (interactionType === 'DRAG_POINT' && dragIdx !== null) {
         const p = screenToWorld(e.clientX, e.clientY);
-        curves[dragInfo.cIdx][dragInfo.pIdx] = p;
+        controlPoints[dragIdx] = p;
         triggerComputation(false);
         return;
     }
@@ -1279,13 +1233,8 @@ canvas.addEventListener('mousemove', e => {
     // Hover
     if (!isInteractionActive) {
         const hit = findHitControlPoint(e.clientX, e.clientY);
-        hoverInfo = hit;
-        if (hit) {
-            canvas.style.cursor = 'grab';
-            updateStatus(`Curve ${hit.cIdx}, Point ${hit.pIdx}`);
-        } else {
-            canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
-        }
+        hoverIdx = hit;
+        canvas.style.cursor = hit !== null ? 'grab' : (vineyardMode ? 'cell' : 'crosshair');
         draw();
     }
 });
@@ -1294,7 +1243,7 @@ canvas.addEventListener('mouseup', e => {
     if (!isInteractionActive) return;
 
     if (interactionType === 'DRAG_POINT') {
-        dragInfo = null;
+        dragIdx = null;
         triggerComputation(true);
     }
     
@@ -1329,21 +1278,12 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedInfo) {
-            const pts = curves[selectedInfo.cIdx];
-            if (selectedInfo.pIdx < pts.length) {
-                saveState();
-                pts.splice(selectedInfo.pIdx, 1);
-                // If curve becomes empty and there are other curves, remove it
-                if (pts.length === 0 && curves.length > 1) {
-                    curves.splice(selectedInfo.cIdx, 1);
-                    activeCurveIdx = Math.max(0, activeCurveIdx - 1);
-                }
-                selectedInfo = null;
-                updateUI();
-                updateStatus();
-                triggerComputation(true);
-            }
+        if (selectedIdx !== null && selectedIdx < controlPoints.length) {
+            saveState();
+            controlPoints.splice(selectedIdx, 1);
+            selectedIdx = null;
+            updateStatus();
+            triggerComputation(true);
         }
     }
     
@@ -1358,21 +1298,10 @@ window.addEventListener('keydown', e => {
 // ========== Button Handlers ==========
 document.getElementById('undoBtn').addEventListener('click', performUndo);
 
-document.getElementById('newCurveBtn').addEventListener('click', () => {
-    saveState();
-    curves.push([]); // Add new empty curve
-    activeCurveIdx = curves.length - 1;
-    selectedInfo = null;
-    updateUI();
-    updateStatus(`Active: Curve ${activeCurveIdx} (New)`);
-    draw();
-});
-
 document.getElementById('clearBtn').addEventListener('click', () => {
     saveState();
-    curves = [[]];
-    activeCurveIdx = 0;
-    selectedInfo = null;
+    controlPoints = [];
+    selectedIdx = null;
     cachedCurveData = null;
     cachedSSData = null;
     vineyardCenter = null;
@@ -1381,23 +1310,12 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     stopVineyardAnim();
     document.getElementById('vineyardPanel').classList.remove('active');
     document.getElementById('persistencePanel').classList.remove('active');
-    updateUI();
     updateStatus('Cleared');
     draw();
 });
 
 document.getElementById('resetViewBtn').addEventListener('click', () => {
     view.x = 0; view.y = 0; view.scale = 50;
-    draw();
-});
-
-document.getElementById('newCurveBtn').addEventListener('click', () => {
-    saveState();
-    curves.push([]); // Add new empty curve
-    activeCurveIdx = curves.length - 1;
-    selectedInfo = null;
-    updateUI();
-    updateStatus(`New curve ${activeCurveIdx} (empty)`);
     draw();
 });
 
@@ -1550,9 +1468,7 @@ function vineyardAnimLoop() {
 // ========== Computation ==========
 let computeTimer = null;
 function triggerComputation(fullCompute = true) {
-    // Check if any curve has at least 3 points
-    const hasValidCurve = curves.some(c => c.length >= 3);
-    if (!hasValidCurve) { draw(); return; }
+    if (controlPoints.length < 3) { draw(); return; }
     
     if (!fullCompute) {
         cachedCurveData = computeSplineData();
@@ -1615,35 +1531,17 @@ function draw() {
             }
         }
 
-        // Curve - draw each curve separately
+        // Curve
         if (document.getElementById('showCurve').checked) {
             ctx.strokeStyle = '#4f8cff';
             ctx.lineWidth = 2.5 / view.scale;
-            
-            // Group points by curveId and draw each as separate path
-            let currentId = -1;
             ctx.beginPath();
-            
-            for (let i = 0; i < cachedCurveData.length; i++) {
-                const pt = cachedCurveData[i];
-                if (pt.curveId !== currentId) {
-                    // Close previous path if exists
-                    if (currentId !== -1) {
-                        ctx.closePath();
-                        ctx.stroke();
-                        ctx.beginPath();
-                    }
-                    ctx.moveTo(pt.p.x, pt.p.y);
-                    currentId = pt.curveId;
-                } else {
-                    ctx.lineTo(pt.p.x, pt.p.y);
-                }
+            ctx.moveTo(cachedCurveData[0].p.x, cachedCurveData[0].p.y);
+            for (let i = 1; i < cachedCurveData.length; i++) {
+                ctx.lineTo(cachedCurveData[i].p.x, cachedCurveData[i].p.y);
             }
-            // Close and stroke the last curve
-            if (currentId !== -1) {
-                ctx.closePath();
-                ctx.stroke();
-            }
+            ctx.closePath();
+            ctx.stroke();
         }
     }
 
@@ -1704,27 +1602,22 @@ function draw() {
         const baseSize = 7 / view.scale;
         const hoverSize = 10 / view.scale;
         
-        for (let c = 0; c < curves.length; c++) {
-            const pts = curves[c];
-            for (let i = 0; i < pts.length; i++) {
-                const p = pts[i];
-                const isHover = (hoverInfo && hoverInfo.cIdx === c && hoverInfo.pIdx === i) || 
-                               (dragInfo && dragInfo.cIdx === c && dragInfo.pIdx === i);
-                const isSelected = (selectedInfo && selectedInfo.cIdx === c && selectedInfo.pIdx === i);
-                const isActiveCurve = (c === activeCurveIdx);
-                
-                if (isSelected) ctx.fillStyle = '#4f8cff';
-                else if (isHover) ctx.fillStyle = '#fbbf24';
-                else ctx.fillStyle = isActiveCurve ? '#fff' : '#666'; // Dim inactive curves
+        for (let i = 0; i < controlPoints.length; i++) {
+            const p = controlPoints[i];
+            const isHover = (hoverIdx === i) || (dragIdx === i);
+            const isSelected = (selectedIdx === i);
+            
+            if (isSelected) ctx.fillStyle = '#4f8cff';
+            else if (isHover) ctx.fillStyle = '#fbbf24';
+            else ctx.fillStyle = '#fff';
 
-                const s = (isHover || isSelected) ? hoverSize : baseSize;
-                ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
-                
-                if (isSelected) {
-                    ctx.strokeStyle = '#4f8cff';
-                    ctx.lineWidth = 1.5 / view.scale;
-                    ctx.strokeRect(p.x - s/2 - 2/view.scale, p.y - s/2 - 2/view.scale, s + 4/view.scale, s + 4/view.scale);
-                }
+            const s = (isHover || isSelected) ? hoverSize : baseSize;
+            ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            
+            if (isSelected) {
+                ctx.strokeStyle = '#4f8cff';
+                ctx.lineWidth = 1.5 / view.scale;
+                ctx.strokeRect(p.x - s/2 - 2/view.scale, p.y - s/2 - 2/view.scale, s + 4/view.scale, s + 4/view.scale);
             }
         }
     }

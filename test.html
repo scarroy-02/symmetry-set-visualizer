@@ -312,7 +312,20 @@
         <div class="val-display" id="resVal">5000</div>
     </div>
     
-    <button class="btn btn-primary" id="computeBtn" style="margin-bottom: 16px;">Compute Symmetry Set</button>
+    <button class="btn btn-primary" id="computeBtn" style="margin-bottom: 12px;">Compute Symmetry Set</button>
+    
+    <!-- Focal Animation Section -->
+    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+        <h3 style="color: var(--accent-green); margin-top: 0;">◉ Focal Animation</h3>
+        <div class="anim-controls">
+            <button class="btn btn-secondary" id="focalPlayBtn" style="background: linear-gradient(135deg, #22c55e, #16a34a);">▶ Play</button>
+            <button class="btn btn-secondary" id="focalStopBtn">◼ Stop</button>
+        </div>
+        <div class="slider-group" style="margin-top: 8px;">
+            <label>Position</label>
+            <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
+        </div>
+    </div>
     
     <!-- Vineyard Section -->
     <div class="vineyard-controls">
@@ -476,8 +489,8 @@ class UnionFind {
 }
 
 // ========== Global State ==========
-const SAMPLING_DENSITY = 40000;
-const LAMBDA_MAX = 500.0;
+const SAMPLING_DENSITY = 30000;
+const LAMBDA_MAX = 5000.0;
 const R_MAX = 100000.0;
 
 // Multi-curve support
@@ -514,6 +527,11 @@ let vineyardAnimIdx = 0;
 let vineyardAnimPlaying = false;
 let currentPersistence = null;
 let vineyardMaxVal = 1; // Global max value for consistent axis ranges
+let vineyardDragging = false; // For dragging vineyard center during animation
+
+// Focal Animation State
+let focalAnimPlaying = false;
+let focalAnimIdx = 0;
 
 // Canvas
 const canvas = document.getElementById('mainCanvas');
@@ -666,7 +684,7 @@ function computeSymmetrySet(data, resolutionLimit) {
         Id[k] = data[idx].curveId || 0;
     }
 
-    const minChordSq = 0.4 * 0.3;
+    const minChordSq = 0.3 * 0.3;
     const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {
@@ -729,11 +747,37 @@ function computeSymmetrySet(data, resolutionLimit) {
 function computePersistence(center, curveData) {
     if (!curveData || curveData.length === 0) return { h0: [], h1: [] };
     
-    const coords = curveData.map(d => d.p);
-    const n = coords.length;
+    const n = curveData.length;
     
     // Compute distances from center to each curve point
-    const dists = coords.map(p => Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2));
+    const dists = curveData.map(d => ((d.p.x - center.x)**2 + (d.p.y - center.y)**2));
+    
+    // Build neighbor structure respecting curve boundaries
+    // First, group points by curveId and track their global indices
+    const curveGroups = new Map(); // curveId -> array of global indices
+    for (let i = 0; i < n; i++) {
+        const cId = curveData[i].curveId || 0;
+        if (!curveGroups.has(cId)) {
+            curveGroups.set(cId, []);
+        }
+        curveGroups.get(cId).push(i);
+    }
+    
+    // Build neighbor map: for each point, its neighbors within its curve (cyclic)
+    const neighbors = new Array(n);
+    for (let i = 0; i < n; i++) {
+        neighbors[i] = [];
+    }
+    
+    for (const [cId, indices] of curveGroups) {
+        const len = indices.length;
+        for (let j = 0; j < len; j++) {
+            const globalIdx = indices[j];
+            const prevIdx = indices[(j - 1 + len) % len];
+            const nextIdx = indices[(j + 1) % len];
+            neighbors[globalIdx] = [prevIdx, nextIdx];
+        }
+    }
     
     // Sort indices by distance
     const sortedIndices = Array.from({length: n}, (_, i) => i)
@@ -748,10 +792,8 @@ function computePersistence(center, curveData) {
         const currentR = dists[v];
         processed[v] = true;
         
-        // Neighbors on the curve (cyclic)
-        const neighbors = [(v - 1 + n) % n, (v + 1) % n];
-        
-        for (const u of neighbors) {
+        // Check neighbors within the same curve
+        for (const u of neighbors[v]) {
             if (processed[u]) {
                 const result = uf.union(u, v, currentR);
                 if (result.isH1) {
@@ -765,9 +807,17 @@ function computePersistence(center, curveData) {
         }
     }
     
-    // Add the infinite H0 component
-    const root = uf.find(0);
-    h0Pairs.push([uf.birth[root], Infinity]);
+    // Add the infinite H0 component (one for each connected component at the end)
+    // Find all unique roots
+    const roots = new Set();
+    for (let i = 0; i < n; i++) {
+        roots.add(uf.find(i));
+    }
+    
+    // Add infinite H0 for each final component
+    for (const root of roots) {
+        h0Pairs.push([uf.birth[root], Infinity]);
+    }
     
     return { h0: h0Pairs, h1: h1Pairs };
 }
@@ -796,7 +846,7 @@ function computeVineyard() {
         for (const d of cachedCurveData) {
             const dx = d.p.x - center.x;
             const dy = d.p.y - center.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
+            const dist = (dx*dx + dy*dy);
             if (dist > globalMaxDist) globalMaxDist = dist;
         }
     }
@@ -908,7 +958,7 @@ function updateVineyardPlot() {
         k: [2, 3],
         type: 'mesh3d',
         name: 'Diagonal',
-        color: 'rgba(100,100,100,0.15)',
+        color: 'rgba(100,100,100,0.6)',
         showscale: false,
         hoverinfo: 'skip'
     };
@@ -1235,6 +1285,14 @@ canvas.addEventListener('mousedown', e => {
             return;
         }
         
+        // Check if clicking on vineyard center (allow dragging even during animation)
+        if (findHitVineyardCenter(e.clientX, e.clientY)) {
+            vineyardDragging = true;
+            interactionType = 'DRAG_VINEYARD';
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+        
         // Normal mode: check for point hit
         const hit = findHitControlPoint(e.clientX, e.clientY);
         if (hit !== null) {
@@ -1255,6 +1313,24 @@ canvas.addEventListener('mousemove', e => {
     const dx = e.clientX - mouseStart.x;
     const dy = e.clientY - mouseStart.y;
     const distSq = dx*dx + dy*dy;
+
+    if (interactionType === 'DRAG_VINEYARD' && vineyardDragging) {
+        const p = screenToWorld(e.clientX, e.clientY);
+        vineyardCenter = p;
+        // Update vineyard centers for animation
+        if (vineyardCenters.length > 0) {
+            vineyardCenters = [];
+            for (let i = 0; i < vineyardSamples; i++) {
+                const theta = (i / vineyardSamples) * Math.PI * 2;
+                vineyardCenters.push(new Point(
+                    vineyardCenter.x + vineyardRadius * Math.cos(theta),
+                    vineyardCenter.y + vineyardRadius * Math.sin(theta)
+                ));
+            }
+        }
+        draw();
+        return;
+    }
 
     if (interactionType === 'DRAG_POINT' && dragInfo) {
         const p = screenToWorld(e.clientX, e.clientY);
@@ -1278,6 +1354,12 @@ canvas.addEventListener('mousemove', e => {
 
     // Hover
     if (!isInteractionActive) {
+        // Check vineyard center hover
+        if (findHitVineyardCenter(e.clientX, e.clientY)) {
+            canvas.style.cursor = 'grab';
+            return;
+        }
+        
         const hit = findHitControlPoint(e.clientX, e.clientY);
         hoverInfo = hit;
         if (hit) {
@@ -1292,6 +1374,14 @@ canvas.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseup', e => {
     if (!isInteractionActive) return;
+
+    if (interactionType === 'DRAG_VINEYARD') {
+        vineyardDragging = false;
+        // Recompute vineyard if we have data
+        if (vineyardData && cachedCurveData) {
+            computeVineyard();
+        }
+    }
 
     if (interactionType === 'DRAG_POINT') {
         dragInfo = null;
@@ -1388,16 +1478,6 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 
 document.getElementById('resetViewBtn').addEventListener('click', () => {
     view.x = 0; view.y = 0; view.scale = 50;
-    draw();
-});
-
-document.getElementById('newCurveBtn').addEventListener('click', () => {
-    saveState();
-    curves.push([]); // Add new empty curve
-    activeCurveIdx = curves.length - 1;
-    selectedInfo = null;
-    updateUI();
-    updateStatus(`New curve ${activeCurveIdx} (empty)`);
     draw();
 });
 
@@ -1547,6 +1627,61 @@ function vineyardAnimLoop() {
     setTimeout(vineyardAnimLoop, 50);
 }
 
+// ========== Focal Animation ==========
+function stopFocalAnim() {
+    focalAnimPlaying = false;
+    focalAnimIdx = 0;
+    document.getElementById('focalPlayBtn').innerText = '▶ Play';
+    document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    document.getElementById('focalAnimSlider').value = 0;
+    draw();
+}
+
+function focalAnimLoop() {
+    if (!focalAnimPlaying || !cachedCurveData || cachedCurveData.length === 0) return;
+    
+    focalAnimIdx = (focalAnimIdx + 15) % cachedCurveData.length;
+    const pct = focalAnimIdx / cachedCurveData.length;
+    document.getElementById('focalAnimSlider').value = Math.floor(pct * 1000);
+    
+    draw();
+    requestAnimationFrame(focalAnimLoop);
+}
+
+// Focal animation handlers
+document.getElementById('focalPlayBtn').addEventListener('click', () => {
+    if (!cachedCurveData || cachedCurveData.length === 0) return;
+    
+    focalAnimPlaying = !focalAnimPlaying;
+    const btn = document.getElementById('focalPlayBtn');
+    
+    if (focalAnimPlaying) {
+        btn.innerText = '⏸ Pause';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        focalAnimLoop();
+    } else {
+        btn.innerText = '▶ Play';
+        btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    }
+});
+
+document.getElementById('focalStopBtn').addEventListener('click', stopFocalAnim);
+
+document.getElementById('focalAnimSlider').addEventListener('input', e => {
+    if (!cachedCurveData || cachedCurveData.length === 0) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    focalAnimIdx = Math.floor(pct * (cachedCurveData.length - 1));
+    draw();
+});
+
+// ========== Vineyard Center Dragging ==========
+function findHitVineyardCenter(sx, sy) {
+    if (!vineyardCenter) return false;
+    const sp = worldToScreen(vineyardCenter);
+    const dx = sp.x - sx, dy = sp.y - sy;
+    return dx*dx + dy*dy < 200; // Slightly larger hit area
+}
+
 // ========== Computation ==========
 let computeTimer = null;
 function triggerComputation(fullCompute = true) {
@@ -1644,6 +1779,51 @@ function draw() {
                 ctx.closePath();
                 ctx.stroke();
             }
+        }
+        
+        // Focal animation visualization
+        if ((focalAnimPlaying || focalAnimIdx > 0) && focalAnimIdx < cachedCurveData.length) {
+            const pt = cachedCurveData[focalAnimIdx];
+            
+            ctx.save();
+            ctx.strokeStyle = '#fcd34d';
+            ctx.fillStyle = '#fcd34d';
+            ctx.lineWidth = 2 / view.scale;
+            
+            // Point on curve
+            const s = 10 / view.scale;
+            ctx.beginPath();
+            ctx.arc(pt.p.x, pt.p.y, s/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw osculating circle
+            const k = pt.curvature;
+            if (Math.abs(k) > 1e-8) {
+                const R = 1.0 / k;
+                if (Math.abs(R) < R_MAX) {
+                    const ex = pt.p.x + pt.N.x * R;
+                    const ey = pt.p.y + pt.N.y * R;
+                    
+                    // Center of curvature
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, s/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Line from point to center
+                    ctx.beginPath();
+                    ctx.moveTo(pt.p.x, pt.p.y);
+                    ctx.lineTo(ex, ey);
+                    ctx.stroke();
+                    
+                    // Osculating circle
+                    ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
+                    ctx.lineWidth = 1.5 / view.scale;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, Math.abs(R), 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
         }
     }
 

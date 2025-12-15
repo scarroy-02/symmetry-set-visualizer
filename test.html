@@ -334,12 +334,12 @@
         
         <div class="slider-group" style="margin-top: 12px;">
             <label>Circle Radius</label>
-            <input type="range" id="vineyardRadius" min="0.001" max="5" step="0.01" value="1">
+            <input type="range" id="vineyardRadius" min="0.001" max="10" step="0.01" value="1">
             <div class="val-display" id="radiusVal">1.0</div>
         </div>
         
         <div class="slider-group">
-            <label>Sample Points</label>
+            <label>Sample Points (per circle)</label>
             <input type="range" id="vineyardSamples" min="8" max="300" step="4" value="64">
             <div class="val-display" id="samplesVal">64</div>
         </div>
@@ -354,6 +354,43 @@
         <div class="slider-group" style="margin-top: 8px;">
             <label>Animation Position</label>
             <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0">
+        </div>
+        
+        <!-- Radius Sweep Section -->
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(168,85,247,0.3);">
+            <h3 style="color: #c084fc; margin-top: 0;">◎ Radius Sweep</h3>
+            
+            <div style="display: flex; gap: 8px;">
+                <div class="slider-group" style="flex: 1; margin-bottom: 8px;">
+                    <label>Start R</label>
+                    <input type="range" id="radiusStart" min="0.1" max="10" step="0.1" value="0.5">
+                    <div class="val-display" id="radiusStartVal">0.5</div>
+                </div>
+                <div class="slider-group" style="flex: 1; margin-bottom: 8px;">
+                    <label>End R</label>
+                    <input type="range" id="radiusEnd" min="0.1" max="10" step="0.1" value="5">
+                    <div class="val-display" id="radiusEndVal">5.0</div>
+                </div>
+            </div>
+            
+            <div class="slider-group">
+                <label>Radius Steps</label>
+                <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30">
+                <div class="val-display" id="radiusStepsVal">30</div>
+            </div>
+            
+            <button class="btn" id="computeRadiusSweepBtn" style="background: linear-gradient(135deg, #c084fc, #a855f7); margin-top: 8px;">Compute Radius Sweep</button>
+            
+            <div class="anim-controls" style="margin-top: 8px;">
+                <button class="btn btn-secondary" id="playRadiusSweepBtn">▶ Play Sweep</button>
+                <button class="btn btn-secondary" id="stopRadiusSweepBtn">◼ Stop</button>
+            </div>
+            
+            <div class="slider-group" style="margin-top: 8px;">
+                <label>Sweep Position</label>
+                <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
+                <div class="val-display" id="currentSweepRadius">R: --</div>
+            </div>
         </div>
     </div>
     
@@ -532,6 +569,14 @@ let vineyardDragging = false; // For dragging vineyard center during animation
 // Focal Animation State
 let focalAnimPlaying = false;
 let focalAnimIdx = 0;
+
+// Radius Sweep State
+let radiusSweepData = null;  // { radii: [], allH0: [], allH1: [], infinityY: number }
+let radiusSweepPlaying = false;
+let radiusSweepIdx = 0;
+let radiusStart = 0.5;
+let radiusEnd = 5.0;
+let radiusSteps = 30;
 
 // Canvas
 const canvas = document.getElementById('mainCanvas');
@@ -958,7 +1003,7 @@ function updateVineyardPlot() {
         k: [2, 3],
         type: 'mesh3d',
         name: 'Diagonal',
-        color: 'rgba(100,100,100,0.6)',
+        color: 'rgba(100,100,100,0.15)',
         showscale: false,
         hoverinfo: 'skip'
     };
@@ -1671,6 +1716,426 @@ document.getElementById('focalAnimSlider').addEventListener('input', e => {
     if (!cachedCurveData || cachedCurveData.length === 0) return;
     const pct = parseFloat(e.target.value) / 1000;
     focalAnimIdx = Math.floor(pct * (cachedCurveData.length - 1));
+    draw();
+});
+
+// ========== Radius Sweep ==========
+function computeRadiusSweep() {
+    if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need curve and center point!');
+        return;
+    }
+    
+    updateStatus('Computing radius sweep vineyards...');
+    
+    const radii = [];
+    for (let i = 0; i <= radiusSteps; i++) {
+        radii.push(radiusStart + (radiusEnd - radiusStart) * (i / radiusSteps));
+    }
+    
+    // Compute max possible distance for infinity representation
+    let globalMaxDist = 0;
+    for (const r of radii) {
+        for (let j = 0; j < vineyardSamples; j++) {
+            const theta = (j / vineyardSamples) * Math.PI * 2;
+            const cx = vineyardCenter.x + r * Math.cos(theta);
+            const cy = vineyardCenter.y + r * Math.sin(theta);
+            for (const d of cachedCurveData) {
+                const dx = d.p.x - cx;
+                const dy = d.p.y - cy;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > globalMaxDist) globalMaxDist = dist;
+            }
+        }
+    }
+    
+    const infinityY = globalMaxDist * 1.15;
+    
+    // Compute full vineyard for each radius
+    radiusSweepData = {
+        radii: radii,
+        vineyards: [], // Array of { h0: [], h1: [], centers: [] } for each radius
+        infinityY: infinityY
+    };
+    
+    for (let rIdx = 0; rIdx < radii.length; rIdx++) {
+        const r = radii[rIdx];
+        
+        // Generate centers for this radius
+        const centers = [];
+        for (let i = 0; i < vineyardSamples; i++) {
+            const theta = (i / vineyardSamples) * Math.PI * 2;
+            centers.push(new Point(
+                vineyardCenter.x + r * Math.cos(theta),
+                vineyardCenter.y + r * Math.sin(theta)
+            ));
+        }
+        
+        // Compute full vineyard for this radius
+        const vineyardH0 = [];
+        const vineyardH1 = [];
+        
+        for (let cIdx = 0; cIdx < centers.length; cIdx++) {
+            const pers = computePersistence(centers[cIdx], cachedCurveData);
+            
+            for (const [b, d] of pers.h0) {
+                vineyardH0.push({
+                    birth: b,
+                    death: d === Infinity ? infinityY : d,
+                    centerIdx: cIdx,
+                    isInfinite: d === Infinity
+                });
+            }
+            for (const [b, d] of pers.h1) {
+                vineyardH1.push({
+                    birth: b,
+                    death: d === Infinity ? infinityY : d,
+                    centerIdx: cIdx,
+                    isInfinite: d === Infinity
+                });
+            }
+        }
+        
+        radiusSweepData.vineyards.push({
+            h0: vineyardH0,
+            h1: vineyardH1,
+            centers: centers,
+            radius: r
+        });
+        
+        // Progress update
+        if (rIdx % 5 === 0) {
+            updateStatus(`Computing... ${Math.round((rIdx / radii.length) * 100)}%`);
+        }
+    }
+    
+    vineyardMaxVal = infinityY;
+    
+    updateStatus(`Radius sweep done! ${radii.length} vineyards computed`);
+    
+    // Initialize to first radius
+    radiusSweepIdx = 0;
+    updateRadiusSweepDisplay();
+    
+    // Show panels
+    document.getElementById('vineyardPanel').classList.add('active');
+    document.getElementById('persistencePanel').classList.add('active');
+    
+    draw();
+}
+
+function updateRadiusSweepDisplay() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    
+    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
+    const r = currentVineyard.radius;
+    
+    document.getElementById('currentSweepRadius').innerText = `R: ${r.toFixed(2)}`;
+    
+    // Update the main vineyard radius to match current sweep
+    vineyardRadius = r;
+    document.getElementById('vineyardRadius').value = Math.min(r, 10);
+    document.getElementById('radiusVal').innerText = r.toFixed(1);
+    
+    // Update vineyard centers for display
+    vineyardCenters = currentVineyard.centers;
+    
+    // Update plots with current vineyard
+    updateRadiusSweepVineyardPlot();
+    updateRadiusSweepPersistenceDiagram();
+}
+
+function updateRadiusSweepVineyardPlot() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    
+    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
+    const r = currentVineyard.radius;
+    const maxVal = radiusSweepData.infinityY;
+    
+    const h0 = currentVineyard.h0;
+    const h1 = currentVineyard.h1;
+    
+    const traceH0 = {
+        x: h0.map(d => d.birth),
+        y: h0.map(d => d.death),
+        z: h0.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'H₀',
+        marker: {
+            size: 3,
+            color: '#ef4444',
+            opacity: 0.7
+        }
+    };
+    
+    const traceH1 = {
+        x: h1.map(d => d.birth),
+        y: h1.map(d => d.death),
+        z: h1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'H₁',
+        marker: {
+            size: 3,
+            color: '#3b82f6',
+            opacity: 0.7,
+            symbol: 'diamond'
+        }
+    };
+    
+    // Diagonal plane
+    const diagPoints = {
+        x: [0, maxVal, maxVal, 0],
+        y: [0, maxVal, maxVal, 0],
+        z: [0, 0, vineyardSamples - 1, vineyardSamples - 1],
+        i: [0, 0],
+        j: [1, 2],
+        k: [2, 3],
+        type: 'mesh3d',
+        name: 'Diagonal',
+        color: 'rgba(100,100,100,0.1)',
+        showscale: false,
+        hoverinfo: 'skip'
+    };
+    
+    const layout = {
+        scene: {
+            xaxis: { 
+                title: { text: 'Birth', font: { size: 11 } },
+                color: '#888', 
+                gridcolor: '#333',
+                range: [0, maxVal],
+                showspikes: false
+            },
+            yaxis: { 
+                title: { text: 'Death', font: { size: 11 } },
+                color: '#888', 
+                gridcolor: '#333',
+                range: [0, maxVal],
+                showspikes: false
+            },
+            zaxis: { 
+                title: { text: 'Center Idx', font: { size: 11 } },
+                color: '#888', 
+                gridcolor: '#333',
+                range: [0, vineyardSamples - 1],
+                showspikes: false
+            },
+            bgcolor: 'rgba(0,0,0,0)',
+            camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
+            aspectmode: 'manual',
+            aspectratio: { x: 1, y: 1, z: 0.8 }
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: { l: 0, r: 0, t: 30, b: 0 },
+        legend: {
+            x: 0, y: 1,
+            font: { color: '#ccc', size: 10 },
+            bgcolor: 'rgba(0,0,0,0.5)'
+        },
+        showlegend: true,
+        title: {
+            text: `Vineyard at R = ${r.toFixed(2)}`,
+            font: { color: '#c084fc', size: 13 },
+            x: 0.5,
+            xanchor: 'center'
+        }
+    };
+    
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1], layout, {
+        displayModeBar: false,
+        responsive: true
+    });
+}
+
+function updateRadiusSweepPersistenceDiagram() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    
+    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
+    const r = currentVineyard.radius;
+    const maxVal = radiusSweepData.infinityY;
+    
+    // Aggregate all points for this vineyard into one PD
+    const h0 = currentVineyard.h0;
+    const h1 = currentVineyard.h1;
+    
+    const traceH0 = {
+        x: h0.map(d => d.birth),
+        y: h0.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'H₀',
+        marker: { size: 8, color: '#ef4444', symbol: 'circle', opacity: 0.6 }
+    };
+    
+    const traceH1 = {
+        x: h1.map(d => d.birth),
+        y: h1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'H₁',
+        marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up', opacity: 0.6 }
+    };
+    
+    const diagonal = {
+        x: [0, maxVal],
+        y: [0, maxVal],
+        mode: 'lines',
+        type: 'scatter',
+        name: 'Diagonal',
+        line: { color: '#555', dash: 'dash', width: 1 },
+        showlegend: false,
+        hoverinfo: 'skip'
+    };
+    
+    const infinityLine = {
+        x: [0, maxVal],
+        y: [radiusSweepData.infinityY, radiusSweepData.infinityY],
+        mode: 'lines',
+        type: 'scatter',
+        name: '∞',
+        line: { color: '#888', dash: 'dot', width: 1 },
+        showlegend: false,
+        hoverinfo: 'skip'
+    };
+    
+    const layout = {
+        xaxis: { 
+            title: { text: 'Birth', font: { size: 12, color: '#aaa' }, standoff: 10 },
+            color: '#888', 
+            gridcolor: '#333',
+            range: [-maxVal * 0.02, maxVal * 1.02],
+            zeroline: true,
+            zerolinecolor: '#666',
+            zerolinewidth: 2,
+            showline: true,
+            linecolor: '#666',
+            linewidth: 1,
+            tickmode: 'auto',
+            nticks: 8
+        },
+        yaxis: { 
+            title: { text: 'Death', font: { size: 12, color: '#aaa' }, standoff: 10 },
+            color: '#888', 
+            gridcolor: '#333',
+            range: [-maxVal * 0.02, maxVal * 1.02],
+            zeroline: true,
+            zerolinecolor: '#666',
+            zerolinewidth: 2,
+            showline: true,
+            linecolor: '#666',
+            linewidth: 1,
+            scaleanchor: 'x',
+            scaleratio: 1,
+            tickmode: 'auto',
+            nticks: 8
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(10,10,15,0.5)',
+        margin: { l: 60, r: 20, t: 40, b: 55 },
+        legend: {
+            x: 0.75, y: 0.15,
+            font: { color: '#ccc', size: 11 },
+            bgcolor: 'rgba(0,0,0,0.6)',
+            bordercolor: 'rgba(255,255,255,0.1)',
+            borderwidth: 1
+        },
+        showlegend: true,
+        title: {
+            text: `All PDs at R = ${r.toFixed(2)}`,
+            font: { color: '#aaa', size: 13 },
+            x: 0.5,
+            xanchor: 'center'
+        },
+        annotations: [{
+            x: maxVal * 0.02,
+            y: radiusSweepData.infinityY,
+            xref: 'x',
+            yref: 'y',
+            text: '∞',
+            showarrow: false,
+            font: { color: '#888', size: 12 },
+            xanchor: 'left',
+            yanchor: 'middle'
+        }]
+    };
+    
+    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, {
+        displayModeBar: false,
+        responsive: true
+    });
+}
+
+function stopRadiusSweep() {
+    radiusSweepPlaying = false;
+    document.getElementById('playRadiusSweepBtn').innerText = '▶ Play Sweep';
+    document.getElementById('playRadiusSweepBtn').style.background = '';
+}
+
+function radiusSweepAnimLoop() {
+    if (!radiusSweepPlaying || !radiusSweepData) return;
+    
+    radiusSweepIdx = (radiusSweepIdx + 1) % radiusSweepData.radii.length;
+    const pct = radiusSweepIdx / (radiusSweepData.radii.length - 1);
+    document.getElementById('radiusSweepSlider').value = Math.floor(pct * 1000);
+    
+    updateRadiusSweepDisplay();
+    draw();
+    
+    setTimeout(radiusSweepAnimLoop, 200);
+}
+
+// Radius sweep event handlers
+document.getElementById('radiusStart').addEventListener('input', e => {
+    radiusStart = parseFloat(e.target.value);
+    document.getElementById('radiusStartVal').innerText = radiusStart.toFixed(1);
+});
+
+document.getElementById('radiusEnd').addEventListener('input', e => {
+    radiusEnd = parseFloat(e.target.value);
+    document.getElementById('radiusEndVal').innerText = radiusEnd.toFixed(1);
+});
+
+document.getElementById('radiusSteps').addEventListener('input', e => {
+    radiusSteps = parseInt(e.target.value);
+    document.getElementById('radiusStepsVal').innerText = radiusSteps;
+});
+
+document.getElementById('computeRadiusSweepBtn').addEventListener('click', computeRadiusSweep);
+
+document.getElementById('playRadiusSweepBtn').addEventListener('click', () => {
+    if (!radiusSweepData) return;
+    
+    radiusSweepPlaying = !radiusSweepPlaying;
+    const btn = document.getElementById('playRadiusSweepBtn');
+    
+    if (radiusSweepPlaying) {
+        btn.innerText = '⏸ Pause';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        radiusSweepAnimLoop();
+    } else {
+        btn.innerText = '▶ Play Sweep';
+        btn.style.background = '';
+    }
+});
+
+document.getElementById('stopRadiusSweepBtn').addEventListener('click', () => {
+    stopRadiusSweep();
+    radiusSweepIdx = 0;
+    document.getElementById('radiusSweepSlider').value = 0;
+    if (radiusSweepData) {
+        updateRadiusSweepDisplay();
+        draw();
+    }
+});
+
+document.getElementById('radiusSweepSlider').addEventListener('input', e => {
+    if (!radiusSweepData) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    radiusSweepIdx = Math.floor(pct * (radiusSweepData.radii.length - 1));
+    updateRadiusSweepDisplay();
     draw();
 });
 

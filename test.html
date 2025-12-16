@@ -292,6 +292,7 @@
             <option value="astroid">Astroid</option>
             <option value="bean">Kidney Bean</option>
             <option value="cardioid">Cardioid</option>
+            <option value="offsetSpiral">Offset Spiral</option>
         </select>
     </div>
     
@@ -577,6 +578,9 @@ let radiusSweepIdx = 0;
 let radiusStart = 0.5;
 let radiusEnd = 5.0;
 let radiusSteps = 30;
+
+// Fixed Curve Mode (for presets that should not be interpolated)
+let fixedCurveMode = false;
 
 // Canvas
 const canvas = document.getElementById('mainCanvas');
@@ -1203,6 +1207,7 @@ function loadPreset(type) {
     curves = [[]];
     activeCurveIdx = 0;
     view.x = 0; view.y = 0; view.scale = 50;
+    fixedCurveMode = false; // Reset fixed mode for normal presets
     
     let count = 8;
     
@@ -1234,11 +1239,248 @@ function loadPreset(type) {
             const r = 2*a*(1 + Math.cos(t));
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
+    } else if (type === 'offsetSpiral') {
+        // Fixed curve mode - draw the spiral exactly as generated
+        fixedCurveMode = true;
+        
+        // Generate the full curve with tangent/normal/curvature data
+        cachedCurveData = generateOffsetSpiralCurveData();
+        
+        // Clear control points (not used in fixed mode)
+        curves = [[]];
+        
+        // Compute symmetry set
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+        
+        // Adjust view for this shape
+        view.scale = 40;
+        view.x = 50;
+        view.y = 50;
+        
+        updateUI();
+        updateStatus(`Fixed curve: ${cachedCurveData.length} points, SS: ${cachedSSData.length} pts`);
+        draw();
+        document.getElementById('presetSelect').value = "";
+        return; // Skip normal processing
     }
     
     updateUI();
     triggerComputation(true);
     document.getElementById('presetSelect').value = "";
+}
+
+function generateOffsetSpiralCurveData() {
+    // --- 1. Geometric Parameters ---
+    const b = 0.2;
+    const tmin = 3.5;
+    const tmax = tmin + 3 * Math.PI;
+    
+    const ROuter = 4.5;
+    const thickness = 1.0;
+    const RInner = ROuter - thickness;
+    
+    // SHAPE SETTINGS
+    const ellipse_ratio = 2.0;  // 2.0 = Bullet shape
+    const extension_len_factor = 0.2;
+    
+    const aOuter = ROuter * Math.exp(b * tmin);
+    const aInner = RInner * Math.exp(b * tmin);
+    
+    // --- 2. Helper Functions ---
+    
+    function getSpiralData(t, a) {
+        const exp_bt = Math.exp(-b * t);
+        const r = a * exp_bt;
+        const x = r * Math.cos(t);
+        const y = r * Math.sin(t);
+        
+        const dx = a * exp_bt * (-b * Math.cos(t) - Math.sin(t));
+        const dy = a * exp_bt * (-b * Math.sin(t) + Math.cos(t));
+        
+        const mag = Math.sqrt(dx*dx + dy*dy);
+        return {
+            pos: [x, y],
+            tan: [dx/mag, dy/mag]
+        };
+    }
+    
+    function getSpiralCurvePoints(tStart, tEnd, numPoints, a) {
+        const pts = [];
+        for (let i = 0; i < numPoints; i++) {
+            const t = tStart + (tEnd - tStart) * (i / (numPoints - 1));
+            const exp_bt = Math.exp(-b * t);
+            const r = a * exp_bt;
+            pts.push({x: r * Math.cos(t), y: r * Math.sin(t)});
+        }
+        return pts;
+    }
+    
+    function linspacePoints(start, end, num) {
+        const pts = [];
+        for (let i = 0; i < num; i++) {
+            const t = i / (num - 1);
+            pts.push({
+                x: start[0] + t * (end[0] - start[0]),
+                y: start[1] + t * (end[1] - start[1])
+            });
+        }
+        return pts;
+    }
+    
+    function norm(v) {
+        return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
+    }
+    
+    function normalize(v) {
+        const n = norm(v);
+        return [v[0]/n, v[1]/n];
+    }
+    
+    // --- 3. Calculate Key Points ---
+    
+    const outerStart = getSpiralData(tmin, aOuter);
+    const innerStart = getSpiralData(tmin, aInner);
+    const ext_dir_start = [-outerStart.tan[0], -outerStart.tan[1]];
+    
+    const outerEnd = getSpiralData(tmax, aOuter);
+    const innerEnd = getSpiralData(tmax, aInner);
+    const ext_dir_end = outerEnd.tan;
+    
+    // --- 4. Lengths & Sampling ---
+    
+    const gap_start = norm([outerStart.pos[0] - innerStart.pos[0], outerStart.pos[1] - innerStart.pos[1]]);
+    const gap_end = norm([outerEnd.pos[0] - innerEnd.pos[0], outerEnd.pos[1] - innerEnd.pos[1]]);
+    
+    const L_ext_start = gap_start * extension_len_factor;
+    const L_ext_end = gap_end * extension_len_factor;
+    
+    // High density for smooth curve
+    const n_spi = 2000;
+    const n_ext = 100;
+    const n_cap_inner = 200;
+    const n_cap_outer = 400;
+    
+    // --- 5. Generate All Points ---
+    
+    const allPoints = [];
+    
+    // 1. Extension: outer start tip -> spiral start
+    const ext_tip_outer_start = [
+        outerStart.pos[0] + ext_dir_start[0] * L_ext_start,
+        outerStart.pos[1] + ext_dir_start[1] * L_ext_start
+    ];
+    allPoints.push(...linspacePoints(ext_tip_outer_start, outerStart.pos, n_ext));
+    
+    // 2. Outer spiral
+    allPoints.push(...getSpiralCurvePoints(tmin, tmax, n_spi, aOuter));
+    
+    // 3. Extension: spiral end -> outer tip
+    const ext_tip_outer_end = [
+        outerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
+        outerEnd.pos[1] + ext_dir_end[1] * L_ext_end
+    ];
+    allPoints.push(...linspacePoints(outerEnd.pos, ext_tip_outer_end, n_ext));
+    
+    // 4. Inner cap (small tip)
+    const ext_tip_inner_end = [
+        innerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
+        innerEnd.pos[1] + ext_dir_end[1] * L_ext_end
+    ];
+    const center_end = [
+        (ext_tip_outer_end[0] + ext_tip_inner_end[0]) / 2,
+        (ext_tip_outer_end[1] + ext_tip_inner_end[1]) / 2
+    ];
+    const gap_vec_end = [
+        ext_tip_inner_end[0] - ext_tip_outer_end[0],
+        ext_tip_inner_end[1] - ext_tip_outer_end[1]
+    ];
+    const u_end = normalize(gap_vec_end);
+    const v_end = normalize(ext_dir_end);
+    const r_w_end = norm(gap_vec_end) / 2;
+    const r_l_end = r_w_end * ellipse_ratio;
+    
+    for (let i = 0; i < n_cap_inner; i++) {
+        const ang = (i / (n_cap_inner - 1)) * Math.PI;
+        allPoints.push({
+            x: center_end[0] - r_w_end * Math.cos(ang) * u_end[0] + r_l_end * Math.sin(ang) * v_end[0],
+            y: center_end[1] - r_w_end * Math.cos(ang) * u_end[1] + r_l_end * Math.sin(ang) * v_end[1]
+        });
+    }
+    
+    // 5. Extension: inner tip -> spiral end
+    allPoints.push(...linspacePoints(ext_tip_inner_end, innerEnd.pos, n_ext));
+    
+    // 6. Inner spiral (reversed)
+    allPoints.push(...getSpiralCurvePoints(tmax, tmin, n_spi, aInner));
+    
+    // 7. Extension: spiral start -> inner tip
+    const ext_tip_inner_start = [
+        innerStart.pos[0] + ext_dir_start[0] * L_ext_start,
+        innerStart.pos[1] + ext_dir_start[1] * L_ext_start
+    ];
+    allPoints.push(...linspacePoints(innerStart.pos, ext_tip_inner_start, n_ext));
+    
+    // 8. Outer cap (big opening)
+    const center_start = [
+        (ext_tip_inner_start[0] + ext_tip_outer_start[0]) / 2,
+        (ext_tip_inner_start[1] + ext_tip_outer_start[1]) / 2
+    ];
+    const gap_vec_start = [
+        ext_tip_outer_start[0] - ext_tip_inner_start[0],
+        ext_tip_outer_start[1] - ext_tip_inner_start[1]
+    ];
+    const u_start = normalize(gap_vec_start);
+    const v_start = normalize(ext_dir_start);
+    const r_w_start = norm(gap_vec_start) / 2;
+    const r_l_start = r_w_start * ellipse_ratio;
+    
+    for (let i = 0; i < n_cap_outer; i++) {
+        const ang = (i / (n_cap_outer - 1)) * Math.PI;
+        allPoints.push({
+            x: center_start[0] - r_w_start * Math.cos(ang) * u_start[0] + r_l_start * Math.sin(ang) * v_start[0],
+            y: center_start[1] - r_w_start * Math.cos(ang) * u_start[1] + r_l_start * Math.sin(ang) * v_start[1]
+        });
+    }
+    
+    // --- 6. Compute Tangent, Normal, Curvature for each point ---
+    
+    const n = allPoints.length;
+    const curveData = [];
+    
+    for (let i = 0; i < n; i++) {
+        const prev = allPoints[(i - 1 + n) % n];
+        const curr = allPoints[i];
+        const next = allPoints[(i + 1) % n];
+        
+        // First derivative (tangent direction)
+        const dx = (next.x - prev.x) / 2;
+        const dy = (next.y - prev.y) / 2;
+        const vel = Math.sqrt(dx*dx + dy*dy);
+        
+        if (vel < 1e-10) continue;
+        
+        const Tx = dx / vel;
+        const Ty = dy / vel;
+        const Nx = -Ty;
+        const Ny = Tx;
+        
+        // Second derivative for curvature
+        const ddx = next.x - 2*curr.x + prev.x;
+        const ddy = next.y - 2*curr.y + prev.y;
+        
+        // Curvature = (dx * ddy - dy * ddx) / vel^3
+        const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
+        
+        curveData.push({
+            p: new Point(curr.x, curr.y),
+            T: new Point(Tx, Ty),
+            N: new Point(Nx, Ny),
+            curvature: curvature,
+            curveId: 0
+        });
+    }
+    
+    return curveData;
 }
 
 // ========== UI Helpers ==========
@@ -1454,11 +1696,16 @@ canvas.addEventListener('mouseup', e => {
     }
     
     if (interactionType === 'POTENTIAL_PAN' && !vineyardMode) {
-        saveState();
-        const mousePos = screenToWorld(e.clientX, e.clientY);
-        insertPointSmart(mousePos);
-        updateStatus();
-        triggerComputation(true);
+        // In fixed curve mode, don't add points - user needs to clear first
+        if (fixedCurveMode) {
+            updateStatus('Fixed curve mode - Clear to draw new curves');
+        } else {
+            saveState();
+            const mousePos = screenToWorld(e.clientX, e.clientY);
+            insertPointSmart(mousePos);
+            updateStatus();
+            triggerComputation(true);
+        }
     }
 
     isInteractionActive = false;
@@ -1533,6 +1780,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     vineyardCenter = null;
     vineyardData = null;
     vineyardCenters = [];
+    fixedCurveMode = false; // Reset fixed curve mode
     stopVineyardAnim();
     document.getElementById('vineyardPanel').classList.remove('active');
     document.getElementById('persistencePanel').classList.remove('active');
@@ -2130,6 +2378,12 @@ function findHitVineyardCenter(sx, sy) {
 // ========== Computation ==========
 let computeTimer = null;
 function triggerComputation(fullCompute = true) {
+    // In fixed curve mode, don't recompute the curve
+    if (fixedCurveMode) {
+        draw();
+        return;
+    }
+    
     // Check if any curve has at least 3 points
     const hasValidCurve = curves.some(c => c.length >= 3);
     if (!hasValidCurve) { draw(); return; }

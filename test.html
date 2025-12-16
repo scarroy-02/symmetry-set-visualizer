@@ -363,12 +363,12 @@
             <div style="display: flex; gap: 8px;">
                 <div class="slider-group" style="flex: 1; margin-bottom: 8px;">
                     <label>Start R</label>
-                    <input type="range" id="radiusStart" min="0.1" max="10" step="0.1" value="0.5">
+                    <input type="range" id="radiusStart" min="0.01" max="10" step="0.01" value="0.5">
                     <div class="val-display" id="radiusStartVal">0.5</div>
                 </div>
                 <div class="slider-group" style="flex: 1; margin-bottom: 8px;">
                     <label>End R</label>
-                    <input type="range" id="radiusEnd" min="0.1" max="10" step="0.1" value="5">
+                    <input type="range" id="radiusEnd" min="0.01" max="10" step="0.01" value="5">
                     <div class="val-display" id="radiusEndVal">5.0</div>
                 </div>
             </div>
@@ -867,6 +867,65 @@ function computePersistence(center, curveData) {
     return { h0: h0Pairs, h1: h1Pairs };
 }
 
+function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
+    // Generate circle of centers
+    const centers = [];
+    for (let i = 0; i < numSamples; i++) {
+        const theta = (i / numSamples) * Math.PI * 2;
+        centers.push(new Point(
+            centerPoint.x + radius * Math.cos(theta),
+            centerPoint.y + radius * Math.sin(theta)
+        ));
+    }
+    
+    // Compute max possible distance for infinity representation
+    let maxDist = 0;
+    for (const center of centers) {
+        for (const d of curveData) {
+            const dx = d.p.x - center.x;
+            const dy = d.p.y - center.y;
+            const dist = (dx*dx + dy*dy);
+            if (dist > maxDist) maxDist = dist;
+        }
+    }
+    
+    const infinityY = maxDist * 1.15;
+    
+    // Compute persistence for each center
+    const h0 = [];
+    const h1 = [];
+    
+    for (let i = 0; i < centers.length; i++) {
+        const center = centers[i];
+        const pers = computePersistence(center, curveData);
+        
+        for (const [b, d] of pers.h0) {
+            h0.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity
+            });
+        }
+        for (const [b, d] of pers.h1) {
+            h1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity
+            });
+        }
+    }
+    
+    return {
+        h0: h0,
+        h1: h1,
+        centers: centers,
+        infinityY: infinityY,
+        radius: radius
+    };
+}
+
 function computeVineyard() {
     if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
         updateStatus('Need curve and center point!');
@@ -875,54 +934,15 @@ function computeVineyard() {
     
     updateStatus('Computing vineyard...');
     
-    // Generate circle of centers
-    vineyardCenters = [];
-    for (let i = 0; i < vineyardSamples; i++) {
-        const theta = (i / vineyardSamples) * Math.PI * 2;
-        vineyardCenters.push(new Point(
-            vineyardCenter.x + vineyardRadius * Math.cos(theta),
-            vineyardCenter.y + vineyardRadius * Math.sin(theta)
-        ));
-    }
+    const result = computeVineyardForRadius(vineyardCenter, vineyardRadius, vineyardSamples, cachedCurveData);
     
-    // Compute max possible distance for infinity representation
-    let globalMaxDist = 0;
-    for (const center of vineyardCenters) {
-        for (const d of cachedCurveData) {
-            const dx = d.p.x - center.x;
-            const dy = d.p.y - center.y;
-            const dist = (dx*dx + dy*dy);
-            if (dist > globalMaxDist) globalMaxDist = dist;
-        }
-    }
-    
-    const infinityY = globalMaxDist * 1.15;
-    vineyardMaxVal = infinityY; // Store globally for consistent ranges
-    
-    // Compute persistence for each center
-    vineyardData = { h0: [], h1: [], infinityY: infinityY };
-    
-    for (let i = 0; i < vineyardCenters.length; i++) {
-        const center = vineyardCenters[i];
-        const pers = computePersistence(center, cachedCurveData);
-        
-        for (const [b, d] of pers.h0) {
-            vineyardData.h0.push({
-                birth: b,
-                death: d === Infinity ? infinityY : d,
-                centerIdx: i,
-                isInfinite: d === Infinity
-            });
-        }
-        for (const [b, d] of pers.h1) {
-            vineyardData.h1.push({
-                birth: b,
-                death: d === Infinity ? infinityY : d,
-                centerIdx: i,
-                isInfinite: d === Infinity
-            });
-        }
-    }
+    vineyardCenters = result.centers;
+    vineyardData = {
+        h0: result.h0,
+        h1: result.h1,
+        infinityY: result.infinityY
+    };
+    vineyardMaxVal = result.infinityY;
     
     updateStatus(`Vineyard computed! ${vineyardData.h0.length + vineyardData.h1.length} points`);
     
@@ -1733,75 +1753,26 @@ function computeRadiusSweep() {
         radii.push(radiusStart + (radiusEnd - radiusStart) * (i / radiusSteps));
     }
     
-    // Compute max possible distance for infinity representation
-    let globalMaxDist = 0;
-    for (const r of radii) {
-        for (let j = 0; j < vineyardSamples; j++) {
-            const theta = (j / vineyardSamples) * Math.PI * 2;
-            const cx = vineyardCenter.x + r * Math.cos(theta);
-            const cy = vineyardCenter.y + r * Math.sin(theta);
-            for (const d of cachedCurveData) {
-                const dx = d.p.x - cx;
-                const dy = d.p.y - cy;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist > globalMaxDist) globalMaxDist = dist;
-            }
-        }
-    }
-    
-    const infinityY = globalMaxDist * 1.15;
-    
-    // Compute full vineyard for each radius
+    // Compute vineyard for each radius using the same function as single vineyard
     radiusSweepData = {
         radii: radii,
-        vineyards: [], // Array of { h0: [], h1: [], centers: [] } for each radius
-        infinityY: infinityY
+        vineyards: [],
+        infinityY: 0
     };
+    
+    let globalInfinityY = 0;
     
     for (let rIdx = 0; rIdx < radii.length; rIdx++) {
         const r = radii[rIdx];
         
-        // Generate centers for this radius
-        const centers = [];
-        for (let i = 0; i < vineyardSamples; i++) {
-            const theta = (i / vineyardSamples) * Math.PI * 2;
-            centers.push(new Point(
-                vineyardCenter.x + r * Math.cos(theta),
-                vineyardCenter.y + r * Math.sin(theta)
-            ));
+        // Use the exact same function as regular vineyard computation
+        const vineyard = computeVineyardForRadius(vineyardCenter, r, vineyardSamples, cachedCurveData);
+        
+        radiusSweepData.vineyards.push(vineyard);
+        
+        if (vineyard.infinityY > globalInfinityY) {
+            globalInfinityY = vineyard.infinityY;
         }
-        
-        // Compute full vineyard for this radius
-        const vineyardH0 = [];
-        const vineyardH1 = [];
-        
-        for (let cIdx = 0; cIdx < centers.length; cIdx++) {
-            const pers = computePersistence(centers[cIdx], cachedCurveData);
-            
-            for (const [b, d] of pers.h0) {
-                vineyardH0.push({
-                    birth: b,
-                    death: d === Infinity ? infinityY : d,
-                    centerIdx: cIdx,
-                    isInfinite: d === Infinity
-                });
-            }
-            for (const [b, d] of pers.h1) {
-                vineyardH1.push({
-                    birth: b,
-                    death: d === Infinity ? infinityY : d,
-                    centerIdx: cIdx,
-                    isInfinite: d === Infinity
-                });
-            }
-        }
-        
-        radiusSweepData.vineyards.push({
-            h0: vineyardH0,
-            h1: vineyardH1,
-            centers: centers,
-            radius: r
-        });
         
         // Progress update
         if (rIdx % 5 === 0) {
@@ -1809,7 +1780,8 @@ function computeRadiusSweep() {
         }
     }
     
-    vineyardMaxVal = infinityY;
+    radiusSweepData.infinityY = globalInfinityY;
+    vineyardMaxVal = globalInfinityY;
     
     updateStatus(`Radius sweep done! ${radii.length} vineyards computed`);
     
@@ -1840,6 +1812,14 @@ function updateRadiusSweepDisplay() {
     // Update vineyard centers for display
     vineyardCenters = currentVineyard.centers;
     
+    // Also update vineyardData so regular controls work
+    vineyardData = {
+        h0: currentVineyard.h0,
+        h1: currentVineyard.h1,
+        infinityY: currentVineyard.infinityY
+    };
+    vineyardMaxVal = currentVineyard.infinityY;
+    
     // Update plots with current vineyard
     updateRadiusSweepVineyardPlot();
     updateRadiusSweepPersistenceDiagram();
@@ -1850,7 +1830,7 @@ function updateRadiusSweepVineyardPlot() {
     
     const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
     const r = currentVineyard.radius;
-    const maxVal = radiusSweepData.infinityY;
+    const maxVal = currentVineyard.infinityY;
     
     const h0 = currentVineyard.h0;
     const h1 = currentVineyard.h1;
@@ -1955,7 +1935,7 @@ function updateRadiusSweepPersistenceDiagram() {
     
     const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
     const r = currentVineyard.radius;
-    const maxVal = radiusSweepData.infinityY;
+    const maxVal = currentVineyard.infinityY;
     
     // Aggregate all points for this vineyard into one PD
     const h0 = currentVineyard.h0;
@@ -1992,7 +1972,7 @@ function updateRadiusSweepPersistenceDiagram() {
     
     const infinityLine = {
         x: [0, maxVal],
-        y: [radiusSweepData.infinityY, radiusSweepData.infinityY],
+        y: [currentVineyard.infinityY, currentVineyard.infinityY],
         mode: 'lines',
         type: 'scatter',
         name: '∞',
@@ -2051,7 +2031,7 @@ function updateRadiusSweepPersistenceDiagram() {
         },
         annotations: [{
             x: maxVal * 0.02,
-            y: radiusSweepData.infinityY,
+            y: currentVineyard.infinityY,
             xref: 'x',
             yref: 'y',
             text: '∞',

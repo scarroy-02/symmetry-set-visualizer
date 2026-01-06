@@ -11,140 +11,174 @@
         
         :root {
             --bg-dark: #0a0a0f;
-            --panel-bg: rgba(15, 15, 25, 0.95);
+            --panel-bg: rgba(15, 15, 25, 0.98);
             --accent-blue: #4f8cff;
             --accent-green: #22c55e;
             --accent-red: #ef4444;
             --accent-purple: #a855f7;
             --accent-amber: #f59e0b;
-            --border-glow: rgba(79, 140, 255, 0.3);
         }
         
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
-            margin: 0; 
             overflow: hidden; 
             background: var(--bg-dark); 
             color: #e0e0e0; 
             font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+        }
+        
+        /* Main Layout */
+        .app-container {
+            display: grid;
+            grid-template-rows: 40px 1fr 24px;
+            grid-template-columns: 240px 1fr 200px;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        /* Top Toolbar */
+        .toolbar {
+            grid-column: 1 / -1;
+            background: var(--panel-bg);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            gap: 2px;
+        }
+        
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px;
+            height: 100%;
+            border-right: 1px solid rgba(255,255,255,0.08);
+        }
+        .toolbar-section:last-child { border-right: none; }
+        
+        .toolbar-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.4);
+            white-space: nowrap;
+        }
+        
+        /* Bottom Status Bar */
+        .statusbar {
+            grid-column: 1 / -1;
+            background: rgba(0,0,0,0.4);
+            border-top: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--accent-amber);
+        }
+        
+        .statusbar .legend {
+            margin-left: auto;
+            display: flex;
+            gap: 12px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.5); font-size: 9px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
+        
+        /* Left Sidebar */
+        .sidebar-left {
+            background: var(--panel-bg);
+            border-right: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Right Sidebar */
+        .sidebar-right {
+            background: var(--panel-bg);
+            border-left: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Canvas Container */
+        .canvas-container {
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-dark);
         }
         
         canvas#mainCanvas { 
-            position: absolute;
-            top: 0; left: 0;
-            width: 100vw; 
-            height: 100vh; 
+            width: 100%; 
+            height: 100%; 
             cursor: crosshair; 
+            display: block;
         }
         
-        .panel {
-            position: absolute;
-            background: var(--panel-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
-            padding: 16px;
-            z-index: 10;
-            max-height: 90vh;
-            overflow-y: auto;
+        /* Collapsible Sections */
+        .section {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
         
-        .panel::-webkit-scrollbar { width: 4px; }
-        .panel::-webkit-scrollbar-track { background: transparent; }
-        .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            cursor: pointer;
+            user-select: none;
+            background: rgba(255,255,255,0.02);
+            transition: background 0.15s;
+        }
+        .section-header:hover { background: rgba(255,255,255,0.05); }
         
-        .panel-left { top: 16px; left: 16px; width: 280px; }
-        .panel-right { top: 16px; right: 16px; width: 240px; }
-        .panel-vineyard { 
-            bottom: 16px; 
-            right: 16px; 
-            width: 420px; 
-            height: 380px;
-            display: none;
-            transition: all 0.3s ease;
-        }
-        .panel-vineyard.active { display: block; }
-        .panel-vineyard.expanded {
-            width: 800px;
-            height: 680px;
-        }
-        
-        .panel-persistence {
-            bottom: 16px;
-            left: 16px;
-            width: 380px;
-            height: 420px;
-            display: none;
-            transition: all 0.3s ease;
-        }
-        .panel-persistence.active { display: block; }
-        .panel-persistence.expanded {
-            width: 600px;
-            height: 620px;
-        }
-        
-        h2 { 
+        .section-title {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem; 
-            text-transform: uppercase; 
-            letter-spacing: 0.15em;
-            color: var(--accent-blue);
-            margin: 0 0 12px 0;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(79,140,255,0.2);
-        }
-        
-        h3 {
-            font-size: 0.65rem;
+            font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: rgba(255,255,255,0.5);
-            margin: 16px 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
-        label { 
-            display: block; 
-            font-size: 0.75rem; 
-            margin-bottom: 4px; 
-            color: rgba(255,255,255,0.7);
+        .section-icon { width: 6px; height: 6px; border-radius: 50%; }
+        
+        .section-toggle {
+            font-size: 8px;
+            color: rgba(255,255,255,0.3);
+            transition: transform 0.2s;
+        }
+        .section.collapsed .section-toggle { transform: rotate(-90deg); }
+        .section.collapsed .section-content { display: none; }
+        
+        .section-content {
+            padding: 6px 10px 8px;
+            overflow: hidden;
         }
         
-        input[type="range"] { 
-            width: 100%; 
-            cursor: pointer; 
-            accent-color: var(--accent-blue);
-            height: 4px;
-        }
-        
-        .val-display {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.65rem;
-            color: var(--accent-blue);
-            text-align: right;
-        }
-        
+        /* Compact Form Elements */
         .btn {
-            width: 100%;
-            padding: 10px 12px;
-            font-size: 0.8rem;
+            padding: 4px 8px;
+            font-size: 10px;
             font-weight: 600;
             border: none;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
             font-family: inherit;
+            white-space: nowrap;
         }
         
         .btn-primary { 
             background: linear-gradient(135deg, var(--accent-blue), #3b7aeb);
             color: white;
-            box-shadow: 0 2px 8px rgba(79,140,255,0.3);
         }
-        .btn-primary:hover { 
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(79,140,255,0.4);
-        }
+        .btn-primary:hover { filter: brightness(1.1); }
         
         .btn-secondary {
             background: rgba(255,255,255,0.08);
@@ -153,321 +187,388 @@
         }
         .btn-secondary:hover { background: rgba(255,255,255,0.12); }
         
-        .btn-vineyard {
-            background: linear-gradient(135deg, var(--accent-purple), #8b5cf6);
-            color: white;
-            box-shadow: 0 2px 8px rgba(168,85,247,0.3);
-        }
-        .btn-vineyard:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(168,85,247,0.4);
-        }
+        .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .btn-purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); color: white; }
+        .btn-purple.active { background: linear-gradient(135deg, #dc2626, #ef4444); }
         
-        .btn-vineyard.active {
-            background: linear-gradient(135deg, #dc2626, #ef4444);
-            box-shadow: 0 2px 8px rgba(239,68,68,0.3);
-        }
+        .btn-group { display: flex; gap: 3px; }
+        .btn-group .btn { flex: 1; }
         
-        .btn-group { display: flex; gap: 6px; margin-bottom: 10px; }
-        .btn-group .btn { flex: 1; padding: 8px; }
+        .btn-icon {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         
         select {
-            width: 100%;
             background: rgba(255,255,255,0.08);
             color: white;
-            padding: 8px 10px;
-            border-radius: 6px;
-            font-size: 0.8rem;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 10px;
             border: 1px solid rgba(255,255,255,0.1);
             cursor: pointer;
             font-family: inherit;
         }
         select:focus { outline: none; border-color: var(--accent-blue); }
         
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 3px 0;
+        }
+        .slider-row label {
+            font-size: 9px;
+            color: rgba(255,255,255,0.5);
+            min-width: 42px;
+            flex-shrink: 0;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            min-width: 60px;
+            height: 3px;
+            cursor: pointer;
+            accent-color: var(--accent-blue);
+        }
+        .slider-row .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--accent-blue);
+            min-width: 26px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+        
+        /* Toggle Rows */
         .toggle-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 6px 0;
+            padding: 2px 0;
         }
-        .toggle-row span { font-size: 0.8rem; color: rgba(255,255,255,0.8); }
+        .toggle-row span { font-size: 10px; color: rgba(255,255,255,0.7); }
         
         input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
+            width: 12px;
+            height: 12px;
             cursor: pointer;
             accent-color: var(--accent-blue);
         }
         
-        .status {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            padding: 8px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px;
-            margin-bottom: 12px;
-            color: var(--accent-amber);
-            min-height: 2em;
-        }
-        
-        .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            font-size: 0.7rem;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            margin-top: 12px;
-        }
-        .legend-item { display: flex; align-items: center; gap: 4px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; }
-        
-        .slider-group { margin-bottom: 12px; }
-        
-        .mode-indicator {
-            display: inline-block;
-            padding: 3px 8px;
-            font-size: 0.65rem;
-            border-radius: 4px;
+        /* Mode Badge */
+        .mode-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            font-size: 9px;
+            border-radius: 3px;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            font-weight: 700;
         }
-        .mode-draw { background: var(--accent-blue); color: white; }
-        .mode-vineyard { background: var(--accent-purple); color: white; }
+        .mode-draw { background: var(--accent-blue); }
+        .mode-vineyard { background: var(--accent-purple); }
         
-        #vineyardPlot { width: 100%; height: 310px; transition: height 0.3s; }
-        .panel-vineyard.expanded #vineyardPlot { height: 600px; }
-        #persistencePlot { width: 100%; height: 350px; transition: height 0.3s; }
-        .panel-persistence.expanded #persistencePlot { height: 540px; }
-        
-        .vineyard-controls {
-            background: rgba(168,85,247,0.1);
-            border: 1px solid rgba(168,85,247,0.2);
+        /* Floating Plot Panels */
+        .float-panel {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 8px;
-            padding: 12px;
-            margin-top: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            z-index: 100;
+            display: none;
         }
+        .float-panel.active { display: flex; flex-direction: column; }
         
-        .vineyard-controls h3 {
-            color: var(--accent-purple);
-            margin-top: 0;
-        }
-        
-        .anim-controls {
+        .float-panel-header {
             display: flex;
-            gap: 6px;
-            margin-top: 8px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            cursor: move;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px 8px 0 0;
         }
-        .anim-controls .btn { flex: 1; }
         
-        .instructions {
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.5);
-            line-height: 1.6;
+        .float-panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
-        .instructions div { margin-bottom: 4px; }
-        .instructions .key { color: var(--accent-blue); }
+        
+        .float-panel-content { flex: 1; padding: 4px; overflow: hidden; }
+        
+        #vineyardPanel {
+            right: 210px;
+            bottom: 36px;
+            width: 360px;
+            height: 300px;
+        }
+        #vineyardPanel.expanded { width: 600px; height: 480px; }
+        
+        #persistencePanel {
+            left: 250px;
+            bottom: 36px;
+            width: 320px;
+            height: 320px;
+        }
+        #persistencePanel.expanded { width: 480px; height: 460px; }
+        
+        #vineyardPlot, #persistencePlot { width: 100%; height: 100%; }
+        
+        /* Animation Row */
+        .anim-row {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin: 4px 0;
+        }
+        .anim-row input[type="range"] { 
+            flex: 1;
+            min-width: 50px;
+        }
+        
+        /* Quick Keys */
+        .quick-keys {
+            padding: 6px 10px;
+            font-size: 9px;
+            color: rgba(255,255,255,0.35);
+            line-height: 1.5;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            margin-top: auto;
+        }
+        .quick-keys kbd {
+            background: rgba(255,255,255,0.1);
+            padding: 0px 3px;
+            border-radius: 2px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+        }
+        
+        /* Curve Count Badge */
+        .curve-badge {
+            background: rgba(0,0,0,0.3);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-family: 'JetBrains Mono', monospace;
+        }
     </style>
 </head>
 <body>
 
-<canvas id="mainCanvas"></canvas>
-
-<!-- Left Panel: Main Controls -->
-<div class="panel panel-left">
-    <h2>Symmetry + Vineyard</h2>
-    
-    <div class="status" id="status">Click to add points...</div>
-    
-    <div style="margin-bottom: 12px;">
-        <label>Mode: <span class="mode-indicator" id="modeIndicator">Draw</span></label>
+<div class="app-container">
+    <!-- Top Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-section">
+            <span class="mode-badge mode-draw" id="modeIndicator">Draw</span>
+        </div>
+        
+        <div class="toolbar-section">
+            <span class="toolbar-label">Preset</span>
+            <select id="presetSelect" style="width: 90px;">
+                <option value="" disabled selected>Select...</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="astroid">Astroid</option>
+                <option value="bean">Kidney Bean</option>
+                <option value="cardioid">Cardioid</option>
+                <option value="offsetSpiral">Offset Spiral</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-green" id="newCurveBtn" style="display: flex; align-items: center; gap: 4px;">
+                + Curve <span class="curve-badge" id="curveCountBadge">1</span>
+            </button>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-secondary btn-icon" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+            <button class="btn btn-secondary" id="clearBtn">Clear</button>
+            <button class="btn btn-secondary btn-icon" id="resetViewBtn" title="Reset View">⊙</button>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-primary" id="computeBtn">Compute SS</button>
+            <span class="toolbar-label">Res</span>
+            <input type="range" id="resolution" min="500" max="40000" step="500" value="5000" style="width: 50px; height: 3px;">
+            <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
+        </div>
+        
     </div>
     
-    <div style="margin-bottom: 12px;">
-        <label>Load Preset</label>
-        <select id="presetSelect">
-            <option value="" disabled selected>Select shape...</option>
-            <option value="ellipse">Ellipse</option>
-            <option value="astroid">Astroid</option>
-            <option value="bean">Kidney Bean</option>
-            <option value="cardioid">Cardioid</option>
-            <option value="offsetSpiral">Offset Spiral</option>
-        </select>
-    </div>
-    
-    <!-- Curve Management -->
-    <button id="newCurveBtn" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-        <span>+ New Curve</span>
-        <span id="curveCountBadge" style="background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;">1</span>
-    </button>
-    
-    <div class="btn-group">
-        <button class="btn btn-secondary" id="undoBtn">Undo</button>
-        <button class="btn btn-secondary" id="clearBtn">Clear</button>
-    </div>
-    
-    <div class="slider-group">
-        <label>Resolution</label>
-        <input type="range" id="resolution" min="500" max="40000" step="500" value="5000">
-        <div class="val-display" id="resVal">5000</div>
-    </div>
-    
-    <button class="btn btn-primary" id="computeBtn" style="margin-bottom: 12px;">Compute Symmetry Set</button>
-    
-    <!-- Focal Animation Section -->
-    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-        <h3 style="color: var(--accent-green); margin-top: 0;">◉ Focal Animation</h3>
-        <div class="anim-controls">
-            <button class="btn btn-secondary" id="focalPlayBtn" style="background: linear-gradient(135deg, #22c55e, #16a34a);">▶ Play</button>
-            <button class="btn btn-secondary" id="focalStopBtn">◼ Stop</button>
-        </div>
-        <div class="slider-group" style="margin-top: 8px;">
-            <label>Position</label>
-            <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
-        </div>
-    </div>
-    
-    <!-- Vineyard Section -->
-    <div class="vineyard-controls">
-        <h3>⬡ Vineyard Mode</h3>
-        <button class="btn btn-vineyard" id="vineyardModeBtn">Place Center Point</button>
-        
-        <div class="slider-group" style="margin-top: 12px;">
-            <label>Circle Radius</label>
-            <input type="range" id="vineyardRadius" min="0.001" max="10" step="0.01" value="1">
-            <div class="val-display" id="radiusVal">1.0</div>
+    <!-- Left Sidebar -->
+    <div class="sidebar-left">
+        <!-- Focal Animation -->
+        <div class="section" id="focalSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-green);"></span>
+                    Focal Animation
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="anim-row">
+                    <button class="btn btn-green" id="focalPlayBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="focalStopBtn">◼</button>
+                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
+                </div>
+            </div>
         </div>
         
-        <div class="slider-group">
-            <label>Sample Points (per circle)</label>
-            <input type="range" id="vineyardSamples" min="8" max="300" step="4" value="64">
-            <div class="val-display" id="samplesVal">64</div>
+        <!-- Vineyard -->
+        <div class="section" id="vineyardSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-purple);"></span>
+                    Vineyard
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">⬡ Place Center</button>
+                <div class="slider-row">
+                    <label>Radius</label>
+                    <input type="range" id="vineyardRadius" min="0.001" max="10" step="0.01" value="1" style="accent-color: #a855f7;">
+                    <span class="val" id="radiusVal">1.0</span>
+                </div>
+                <div class="slider-row">
+                    <label>Samples</label>
+                    <input type="range" id="vineyardSamples" min="8" max="300" step="4" value="64" style="accent-color: #a855f7;">
+                    <span class="val" id="samplesVal">64</span>
+                </div>
+                <button class="btn btn-primary" id="computeVineyardBtn" style="width: 100%; margin: 5px 0;">Compute Vineyard</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playVineyardBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopVineyardBtn">◼</button>
+                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
+                </div>
+            </div>
         </div>
         
-        <button class="btn btn-primary" id="computeVineyardBtn" style="margin-top: 8px;">Compute Vineyard</button>
-        
-        <div class="anim-controls">
-            <button class="btn btn-secondary" id="playVineyardBtn">▶ Play</button>
-            <button class="btn btn-secondary" id="stopVineyardBtn">◼ Stop</button>
-        </div>
-        
-        <div class="slider-group" style="margin-top: 8px;">
-            <label>Animation Position</label>
-            <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0">
-        </div>
-        
-        <!-- Radius Sweep Section -->
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(168,85,247,0.3);">
-            <h3 style="color: #c084fc; margin-top: 0;">◎ Radius Sweep</h3>
-            
-            <div style="display: flex; gap: 8px;">
-                <div class="slider-group" style="flex: 1; margin-bottom: 8px;">
+        <!-- Radius Sweep -->
+        <div class="section" id="sweepSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: #c084fc;"></span>
+                    Radius Sweep
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row">
                     <label>Start R</label>
-                    <input type="range" id="radiusStart" min="0.01" max="10" step="0.01" value="0.5">
-                    <div class="val-display" id="radiusStartVal">0.5</div>
+                    <input type="range" id="radiusStart" min="0.01" max="10" step="0.01" value="0.5" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusStartVal">0.5</span>
                 </div>
-                <div class="slider-group" style="flex: 1; margin-bottom: 8px;">
+                <div class="slider-row">
                     <label>End R</label>
-                    <input type="range" id="radiusEnd" min="0.01" max="10" step="0.01" value="5">
-                    <div class="val-display" id="radiusEndVal">5.0</div>
+                    <input type="range" id="radiusEnd" min="0.01" max="10" step="0.01" value="5" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusEndVal">5.0</span>
+                </div>
+                <div class="slider-row">
+                    <label>Steps</label>
+                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusStepsVal">30</span>
+                </div>
+                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #c084fc, #a855f7); color: white;">Compute Sweep</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playRadiusSweepBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopRadiusSweepBtn">◼</button>
+                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
+                </div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #c084fc; margin-top: 2px;" id="currentSweepRadius">R: --</div>
+            </div>
+        </div>
+        
+        <!-- Quick Keys -->
+        <div class="quick-keys">
+            <kbd>Click</kbd> Add · <kbd>Drag</kbd> Move · <kbd>Right-drag</kbd> Pan<br>
+            <kbd>Scroll</kbd> Zoom · <kbd>Del</kbd> Delete · <kbd>Ctrl+Z</kbd> Undo
+        </div>
+    </div>
+    
+    <!-- Canvas -->
+    <div class="canvas-container">
+        <canvas id="mainCanvas"></canvas>
+        
+        <!-- Floating Vineyard Plot -->
+        <div class="float-panel" id="vineyardPanel">
+            <div class="float-panel-header">
+                <span class="float-panel-title" style="color: var(--accent-purple);">Vineyard 3D</span>
+                <div style="display: flex; gap: 3px;">
+                    <button class="btn btn-secondary" id="expandVineyardBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
+                    <button class="btn btn-secondary" id="closeVineyardBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
                 </div>
             </div>
-            
-            <div class="slider-group">
-                <label>Radius Steps</label>
-                <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30">
-                <div class="val-display" id="radiusStepsVal">30</div>
+            <div class="float-panel-content">
+                <div id="vineyardPlot"></div>
             </div>
-            
-            <button class="btn" id="computeRadiusSweepBtn" style="background: linear-gradient(135deg, #c084fc, #a855f7); margin-top: 8px;">Compute Radius Sweep</button>
-            
-            <div class="anim-controls" style="margin-top: 8px;">
-                <button class="btn btn-secondary" id="playRadiusSweepBtn">▶ Play Sweep</button>
-                <button class="btn btn-secondary" id="stopRadiusSweepBtn">◼ Stop</button>
+        </div>
+        
+        <!-- Floating Persistence Diagram -->
+        <div class="float-panel" id="persistencePanel">
+            <div class="float-panel-header">
+                <span class="float-panel-title" style="color: var(--accent-red);">Persistence Diagram</span>
+                <div style="display: flex; gap: 3px;">
+                    <button class="btn btn-secondary" id="expandPDBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
+                    <button class="btn btn-secondary" id="closePDBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
+                </div>
             </div>
-            
-            <div class="slider-group" style="margin-top: 8px;">
-                <label>Sweep Position</label>
-                <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
-                <div class="val-display" id="currentSweepRadius">R: --</div>
+            <div class="float-panel-content">
+                <div id="persistencePlot"></div>
             </div>
         </div>
     </div>
     
-    <button class="btn btn-secondary" id="resetViewBtn" style="margin-top: 12px;">Reset View</button>
-    
-    <div class="legend">
-        <div class="legend-item"><span class="dot" style="background: var(--accent-blue);"></span> Curve</div>
-        <div class="legend-item"><span class="dot" style="background: var(--accent-green);"></span> Focal</div>
-        <div class="legend-item"><span class="dot" style="background: var(--accent-red);"></span> Symmetry</div>
-        <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
-    </div>
-</div>
-
-<!-- Right Panel: Visibility & Instructions -->
-<div class="panel panel-right">
-    <h2>Display</h2>
-    
-    <div class="toggle-row">
-        <span>Curve</span>
-        <input type="checkbox" id="showCurve" checked>
-    </div>
-    <div class="toggle-row">
-        <span>Control Points</span>
-        <input type="checkbox" id="showControls" checked>
-    </div>
-    <div class="toggle-row">
-        <span>Focal Set</span>
-        <input type="checkbox" id="showFocal" checked>
-    </div>
-    <div class="toggle-row">
-        <span>Symmetry Set</span>
-        <input type="checkbox" id="showSS" checked>
-    </div>
-    <div class="toggle-row">
-        <span>Vineyard Circle</span>
-        <input type="checkbox" id="showVineyardCircle" checked>
-    </div>
-    <div class="toggle-row">
-        <span>Vineyard 3D Plot</span>
-        <input type="checkbox" id="showVineyardPlot" checked>
-    </div>
-    <div class="toggle-row">
-        <span>Persistence Diagram</span>
-        <input type="checkbox" id="showPD" checked>
-    </div>
-    
-    <h3>Instructions</h3>
-    <div class="instructions">
-        <div><span class="key">Left Click</span> Add/Select Point</div>
-        <div><span class="key">Drag Point</span> Move Point</div>
-        <div><span class="key">Right Drag</span> Pan View</div>
-        <div><span class="key">Scroll</span> Zoom</div>
-        <div><span class="key">Del</span> Delete Point</div>
-        <div><span class="key">Ctrl+Z</span> Undo</div>
-        <div style="margin-top: 8px; color: var(--accent-purple);">
-            <span class="key">Vineyard Mode</span> Click to place center, then compute
+    <!-- Right Sidebar -->
+    <div class="sidebar-right">
+        <!-- Display Toggles -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Display</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Curve</span><input type="checkbox" id="showCurve" checked></div>
+                <div class="toggle-row"><span>Control Points</span><input type="checkbox" id="showControls" checked></div>
+                <div class="toggle-row"><span>Focal Set</span><input type="checkbox" id="showFocal" checked></div>
+                <div class="toggle-row"><span>Symmetry Set</span><input type="checkbox" id="showSS" checked></div>
+                <div class="toggle-row"><span>Vineyard Circle</span><input type="checkbox" id="showVineyardCircle" checked></div>
+            </div>
+        </div>
+        
+        <!-- Plot Windows -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Plot Windows</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
+                <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
+            </div>
         </div>
     </div>
-</div>
-
-<!-- Vineyard 3D Plot Panel -->
-<div class="panel panel-vineyard" id="vineyardPanel">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <h2 style="margin: 0; border: none; padding: 0;">Vineyard Plot</h2>
-        <button id="expandVineyardBtn" class="btn btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.7rem;">⤢ Expand</button>
+    
+    <!-- Bottom Status Bar -->
+    <div class="statusbar">
+        <span id="status">Click to add points or load a preset</span>
+        <div class="legend">
+            <div class="legend-item"><span class="dot" style="background: var(--accent-blue);"></span> Curve</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-green);"></span> Focal</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-red);"></span> SS</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
+        </div>
     </div>
-    <div id="vineyardPlot"></div>
-</div>
-
-<!-- Persistence Diagram Panel -->
-<div class="panel panel-persistence" id="persistencePanel">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <h2 style="margin: 0; border: none; padding: 0;">Persistence Diagram</h2>
-        <button id="expandPDBtn" class="btn btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.7rem;">⤢ Expand</button>
-    </div>
-    <div id="persistencePlot"></div>
 </div>
 
 <script>
@@ -531,7 +632,6 @@ const SAMPLING_DENSITY = 30000;
 const LAMBDA_MAX = 5000.0;
 const R_MAX = 100000.0;
 
-// Multi-curve support
 let curves = [[]];
 let activeCurveIdx = 0;
 
@@ -539,10 +639,9 @@ let cachedCurveData = null;
 let cachedSSData = null;
 let ssResolution = 5000;
 
-// Interaction
-let dragInfo = null;  // { cIdx, pIdx }
-let hoverInfo = null; // { cIdx, pIdx }
-let selectedInfo = null; // { cIdx, pIdx }
+let dragInfo = null;
+let hoverInfo = null;
+let selectedInfo = null;
 let view = { x: 0, y: 0, scale: 50 };
 
 let isInteractionActive = false;
@@ -550,41 +649,53 @@ let interactionType = null;
 let mouseStart = { x: 0, y: 0 };
 let viewStart = { x: 0, y: 0 };
 
-// History
 const MAX_HISTORY = 50;
 let historyStack = [];
 
-// Vineyard State
 let vineyardMode = false;
 let vineyardCenter = null;
 let vineyardRadius = 1.0;
 let vineyardSamples = 64;
 let vineyardCenters = [];
-let vineyardData = null;  // { h0: [], h1: [] }
+let vineyardData = null;
 let vineyardAnimIdx = 0;
 let vineyardAnimPlaying = false;
 let currentPersistence = null;
-let vineyardMaxVal = 1; // Global max value for consistent axis ranges
-let vineyardDragging = false; // For dragging vineyard center during animation
+let vineyardMaxVal = 1;
+let vineyardDragging = false;
 
-// Focal Animation State
 let focalAnimPlaying = false;
 let focalAnimIdx = 0;
 
-// Radius Sweep State
-let radiusSweepData = null;  // { radii: [], allH0: [], allH1: [], infinityY: number }
+let radiusSweepData = null;
 let radiusSweepPlaying = false;
 let radiusSweepIdx = 0;
 let radiusStart = 0.5;
 let radiusEnd = 5.0;
 let radiusSteps = 30;
 
-// Fixed Curve Mode (for presets that should not be interpolated)
 let fixedCurveMode = false;
 
-// Canvas
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
+
+// ========== Collapsible Sections ==========
+document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', () => {
+        header.parentElement.classList.toggle('collapsed');
+    });
+});
+
+// ========== Close buttons for floating panels ==========
+document.getElementById('closeVineyardBtn').addEventListener('click', () => {
+    document.getElementById('vineyardPanel').classList.remove('active');
+    document.getElementById('showVineyardPlot').checked = false;
+});
+
+document.getElementById('closePDBtn').addEventListener('click', () => {
+    document.getElementById('persistencePanel').classList.remove('active');
+    document.getElementById('showPD').checked = false;
+});
 
 // ========== History ==========
 function saveState() {
@@ -604,7 +715,6 @@ function performUndo() {
     activeCurveIdx = state.activeCurveIdx;
     vineyardCenter = state.vineyardCenter;
     
-    // Validate active index
     if (activeCurveIdx >= curves.length) activeCurveIdx = curves.length - 1;
     if (activeCurveIdx < 0) { activeCurveIdx = 0; curves = [[]]; }
     
@@ -673,7 +783,6 @@ function bSplineDeriv2(p0, p1, p2, p3, t) {
 function computeSplineData() {
     const allData = [];
     
-    // Process each curve independently
     for (let cIdx = 0; cIdx < curves.length; cIdx++) {
         const pts = curves[cIdx];
         if (pts.length < 3) continue;
@@ -683,7 +792,6 @@ function computeSplineData() {
         const drawC = [C[n-1], ...C, C[0], C[1]];
 
         const numSegments = pts.length;
-        // Split total density budget among curves
         const budget = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
         const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
 
@@ -723,7 +831,7 @@ function computeSymmetrySet(data, resolutionLimit) {
     const Px = new Float64Array(n), Py = new Float64Array(n);
     const Tx = new Float64Array(n), Ty = new Float64Array(n);
     const Nx = new Float64Array(n), Ny = new Float64Array(n);
-    const Id = new Int32Array(n); // Store curve ID
+    const Id = new Int32Array(n);
     
     for(let k=0; k<n; k++) {
         const idx = activeIndices[k];
@@ -744,7 +852,6 @@ function computeSymmetrySet(data, resolutionLimit) {
         for (let j = i + 1; j < n; j++) {
             const dx = px - Px[j], dy = py - Py[j];
             
-            // If on same curve, check distance. If different curves, no min distance needed.
             if (id1 === Id[j]) {
                 if (dx*dx + dy*dy < minChordSq) continue;
             }
@@ -797,13 +904,9 @@ function computePersistence(center, curveData) {
     if (!curveData || curveData.length === 0) return { h0: [], h1: [] };
     
     const n = curveData.length;
-    
-    // Compute distances from center to each curve point
     const dists = curveData.map(d => ((d.p.x - center.x)**2 + (d.p.y - center.y)**2));
     
-    // Build neighbor structure respecting curve boundaries
-    // First, group points by curveId and track their global indices
-    const curveGroups = new Map(); // curveId -> array of global indices
+    const curveGroups = new Map();
     for (let i = 0; i < n; i++) {
         const cId = curveData[i].curveId || 0;
         if (!curveGroups.has(cId)) {
@@ -812,7 +915,6 @@ function computePersistence(center, curveData) {
         curveGroups.get(cId).push(i);
     }
     
-    // Build neighbor map: for each point, its neighbors within its curve (cyclic)
     const neighbors = new Array(n);
     for (let i = 0; i < n; i++) {
         neighbors[i] = [];
@@ -828,7 +930,6 @@ function computePersistence(center, curveData) {
         }
     }
     
-    // Sort indices by distance
     const sortedIndices = Array.from({length: n}, (_, i) => i)
         .sort((a, b) => dists[a] - dists[b]);
     
@@ -841,7 +942,6 @@ function computePersistence(center, curveData) {
         const currentR = dists[v];
         processed[v] = true;
         
-        // Check neighbors within the same curve
         for (const u of neighbors[v]) {
             if (processed[u]) {
                 const result = uf.union(u, v, currentR);
@@ -856,14 +956,11 @@ function computePersistence(center, curveData) {
         }
     }
     
-    // Add the infinite H0 component (one for each connected component at the end)
-    // Find all unique roots
     const roots = new Set();
     for (let i = 0; i < n; i++) {
         roots.add(uf.find(i));
     }
     
-    // Add infinite H0 for each final component
     for (const root of roots) {
         h0Pairs.push([uf.birth[root], Infinity]);
     }
@@ -872,7 +969,6 @@ function computePersistence(center, curveData) {
 }
 
 function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
-    // Generate circle of centers
     const centers = [];
     for (let i = 0; i < numSamples; i++) {
         const theta = (i / numSamples) * Math.PI * 2;
@@ -882,7 +978,6 @@ function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
         ));
     }
     
-    // Compute max possible distance for infinity representation
     let maxDist = 0;
     for (const center of centers) {
         for (const d of curveData) {
@@ -895,7 +990,6 @@ function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
     
     const infinityY = maxDist * 1.15;
     
-    // Compute persistence for each center
     const h0 = [];
     const h1 = [];
     
@@ -950,11 +1044,9 @@ function computeVineyard() {
     
     updateStatus(`Vineyard computed! ${vineyardData.h0.length + vineyardData.h1.length} points`);
     
-    // Update plots
     updateVineyardPlot();
     updatePersistenceDiagram(0);
     
-    // Show panels
     document.getElementById('vineyardPanel').classList.add('active');
     document.getElementById('persistencePanel').classList.add('active');
     
@@ -997,7 +1089,6 @@ function updateVineyardPlot() {
         }
     };
     
-    // Add current position indicator
     const currentZ = vineyardAnimIdx;
     const currentH0 = h0.filter(d => d.centerIdx === currentZ);
     const currentH1 = h1.filter(d => d.centerIdx === currentZ);
@@ -1017,7 +1108,6 @@ function updateVineyardPlot() {
         }
     };
     
-    // Diagonal plane (birth = death) as mesh
     const diagPoints = {
         x: [0, maxVal, maxVal, 0],
         y: [0, maxVal, maxVal, 0],
@@ -1035,23 +1125,21 @@ function updateVineyardPlot() {
     const layout = {
         scene: {
             xaxis: { 
-                title: { text: 'Birth', font: { size: 11 } },
+                title: { text: 'Birth', font: { size: 10 } },
                 color: '#888', 
                 gridcolor: '#333',
                 range: [0, maxVal],
-                dtick: maxVal / 4,
                 showspikes: false
             },
             yaxis: { 
-                title: { text: 'Death', font: { size: 11 } },
+                title: { text: 'Death', font: { size: 10 } },
                 color: '#888', 
                 gridcolor: '#333',
                 range: [0, maxVal],
-                dtick: maxVal / 4,
                 showspikes: false
             },
             zaxis: { 
-                title: { text: 'Center Index', font: { size: 11 } },
+                title: { text: 'Idx', font: { size: 10 } },
                 color: '#888', 
                 gridcolor: '#333',
                 range: [0, vineyardSamples - 1],
@@ -1064,10 +1152,10 @@ function updateVineyardPlot() {
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        margin: { l: 0, r: 0, t: 10, b: 0 },
+        margin: { l: 0, r: 0, t: 5, b: 0 },
         legend: {
             x: 0, y: 1,
-            font: { color: '#ccc', size: 10 },
+            font: { color: '#ccc', size: 9 },
             bgcolor: 'rgba(0,0,0,0.5)'
         },
         showlegend: true
@@ -1087,7 +1175,6 @@ function updatePersistenceDiagram(centerIdx) {
     
     currentPersistence = { h0, h1 };
     
-    // Use global max value for consistent scale across all centers
     const maxVal = vineyardMaxVal;
     
     const traceH0 = {
@@ -1096,7 +1183,7 @@ function updatePersistenceDiagram(centerIdx) {
         mode: 'markers',
         type: 'scatter',
         name: 'H₀',
-        marker: { size: 10, color: '#ef4444', symbol: 'circle' }
+        marker: { size: 8, color: '#ef4444', symbol: 'circle' }
     };
     
     const traceH1 = {
@@ -1105,7 +1192,7 @@ function updatePersistenceDiagram(centerIdx) {
         mode: 'markers',
         type: 'scatter',
         name: 'H₁',
-        marker: { size: 10, color: '#3b82f6', symbol: 'triangle-up' }
+        marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
     };
     
     const diagonal = {
@@ -1119,7 +1206,6 @@ function updatePersistenceDiagram(centerIdx) {
         hoverinfo: 'skip'
     };
     
-    // Infinity line indicator
     const infinityY = vineyardData.infinityY;
     const infinityLine = {
         x: [0, maxVal],
@@ -1134,65 +1220,37 @@ function updatePersistenceDiagram(centerIdx) {
     
     const layout = {
         xaxis: { 
-            title: { text: 'Birth', font: { size: 12, color: '#aaa' }, standoff: 10 },
+            title: { text: 'Birth', font: { size: 11, color: '#aaa' } },
             color: '#888', 
             gridcolor: '#333',
             range: [-maxVal * 0.02, maxVal * 1.02],
             zeroline: true,
-            zerolinecolor: '#666',
-            zerolinewidth: 2,
-            showline: true,
-            linecolor: '#666',
-            linewidth: 1,
-            mirror: false,
-            tickmode: 'auto',
-            nticks: 8
+            zerolinecolor: '#666'
         },
         yaxis: { 
-            title: { text: 'Death', font: { size: 12, color: '#aaa' }, standoff: 10 },
+            title: { text: 'Death', font: { size: 11, color: '#aaa' } },
             color: '#888', 
             gridcolor: '#333',
             range: [-maxVal * 0.02, maxVal * 1.02],
             zeroline: true,
             zerolinecolor: '#666',
-            zerolinewidth: 2,
-            showline: true,
-            linecolor: '#666',
-            linewidth: 1,
-            mirror: false,
             scaleanchor: 'x',
-            scaleratio: 1,
-            tickmode: 'auto',
-            nticks: 8
+            scaleratio: 1
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(10,10,15,0.5)',
-        margin: { l: 60, r: 20, t: 40, b: 55 },
+        margin: { l: 45, r: 10, t: 25, b: 40 },
         legend: {
             x: 0.75, y: 0.15,
-            font: { color: '#ccc', size: 11 },
-            bgcolor: 'rgba(0,0,0,0.6)',
-            bordercolor: 'rgba(255,255,255,0.1)',
-            borderwidth: 1
+            font: { color: '#ccc', size: 9 },
+            bgcolor: 'rgba(0,0,0,0.6)'
         },
         showlegend: true,
         title: {
-            text: `Persistence Diagram — Center ${centerIdx}`,
-            font: { color: '#aaa', size: 13 },
-            x: 0.5,
-            xanchor: 'center'
-        },
-        annotations: [{
-            x: maxVal * 0.02,
-            y: infinityY,
-            xref: 'x',
-            yref: 'y',
-            text: '∞',
-            showarrow: false,
-            font: { color: '#888', size: 12 },
-            xanchor: 'left',
-            yanchor: 'middle'
-        }]
+            text: `Center ${centerIdx}`,
+            font: { color: '#aaa', size: 11 },
+            x: 0.5
+        }
     };
     
     Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, {
@@ -1207,7 +1265,7 @@ function loadPreset(type) {
     curves = [[]];
     activeCurveIdx = 0;
     view.x = 0; view.y = 0; view.scale = 50;
-    fixedCurveMode = false; // Reset fixed mode for normal presets
+    fixedCurveMode = false;
     
     let count = 8;
     
@@ -1240,28 +1298,18 @@ function loadPreset(type) {
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
     } else if (type === 'offsetSpiral') {
-        // Fixed curve mode - draw the spiral exactly as generated
         fixedCurveMode = true;
-        
-        // Generate the full curve with tangent/normal/curvature data
         cachedCurveData = generateOffsetSpiralCurveData();
-        
-        // Clear control points (not used in fixed mode)
         curves = [[]];
-        
-        // Compute symmetry set
         cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
-        
-        // Adjust view for this shape
         view.scale = 40;
         view.x = 50;
         view.y = 50;
-        
         updateUI();
-        updateStatus(`Fixed curve: ${cachedCurveData.length} points, SS: ${cachedSSData.length} pts`);
+        updateStatus(`Fixed curve: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
         draw();
         document.getElementById('presetSelect').value = "";
-        return; // Skip normal processing
+        return;
     }
     
     updateUI();
@@ -1270,7 +1318,6 @@ function loadPreset(type) {
 }
 
 function generateOffsetSpiralCurveData() {
-    // --- 1. Geometric Parameters ---
     const b = 0.2;
     const tmin = 3.5;
     const tmax = tmin + 3 * Math.PI;
@@ -1279,14 +1326,11 @@ function generateOffsetSpiralCurveData() {
     const thickness = 1.0;
     const RInner = ROuter - thickness;
     
-    // SHAPE SETTINGS
-    const ellipse_ratio = 2.0;  // 2.0 = Bullet shape
+    const ellipse_ratio = 2.0;
     const extension_len_factor = 0.2;
     
     const aOuter = ROuter * Math.exp(b * tmin);
     const aInner = RInner * Math.exp(b * tmin);
-    
-    // --- 2. Helper Functions ---
     
     function getSpiralData(t, a) {
         const exp_bt = Math.exp(-b * t);
@@ -1336,8 +1380,6 @@ function generateOffsetSpiralCurveData() {
         return [v[0]/n, v[1]/n];
     }
     
-    // --- 3. Calculate Key Points ---
-    
     const outerStart = getSpiralData(tmin, aOuter);
     const innerStart = getSpiralData(tmin, aInner);
     const ext_dir_start = [-outerStart.tan[0], -outerStart.tan[1]];
@@ -1346,42 +1388,33 @@ function generateOffsetSpiralCurveData() {
     const innerEnd = getSpiralData(tmax, aInner);
     const ext_dir_end = outerEnd.tan;
     
-    // --- 4. Lengths & Sampling ---
-    
     const gap_start = norm([outerStart.pos[0] - innerStart.pos[0], outerStart.pos[1] - innerStart.pos[1]]);
     const gap_end = norm([outerEnd.pos[0] - innerEnd.pos[0], outerEnd.pos[1] - innerEnd.pos[1]]);
     
     const L_ext_start = gap_start * extension_len_factor;
     const L_ext_end = gap_end * extension_len_factor;
     
-    // High density for smooth curve
     const n_spi = 2000;
     const n_ext = 100;
     const n_cap_inner = 200;
     const n_cap_outer = 400;
     
-    // --- 5. Generate All Points ---
-    
     const allPoints = [];
     
-    // 1. Extension: outer start tip -> spiral start
     const ext_tip_outer_start = [
         outerStart.pos[0] + ext_dir_start[0] * L_ext_start,
         outerStart.pos[1] + ext_dir_start[1] * L_ext_start
     ];
     allPoints.push(...linspacePoints(ext_tip_outer_start, outerStart.pos, n_ext));
     
-    // 2. Outer spiral
     allPoints.push(...getSpiralCurvePoints(tmin, tmax, n_spi, aOuter));
     
-    // 3. Extension: spiral end -> outer tip
     const ext_tip_outer_end = [
         outerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
         outerEnd.pos[1] + ext_dir_end[1] * L_ext_end
     ];
     allPoints.push(...linspacePoints(outerEnd.pos, ext_tip_outer_end, n_ext));
     
-    // 4. Inner cap (small tip)
     const ext_tip_inner_end = [
         innerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
         innerEnd.pos[1] + ext_dir_end[1] * L_ext_end
@@ -1407,20 +1440,16 @@ function generateOffsetSpiralCurveData() {
         });
     }
     
-    // 5. Extension: inner tip -> spiral end
     allPoints.push(...linspacePoints(ext_tip_inner_end, innerEnd.pos, n_ext));
     
-    // 6. Inner spiral (reversed)
     allPoints.push(...getSpiralCurvePoints(tmax, tmin, n_spi, aInner));
     
-    // 7. Extension: spiral start -> inner tip
     const ext_tip_inner_start = [
         innerStart.pos[0] + ext_dir_start[0] * L_ext_start,
         innerStart.pos[1] + ext_dir_start[1] * L_ext_start
     ];
     allPoints.push(...linspacePoints(innerStart.pos, ext_tip_inner_start, n_ext));
     
-    // 8. Outer cap (big opening)
     const center_start = [
         (ext_tip_inner_start[0] + ext_tip_outer_start[0]) / 2,
         (ext_tip_inner_start[1] + ext_tip_outer_start[1]) / 2
@@ -1442,8 +1471,6 @@ function generateOffsetSpiralCurveData() {
         });
     }
     
-    // --- 6. Compute Tangent, Normal, Curvature for each point ---
-    
     const n = allPoints.length;
     const curveData = [];
     
@@ -1452,7 +1479,6 @@ function generateOffsetSpiralCurveData() {
         const curr = allPoints[i];
         const next = allPoints[(i + 1) % n];
         
-        // First derivative (tangent direction)
         const dx = (next.x - prev.x) / 2;
         const dy = (next.y - prev.y) / 2;
         const vel = Math.sqrt(dx*dx + dy*dy);
@@ -1464,11 +1490,9 @@ function generateOffsetSpiralCurveData() {
         const Nx = -Ty;
         const Ny = Tx;
         
-        // Second derivative for curvature
         const ddx = next.x - 2*curr.x + prev.x;
         const ddy = next.y - 2*curr.y + prev.y;
         
-        // Curvature = (dx * ddy - dy * ddx) / vel^3
         const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
         
         curveData.push({
@@ -1497,17 +1521,18 @@ function updateModeIndicator() {
     const indicator = document.getElementById('modeIndicator');
     if (vineyardMode) {
         indicator.innerText = 'Vineyard';
-        indicator.className = 'mode-indicator mode-vineyard';
+        indicator.className = 'mode-badge mode-vineyard';
     } else {
         indicator.innerText = 'Draw';
-        indicator.className = 'mode-indicator mode-draw';
+        indicator.className = 'mode-badge mode-draw';
     }
 }
 
 function screenToWorld(sx, sy) {
+    const rect = canvas.getBoundingClientRect();
     const cx = canvas.width/2 + view.x;
     const cy = canvas.height/2 + view.y;
-    return new Point((sx - cx) / view.scale, -(sy - cy) / view.scale);
+    return new Point((sx - rect.left - cx) / view.scale, -(sy - rect.top - cy) / view.scale);
 }
 
 function worldToScreen(p) {
@@ -1518,11 +1543,11 @@ function worldToScreen(p) {
 
 function findHitControlPoint(sx, sy) {
     const threshSq = 144;
-    // Iterate all curves
+    const rect = canvas.getBoundingClientRect();
     for(let c=0; c<curves.length; c++) {
         for(let i=0; i<curves[c].length; i++) {
             const sp = worldToScreen(curves[c][i]);
-            const dx = sp.x - sx, dy = sp.y - sy;
+            const dx = sp.x - (sx - rect.left), dy = sp.y - (sy - rect.top);
             if (dx*dx + dy*dy < threshSq) return { cIdx: c, pIdx: i };
         }
     }
@@ -1540,7 +1565,6 @@ function pointToSegmentDistSq(p, v, w) {
 }
 
 function insertPointSmart(newPt) {
-    // Always insert into ACTIVE curve
     const pts = curves[activeCurveIdx];
     
     if (pts.length < 3) {
@@ -1561,6 +1585,14 @@ function insertPointSmart(newPt) {
     selectedInfo = { cIdx: activeCurveIdx, pIdx: bestIdx + 1 };
 }
 
+function findHitVineyardCenter(sx, sy) {
+    if (!vineyardCenter) return false;
+    const rect = canvas.getBoundingClientRect();
+    const sp = worldToScreen(vineyardCenter);
+    const dx = sp.x - (sx - rect.left), dy = sp.y - (sy - rect.top);
+    return dx*dx + dy*dy < 200;
+}
+
 // ========== Event Handlers ==========
 canvas.addEventListener('mousedown', e => {
     e.preventDefault();
@@ -1570,7 +1602,6 @@ canvas.addEventListener('mousedown', e => {
     viewStart = { x: view.x, y: view.y };
     isInteractionActive = true;
 
-    // Right click = pan
     if (e.button === 2 || e.altKey) {
         interactionType = 'PAN';
         canvas.style.cursor = 'grabbing';
@@ -1578,21 +1609,19 @@ canvas.addEventListener('mousedown', e => {
     }
 
     if (e.button === 0) {
-        // Vineyard mode: place center
         if (vineyardMode) {
             saveState();
             vineyardCenter = mousePos;
             vineyardMode = false;
             updateModeIndicator();
             document.getElementById('vineyardModeBtn').classList.remove('active');
-            document.getElementById('vineyardModeBtn').innerText = 'Place Center Point';
-            updateStatus('Center placed! Click "Compute Vineyard"');
+            document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
+            updateStatus('Center placed!');
             isInteractionActive = false;
             draw();
             return;
         }
         
-        // Check if clicking on vineyard center (allow dragging even during animation)
         if (findHitVineyardCenter(e.clientX, e.clientY)) {
             vineyardDragging = true;
             interactionType = 'DRAG_VINEYARD';
@@ -1600,11 +1629,10 @@ canvas.addEventListener('mousedown', e => {
             return;
         }
         
-        // Normal mode: check for point hit
         const hit = findHitControlPoint(e.clientX, e.clientY);
         if (hit !== null) {
             selectedInfo = { ...hit };
-            activeCurveIdx = hit.cIdx; // Switch active curve on selection
+            activeCurveIdx = hit.cIdx;
             saveState();
             dragInfo = hit;
             interactionType = 'DRAG_POINT';
@@ -1624,7 +1652,6 @@ canvas.addEventListener('mousemove', e => {
     if (interactionType === 'DRAG_VINEYARD' && vineyardDragging) {
         const p = screenToWorld(e.clientX, e.clientY);
         vineyardCenter = p;
-        // Update vineyard centers for animation
         if (vineyardCenters.length > 0) {
             vineyardCenters = [];
             for (let i = 0; i < vineyardSamples; i++) {
@@ -1659,9 +1686,7 @@ canvas.addEventListener('mousemove', e => {
         return;
     }
 
-    // Hover
     if (!isInteractionActive) {
-        // Check vineyard center hover
         if (findHitVineyardCenter(e.clientX, e.clientY)) {
             canvas.style.cursor = 'grab';
             return;
@@ -1684,7 +1709,6 @@ canvas.addEventListener('mouseup', e => {
 
     if (interactionType === 'DRAG_VINEYARD') {
         vineyardDragging = false;
-        // Recompute vineyard if we have data
         if (vineyardData && cachedCurveData) {
             computeVineyard();
         }
@@ -1696,9 +1720,8 @@ canvas.addEventListener('mouseup', e => {
     }
     
     if (interactionType === 'POTENTIAL_PAN' && !vineyardMode) {
-        // In fixed curve mode, don't add points - user needs to clear first
         if (fixedCurveMode) {
-            updateStatus('Fixed curve mode - Clear to draw new curves');
+            updateStatus('Fixed curve mode - Clear to draw');
         } else {
             saveState();
             const mousePos = screenToWorld(e.clientX, e.clientY);
@@ -1736,7 +1759,6 @@ window.addEventListener('keydown', e => {
             if (selectedInfo.pIdx < pts.length) {
                 saveState();
                 pts.splice(selectedInfo.pIdx, 1);
-                // If curve becomes empty and there are other curves, remove it
                 if (pts.length === 0 && curves.length > 1) {
                     curves.splice(selectedInfo.cIdx, 1);
                     activeCurveIdx = Math.max(0, activeCurveIdx - 1);
@@ -1753,7 +1775,7 @@ window.addEventListener('keydown', e => {
         vineyardMode = false;
         updateModeIndicator();
         document.getElementById('vineyardModeBtn').classList.remove('active');
-        document.getElementById('vineyardModeBtn').innerText = 'Place Center Point';
+        document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
     }
 });
 
@@ -1762,11 +1784,11 @@ document.getElementById('undoBtn').addEventListener('click', performUndo);
 
 document.getElementById('newCurveBtn').addEventListener('click', () => {
     saveState();
-    curves.push([]); // Add new empty curve
+    curves.push([]);
     activeCurveIdx = curves.length - 1;
     selectedInfo = null;
     updateUI();
-    updateStatus(`Active: Curve ${activeCurveIdx} (New)`);
+    updateStatus(`New Curve ${activeCurveIdx}`);
     draw();
 });
 
@@ -1780,7 +1802,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     vineyardCenter = null;
     vineyardData = null;
     vineyardCenters = [];
-    fixedCurveMode = false; // Reset fixed curve mode
+    fixedCurveMode = false;
     stopVineyardAnim();
     document.getElementById('vineyardPanel').classList.remove('active');
     document.getElementById('persistencePanel').classList.remove('active');
@@ -1805,18 +1827,17 @@ document.getElementById('resolution').addEventListener('input', e => {
     document.getElementById('resVal').innerText = ssResolution;
 });
 
-// Vineyard controls
 document.getElementById('vineyardModeBtn').addEventListener('click', () => {
     vineyardMode = !vineyardMode;
     updateModeIndicator();
     const btn = document.getElementById('vineyardModeBtn');
     if (vineyardMode) {
         btn.classList.add('active');
-        btn.innerText = 'Click on Canvas...';
-        updateStatus('Click to place vineyard center');
+        btn.innerText = 'Click Canvas...';
+        updateStatus('Click to place center');
     } else {
         btn.classList.remove('active');
-        btn.innerText = 'Place Center Point';
+        btn.innerText = '⬡ Place Center';
     }
 });
 
@@ -1836,7 +1857,7 @@ document.getElementById('computeVineyardBtn').addEventListener('click', computeV
 document.getElementById('playVineyardBtn').addEventListener('click', () => {
     if (!vineyardData) return;
     vineyardAnimPlaying = !vineyardAnimPlaying;
-    document.getElementById('playVineyardBtn').innerText = vineyardAnimPlaying ? '⏸ Pause' : '▶ Play';
+    document.getElementById('playVineyardBtn').innerText = vineyardAnimPlaying ? '⏸' : '▶';
     if (vineyardAnimPlaying) vineyardAnimLoop();
 });
 
@@ -1851,7 +1872,6 @@ document.getElementById('vineyardAnimSlider').addEventListener('input', e => {
     draw();
 });
 
-// Visibility toggles
 ['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle'].forEach(id => {
     document.getElementById(id).addEventListener('change', draw);
 });
@@ -1864,7 +1884,6 @@ document.getElementById('showPD').addEventListener('change', e => {
     document.getElementById('persistencePanel').classList.toggle('active', e.target.checked && vineyardData);
 });
 
-// Expand/collapse vineyard panel
 let vineyardExpanded = false;
 document.getElementById('expandVineyardBtn').addEventListener('click', () => {
     vineyardExpanded = !vineyardExpanded;
@@ -1873,23 +1892,19 @@ document.getElementById('expandVineyardBtn').addEventListener('click', () => {
     
     if (vineyardExpanded) {
         panel.classList.add('expanded');
-        btn.innerText = '⤡ Collapse';
+        btn.innerText = '⤡';
     } else {
         panel.classList.remove('expanded');
-        btn.innerText = '⤢ Expand';
+        btn.innerText = '⤢';
     }
     
-    // Trigger resize of the plot
     setTimeout(() => {
         if (vineyardData) {
-            Plotly.relayout('vineyardPlot', {
-                autosize: true
-            });
+            Plotly.relayout('vineyardPlot', { autosize: true });
         }
     }, 350);
 });
 
-// Expand/collapse persistence panel
 let pdExpanded = false;
 document.getElementById('expandPDBtn').addEventListener('click', () => {
     pdExpanded = !pdExpanded;
@@ -1898,18 +1913,15 @@ document.getElementById('expandPDBtn').addEventListener('click', () => {
     
     if (pdExpanded) {
         panel.classList.add('expanded');
-        btn.innerText = '⤡ Collapse';
+        btn.innerText = '⤡';
     } else {
         panel.classList.remove('expanded');
-        btn.innerText = '⤢ Expand';
+        btn.innerText = '⤢';
     }
     
-    // Trigger resize of the plot
     setTimeout(() => {
         if (vineyardData) {
-            Plotly.relayout('persistencePlot', {
-                autosize: true
-            });
+            Plotly.relayout('persistencePlot', { autosize: true });
         }
     }, 350);
 });
@@ -1917,7 +1929,7 @@ document.getElementById('expandPDBtn').addEventListener('click', () => {
 function stopVineyardAnim() {
     vineyardAnimPlaying = false;
     vineyardAnimIdx = 0;
-    document.getElementById('playVineyardBtn').innerText = '▶ Play';
+    document.getElementById('playVineyardBtn').innerText = '▶';
     document.getElementById('vineyardAnimSlider').value = 0;
     if (vineyardData) {
         updatePersistenceDiagram(0);
@@ -1944,7 +1956,7 @@ function vineyardAnimLoop() {
 function stopFocalAnim() {
     focalAnimPlaying = false;
     focalAnimIdx = 0;
-    document.getElementById('focalPlayBtn').innerText = '▶ Play';
+    document.getElementById('focalPlayBtn').innerText = '▶';
     document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
     document.getElementById('focalAnimSlider').value = 0;
     draw();
@@ -1961,7 +1973,6 @@ function focalAnimLoop() {
     requestAnimationFrame(focalAnimLoop);
 }
 
-// Focal animation handlers
 document.getElementById('focalPlayBtn').addEventListener('click', () => {
     if (!cachedCurveData || cachedCurveData.length === 0) return;
     
@@ -1969,11 +1980,11 @@ document.getElementById('focalPlayBtn').addEventListener('click', () => {
     const btn = document.getElementById('focalPlayBtn');
     
     if (focalAnimPlaying) {
-        btn.innerText = '⏸ Pause';
+        btn.innerText = '⏸';
         btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
         focalAnimLoop();
     } else {
-        btn.innerText = '▶ Play';
+        btn.innerText = '▶';
         btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
     }
 });
@@ -1990,18 +2001,17 @@ document.getElementById('focalAnimSlider').addEventListener('input', e => {
 // ========== Radius Sweep ==========
 function computeRadiusSweep() {
     if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
-        updateStatus('Need curve and center point!');
+        updateStatus('Need curve and center!');
         return;
     }
     
-    updateStatus('Computing radius sweep vineyards...');
+    updateStatus('Computing sweep...');
     
     const radii = [];
     for (let i = 0; i <= radiusSteps; i++) {
         radii.push(radiusStart + (radiusEnd - radiusStart) * (i / radiusSteps));
     }
     
-    // Compute vineyard for each radius using the same function as single vineyard
     radiusSweepData = {
         radii: radii,
         vineyards: [],
@@ -2012,32 +2022,26 @@ function computeRadiusSweep() {
     
     for (let rIdx = 0; rIdx < radii.length; rIdx++) {
         const r = radii[rIdx];
-        
-        // Use the exact same function as regular vineyard computation
         const vineyard = computeVineyardForRadius(vineyardCenter, r, vineyardSamples, cachedCurveData);
-        
         radiusSweepData.vineyards.push(vineyard);
         
         if (vineyard.infinityY > globalInfinityY) {
             globalInfinityY = vineyard.infinityY;
         }
         
-        // Progress update
         if (rIdx % 5 === 0) {
-            updateStatus(`Computing... ${Math.round((rIdx / radii.length) * 100)}%`);
+            updateStatus(`Sweep ${Math.round((rIdx / radii.length) * 100)}%`);
         }
     }
     
     radiusSweepData.infinityY = globalInfinityY;
     vineyardMaxVal = globalInfinityY;
     
-    updateStatus(`Radius sweep done! ${radii.length} vineyards computed`);
+    updateStatus(`Sweep done! ${radii.length} vineyards`);
     
-    // Initialize to first radius
     radiusSweepIdx = 0;
     updateRadiusSweepDisplay();
     
-    // Show panels
     document.getElementById('vineyardPanel').classList.add('active');
     document.getElementById('persistencePanel').classList.add('active');
     
@@ -2052,15 +2056,12 @@ function updateRadiusSweepDisplay() {
     
     document.getElementById('currentSweepRadius').innerText = `R: ${r.toFixed(2)}`;
     
-    // Update the main vineyard radius to match current sweep
     vineyardRadius = r;
     document.getElementById('vineyardRadius').value = Math.min(r, 10);
     document.getElementById('radiusVal').innerText = r.toFixed(1);
     
-    // Update vineyard centers for display
     vineyardCenters = currentVineyard.centers;
     
-    // Also update vineyardData so regular controls work
     vineyardData = {
         h0: currentVineyard.h0,
         h1: currentVineyard.h1,
@@ -2068,7 +2069,6 @@ function updateRadiusSweepDisplay() {
     };
     vineyardMaxVal = currentVineyard.infinityY;
     
-    // Update plots with current vineyard
     updateRadiusSweepVineyardPlot();
     updateRadiusSweepPersistenceDiagram();
 }
@@ -2090,11 +2090,7 @@ function updateRadiusSweepVineyardPlot() {
         mode: 'markers',
         type: 'scatter3d',
         name: 'H₀',
-        marker: {
-            size: 3,
-            color: '#ef4444',
-            opacity: 0.7
-        }
+        marker: { size: 3, color: '#ef4444', opacity: 0.7 }
     };
     
     const traceH1 = {
@@ -2104,15 +2100,9 @@ function updateRadiusSweepVineyardPlot() {
         mode: 'markers',
         type: 'scatter3d',
         name: 'H₁',
-        marker: {
-            size: 3,
-            color: '#3b82f6',
-            opacity: 0.7,
-            symbol: 'diamond'
-        }
+        marker: { size: 3, color: '#3b82f6', opacity: 0.7, symbol: 'diamond' }
     };
     
-    // Diagonal plane
     const diagPoints = {
         x: [0, maxVal, maxVal, 0],
         y: [0, maxVal, maxVal, 0],
@@ -2129,27 +2119,9 @@ function updateRadiusSweepVineyardPlot() {
     
     const layout = {
         scene: {
-            xaxis: { 
-                title: { text: 'Birth', font: { size: 11 } },
-                color: '#888', 
-                gridcolor: '#333',
-                range: [0, maxVal],
-                showspikes: false
-            },
-            yaxis: { 
-                title: { text: 'Death', font: { size: 11 } },
-                color: '#888', 
-                gridcolor: '#333',
-                range: [0, maxVal],
-                showspikes: false
-            },
-            zaxis: { 
-                title: { text: 'Center Idx', font: { size: 11 } },
-                color: '#888', 
-                gridcolor: '#333',
-                range: [0, vineyardSamples - 1],
-                showspikes: false
-            },
+            xaxis: { title: { text: 'Birth', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
+            yaxis: { title: { text: 'Death', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
+            zaxis: { title: { text: 'Idx', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, vineyardSamples - 1], showspikes: false },
             bgcolor: 'rgba(0,0,0,0)',
             camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
             aspectmode: 'manual',
@@ -2157,25 +2129,13 @@ function updateRadiusSweepVineyardPlot() {
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        margin: { l: 0, r: 0, t: 30, b: 0 },
-        legend: {
-            x: 0, y: 1,
-            font: { color: '#ccc', size: 10 },
-            bgcolor: 'rgba(0,0,0,0.5)'
-        },
+        margin: { l: 0, r: 0, t: 20, b: 0 },
+        legend: { x: 0, y: 1, font: { color: '#ccc', size: 9 }, bgcolor: 'rgba(0,0,0,0.5)' },
         showlegend: true,
-        title: {
-            text: `Vineyard at R = ${r.toFixed(2)}`,
-            font: { color: '#c084fc', size: 13 },
-            x: 0.5,
-            xanchor: 'center'
-        }
+        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
     };
     
-    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1], layout, {
-        displayModeBar: false,
-        responsive: true
-    });
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1], layout, { displayModeBar: false, responsive: true });
 }
 
 function updateRadiusSweepPersistenceDiagram() {
@@ -2185,7 +2145,6 @@ function updateRadiusSweepPersistenceDiagram() {
     const r = currentVineyard.radius;
     const maxVal = currentVineyard.infinityY;
     
-    // Aggregate all points for this vineyard into one PD
     const h0 = currentVineyard.h0;
     const h1 = currentVineyard.h1;
     
@@ -2195,7 +2154,7 @@ function updateRadiusSweepPersistenceDiagram() {
         mode: 'markers',
         type: 'scatter',
         name: 'H₀',
-        marker: { size: 8, color: '#ef4444', symbol: 'circle', opacity: 0.6 }
+        marker: { size: 6, color: '#ef4444', symbol: 'circle', opacity: 0.6 }
     };
     
     const traceH1 = {
@@ -2204,7 +2163,7 @@ function updateRadiusSweepPersistenceDiagram() {
         mode: 'markers',
         type: 'scatter',
         name: 'H₁',
-        marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up', opacity: 0.6 }
+        marker: { size: 6, color: '#3b82f6', symbol: 'triangle-up', opacity: 0.6 }
     };
     
     const diagonal = {
@@ -2230,75 +2189,22 @@ function updateRadiusSweepPersistenceDiagram() {
     };
     
     const layout = {
-        xaxis: { 
-            title: { text: 'Birth', font: { size: 12, color: '#aaa' }, standoff: 10 },
-            color: '#888', 
-            gridcolor: '#333',
-            range: [-maxVal * 0.02, maxVal * 1.02],
-            zeroline: true,
-            zerolinecolor: '#666',
-            zerolinewidth: 2,
-            showline: true,
-            linecolor: '#666',
-            linewidth: 1,
-            tickmode: 'auto',
-            nticks: 8
-        },
-        yaxis: { 
-            title: { text: 'Death', font: { size: 12, color: '#aaa' }, standoff: 10 },
-            color: '#888', 
-            gridcolor: '#333',
-            range: [-maxVal * 0.02, maxVal * 1.02],
-            zeroline: true,
-            zerolinecolor: '#666',
-            zerolinewidth: 2,
-            showline: true,
-            linecolor: '#666',
-            linewidth: 1,
-            scaleanchor: 'x',
-            scaleratio: 1,
-            tickmode: 'auto',
-            nticks: 8
-        },
+        xaxis: { title: { text: 'Birth', font: { size: 11, color: '#aaa' } }, color: '#888', gridcolor: '#333', range: [-maxVal * 0.02, maxVal * 1.02], zeroline: true, zerolinecolor: '#666' },
+        yaxis: { title: { text: 'Death', font: { size: 11, color: '#aaa' } }, color: '#888', gridcolor: '#333', range: [-maxVal * 0.02, maxVal * 1.02], zeroline: true, zerolinecolor: '#666', scaleanchor: 'x', scaleratio: 1 },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(10,10,15,0.5)',
-        margin: { l: 60, r: 20, t: 40, b: 55 },
-        legend: {
-            x: 0.75, y: 0.15,
-            font: { color: '#ccc', size: 11 },
-            bgcolor: 'rgba(0,0,0,0.6)',
-            bordercolor: 'rgba(255,255,255,0.1)',
-            borderwidth: 1
-        },
+        margin: { l: 45, r: 10, t: 25, b: 40 },
+        legend: { x: 0.75, y: 0.15, font: { color: '#ccc', size: 9 }, bgcolor: 'rgba(0,0,0,0.6)' },
         showlegend: true,
-        title: {
-            text: `All PDs at R = ${r.toFixed(2)}`,
-            font: { color: '#aaa', size: 13 },
-            x: 0.5,
-            xanchor: 'center'
-        },
-        annotations: [{
-            x: maxVal * 0.02,
-            y: currentVineyard.infinityY,
-            xref: 'x',
-            yref: 'y',
-            text: '∞',
-            showarrow: false,
-            font: { color: '#888', size: 12 },
-            xanchor: 'left',
-            yanchor: 'middle'
-        }]
+        title: { text: `All PDs R=${r.toFixed(2)}`, font: { color: '#aaa', size: 11 }, x: 0.5 }
     };
     
-    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, {
-        displayModeBar: false,
-        responsive: true
-    });
+    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, { displayModeBar: false, responsive: true });
 }
 
 function stopRadiusSweep() {
     radiusSweepPlaying = false;
-    document.getElementById('playRadiusSweepBtn').innerText = '▶ Play Sweep';
+    document.getElementById('playRadiusSweepBtn').innerText = '▶';
     document.getElementById('playRadiusSweepBtn').style.background = '';
 }
 
@@ -2315,7 +2221,6 @@ function radiusSweepAnimLoop() {
     setTimeout(radiusSweepAnimLoop, 200);
 }
 
-// Radius sweep event handlers
 document.getElementById('radiusStart').addEventListener('input', e => {
     radiusStart = parseFloat(e.target.value);
     document.getElementById('radiusStartVal').innerText = radiusStart.toFixed(1);
@@ -2340,11 +2245,11 @@ document.getElementById('playRadiusSweepBtn').addEventListener('click', () => {
     const btn = document.getElementById('playRadiusSweepBtn');
     
     if (radiusSweepPlaying) {
-        btn.innerText = '⏸ Pause';
+        btn.innerText = '⏸';
         btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
         radiusSweepAnimLoop();
     } else {
-        btn.innerText = '▶ Play Sweep';
+        btn.innerText = '▶';
         btn.style.background = '';
     }
 });
@@ -2367,24 +2272,14 @@ document.getElementById('radiusSweepSlider').addEventListener('input', e => {
     draw();
 });
 
-// ========== Vineyard Center Dragging ==========
-function findHitVineyardCenter(sx, sy) {
-    if (!vineyardCenter) return false;
-    const sp = worldToScreen(vineyardCenter);
-    const dx = sp.x - sx, dy = sp.y - sy;
-    return dx*dx + dy*dy < 200; // Slightly larger hit area
-}
-
 // ========== Computation ==========
 let computeTimer = null;
 function triggerComputation(fullCompute = true) {
-    // In fixed curve mode, don't recompute the curve
     if (fixedCurveMode) {
         draw();
         return;
     }
     
-    // Check if any curve has at least 3 points
     const hasValidCurve = curves.some(c => c.length >= 3);
     if (!hasValidCurve) { draw(); return; }
     
@@ -2400,7 +2295,7 @@ function triggerComputation(fullCompute = true) {
     computeTimer = setTimeout(() => {
         cachedCurveData = computeSplineData();
         cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
-        updateStatus(`SS: ${cachedSSData.length} points`);
+        updateStatus(`SS: ${cachedSSData.length} pts`);
         draw();
     }, 10);
 }
@@ -2414,7 +2309,6 @@ function draw() {
     ctx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
     ctx.scale(view.scale, -view.scale);
     
-    // Grid
     ctx.strokeStyle = '#1a1a2e';
     ctx.lineWidth = 1 / view.scale;
     ctx.beginPath();
@@ -2423,7 +2317,6 @@ function draw() {
     ctx.stroke();
 
     if (cachedCurveData && cachedCurveData.length > 0) {
-        // Focal set
         if (document.getElementById('showFocal').checked) {
             ctx.fillStyle = '#22c55e';
             const s = 1.5 / view.scale;
@@ -2440,7 +2333,6 @@ function draw() {
             }
         }
 
-        // Symmetry set
         if (document.getElementById('showSS').checked && cachedSSData) {
             ctx.fillStyle = '#ef4444';
             const s = 1.5 / view.scale;
@@ -2449,19 +2341,16 @@ function draw() {
             }
         }
 
-        // Curve - draw each curve separately
         if (document.getElementById('showCurve').checked) {
             ctx.strokeStyle = '#4f8cff';
             ctx.lineWidth = 2.5 / view.scale;
             
-            // Group points by curveId and draw each as separate path
             let currentId = -1;
             ctx.beginPath();
             
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    // Close previous path if exists
                     if (currentId !== -1) {
                         ctx.closePath();
                         ctx.stroke();
@@ -2473,14 +2362,12 @@ function draw() {
                     ctx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            // Close and stroke the last curve
             if (currentId !== -1) {
                 ctx.closePath();
                 ctx.stroke();
             }
         }
         
-        // Focal animation visualization
         if ((focalAnimPlaying || focalAnimIdx > 0) && focalAnimIdx < cachedCurveData.length) {
             const pt = cachedCurveData[focalAnimIdx];
             
@@ -2489,13 +2376,11 @@ function draw() {
             ctx.fillStyle = '#fcd34d';
             ctx.lineWidth = 2 / view.scale;
             
-            // Point on curve
             const s = 10 / view.scale;
             ctx.beginPath();
             ctx.arc(pt.p.x, pt.p.y, s/2, 0, Math.PI * 2);
             ctx.fill();
             
-            // Draw osculating circle
             const k = pt.curvature;
             if (Math.abs(k) > 1e-8) {
                 const R = 1.0 / k;
@@ -2503,18 +2388,15 @@ function draw() {
                     const ex = pt.p.x + pt.N.x * R;
                     const ey = pt.p.y + pt.N.y * R;
                     
-                    // Center of curvature
                     ctx.beginPath();
                     ctx.arc(ex, ey, s/2, 0, Math.PI * 2);
                     ctx.fill();
                     
-                    // Line from point to center
                     ctx.beginPath();
                     ctx.moveTo(pt.p.x, pt.p.y);
                     ctx.lineTo(ex, ey);
                     ctx.stroke();
                     
-                    // Osculating circle
                     ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
                     ctx.lineWidth = 1.5 / view.scale;
                     ctx.beginPath();
@@ -2526,16 +2408,13 @@ function draw() {
         }
     }
 
-    // Vineyard visualization
     if (document.getElementById('showVineyardCircle').checked) {
-        // Vineyard center
         if (vineyardCenter) {
             ctx.fillStyle = '#a855f7';
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             ctx.fill();
             
-            // Circle preview
             ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
             ctx.lineWidth = 1.5 / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
@@ -2545,7 +2424,6 @@ function draw() {
             ctx.setLineDash([]);
         }
         
-        // Vineyard sample centers
         if (vineyardCenters.length > 0) {
             ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
             const s = 3 / view.scale;
@@ -2554,7 +2432,6 @@ function draw() {
                 ctx.fillRect(c.x - s/2, c.y - s/2, s, s);
             }
             
-            // Current animated center
             if (vineyardAnimIdx < vineyardCenters.length) {
                 const curr = vineyardCenters[vineyardAnimIdx];
                 ctx.fillStyle = '#fbbf24';
@@ -2562,7 +2439,6 @@ function draw() {
                 ctx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Draw radial lines to curve (subliminal visualization)
                 if (cachedCurveData && cachedCurveData.length > 0) {
                     ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
                     ctx.lineWidth = 0.5 / view.scale;
@@ -2578,7 +2454,6 @@ function draw() {
         }
     }
 
-    // Control points
     if (document.getElementById('showControls').checked) {
         const baseSize = 7 / view.scale;
         const hoverSize = 10 / view.scale;
@@ -2594,7 +2469,7 @@ function draw() {
                 
                 if (isSelected) ctx.fillStyle = '#4f8cff';
                 else if (isHover) ctx.fillStyle = '#fbbf24';
-                else ctx.fillStyle = isActiveCurve ? '#fff' : '#666'; // Dim inactive curves
+                else ctx.fillStyle = isActiveCurve ? '#fff' : '#666';
 
                 const s = (isHover || isSelected) ? hoverSize : baseSize;
                 ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
@@ -2613,14 +2488,14 @@ function draw() {
 
 // ========== Resize ==========
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const container = document.querySelector('.canvas-container');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
     draw();
 }
 window.addEventListener('resize', resize);
 resize();
 
-// Initial status
 updateStatus('Click to add points or load a preset');
 </script>
 </body>

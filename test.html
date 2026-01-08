@@ -6,6 +6,7 @@
     <title>Symmetry Set Visualizer + Vineyard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap');
         
@@ -17,15 +18,36 @@
             --accent-red: #ef4444;
             --accent-purple: #a855f7;
             --accent-amber: #f59e0b;
+            --text-primary: #e0e0e0;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-muted: rgba(255,255,255,0.4);
+            --border-color: rgba(255,255,255,0.08);
+            --grid-color: #1a1a2e;
+        }
+        
+        /* Light Theme */
+        body.light-theme {
+            --bg-dark: #f5f5f7;
+            --panel-bg: rgba(255, 255, 255, 0.98);
+            --text-primary: #1a1a1a;
+            --text-secondary: rgba(0,0,0,0.7);
+            --text-muted: rgba(0,0,0,0.4);
+            --border-color: rgba(0,0,0,0.1);
+            --grid-color: #e0e0e0;
+        }
+        
+        body.light-theme .canvas-container {
+            background: var(--bg-dark);
         }
         
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             overflow: hidden; 
             background: var(--bg-dark); 
-            color: #e0e0e0; 
+            color: var(--text-primary); 
             font-family: 'Space Grotesk', sans-serif;
             font-size: 12px;
+            transition: background 0.3s, color 0.3s;
         }
         
         /* Main Layout */
@@ -35,17 +57,19 @@
             grid-template-columns: 240px 1fr 200px;
             height: 100vh;
             width: 100vw;
+            overflow: visible;
         }
         
         /* Top Toolbar */
         .toolbar {
             grid-column: 1 / -1;
             background: var(--panel-bg);
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             padding: 0 8px;
             gap: 2px;
+            overflow: visible;
         }
         
         .toolbar-section {
@@ -54,7 +78,8 @@
             gap: 6px;
             padding: 0 10px;
             height: 100%;
-            border-right: 1px solid rgba(255,255,255,0.08);
+            border-right: 1px solid var(--border-color);
+            overflow: visible;
         }
         .toolbar-section:last-child { border-right: none; }
         
@@ -62,15 +87,15 @@
             font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: rgba(255,255,255,0.4);
+            color: var(--text-muted);
             white-space: nowrap;
         }
         
         /* Bottom Status Bar */
         .statusbar {
             grid-column: 1 / -1;
-            background: rgba(0,0,0,0.4);
-            border-top: 1px solid rgba(255,255,255,0.06);
+            background: rgba(128,128,128,0.1);
+            border-top: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             padding: 0 12px;
@@ -84,13 +109,13 @@
             display: flex;
             gap: 12px;
         }
-        .legend-item { display: flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.5); font-size: 9px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 9px; }
         .dot { width: 6px; height: 6px; border-radius: 50%; }
         
         /* Left Sidebar */
         .sidebar-left {
             background: var(--panel-bg);
-            border-right: 1px solid rgba(255,255,255,0.08);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -99,7 +124,7 @@
         /* Right Sidebar */
         .sidebar-right {
             background: var(--panel-bg);
-            border-left: 1px solid rgba(255,255,255,0.08);
+            border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -121,7 +146,7 @@
         
         /* Collapsible Sections */
         .section {
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            border-bottom: 1px solid var(--border-color);
         }
         
         .section-header {
@@ -131,10 +156,10 @@
             padding: 6px 10px;
             cursor: pointer;
             user-select: none;
-            background: rgba(255,255,255,0.02);
+            background: rgba(128,128,128,0.03);
             transition: background 0.15s;
         }
-        .section-header:hover { background: rgba(255,255,255,0.05); }
+        .section-header:hover { background: rgba(128,128,128,0.08); }
         
         .section-title {
             font-family: 'JetBrains Mono', monospace;
@@ -150,7 +175,7 @@
         
         .section-toggle {
             font-size: 8px;
-            color: rgba(255,255,255,0.3);
+            color: var(--text-muted);
             transition: transform 0.2s;
         }
         .section.collapsed .section-toggle { transform: rotate(-90deg); }
@@ -181,11 +206,11 @@
         .btn-primary:hover { filter: brightness(1.1); }
         
         .btn-secondary {
-            background: rgba(255,255,255,0.08);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(128,128,128,0.15);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
         }
-        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+        .btn-secondary:hover { background: rgba(128,128,128,0.25); }
         
         .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
         .btn-purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); color: white; }
@@ -204,12 +229,12 @@
         }
         
         select {
-            background: rgba(255,255,255,0.08);
-            color: white;
+            background: rgba(128,128,128,0.15);
+            color: var(--text-primary);
             padding: 3px 6px;
             border-radius: 4px;
             font-size: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid var(--border-color);
             cursor: pointer;
             font-family: inherit;
         }
@@ -223,7 +248,7 @@
         }
         .slider-row label {
             font-size: 9px;
-            color: rgba(255,255,255,0.5);
+            color: var(--text-muted);
             min-width: 42px;
             flex-shrink: 0;
         }
@@ -250,7 +275,7 @@
             justify-content: space-between;
             padding: 2px 0;
         }
-        .toggle-row span { font-size: 10px; color: rgba(255,255,255,0.7); }
+        .toggle-row span { font-size: 10px; color: var(--text-secondary); }
         
         input[type="checkbox"] {
             width: 12px;
@@ -277,9 +302,9 @@
         .float-panel {
             position: absolute;
             background: var(--panel-bg);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
             z-index: 100;
             display: none;
         }
@@ -290,9 +315,9 @@
             justify-content: space-between;
             align-items: center;
             padding: 5px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid var(--border-color);
             cursor: move;
-            background: rgba(0,0,0,0.2);
+            background: rgba(128,128,128,0.05);
             border-radius: 8px 8px 0 0;
         }
         
@@ -339,13 +364,13 @@
         .quick-keys {
             padding: 6px 10px;
             font-size: 9px;
-            color: rgba(255,255,255,0.35);
+            color: var(--text-muted);
             line-height: 1.5;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid var(--border-color);
             margin-top: auto;
         }
         .quick-keys kbd {
-            background: rgba(255,255,255,0.1);
+            background: rgba(128,128,128,0.2);
             padding: 0px 3px;
             border-radius: 2px;
             font-family: 'JetBrains Mono', monospace;
@@ -359,6 +384,37 @@
             border-radius: 3px;
             font-size: 9px;
             font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Export Menu */
+        .export-menu {
+            display: none;
+            position: fixed;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            min-width: 220px;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .export-menu.active {
+            display: block;
+        }
+        .export-menu-item {
+            padding: 8px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.15s;
+            color: var(--text-primary);
+        }
+        .export-menu-item:hover {
+            background: rgba(79, 140, 255, 0.2);
+        }
+        .export-menu-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
         }
     </style>
 </head>
@@ -400,6 +456,18 @@
             <span class="toolbar-label">Res</span>
             <input type="range" id="resolution" min="500" max="40000" step="500" value="5000" style="width: 50px; height: 3px;">
             <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
+        </div>
+        
+        <div class="toolbar-section" style="position: relative;">
+            <button class="btn btn-secondary" id="exportBtn">
+                📷 Export ▾
+            </button>
+        </div>
+        
+        <div class="toolbar-section" style="border-right: none;">
+            <button class="btn btn-secondary" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+                🌙
+            </button>
         </div>
         
     </div>
@@ -571,6 +639,24 @@
     </div>
 </div>
 
+<!-- Export Menu (positioned fixed via JS) -->
+<div id="exportMenu" class="export-menu">
+    <div class="export-menu-item" id="exportCanvas">Export Canvas (PNG)</div>
+    <div class="export-menu-item" id="exportCanvasSVG">Export Canvas (SVG)</div>
+    <div class="export-menu-item" id="exportCanvasPDF">Export Canvas (PDF)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportVineyard">Export Vineyard 3D (PNG)</div>
+    <div class="export-menu-item" id="exportVineyardSVG">Export Vineyard 3D (SVG)</div>
+    <div class="export-menu-item" id="exportVineyardPDF">Export Vineyard 3D (PDF)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportPD">Export Persistence Diagram (PNG)</div>
+    <div class="export-menu-item" id="exportPDSVG">Export Persistence Diagram (SVG)</div>
+    <div class="export-menu-item" id="exportPDPDF">Export Persistence Diagram (PDF)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportAllPNG">Export All (PNG)</div>
+    <div class="export-menu-item" id="exportAllPDF">Export All (PDF)</div>
+</div>
+
 <script>
 // ========== Math Classes ==========
 class Point {
@@ -696,6 +782,59 @@ document.getElementById('closePDBtn').addEventListener('click', () => {
     document.getElementById('persistencePanel').classList.remove('active');
     document.getElementById('showPD').checked = false;
 });
+
+// ========== Panel Dragging ==========
+function makePanelDraggable(panelId) {
+    const panel = document.getElementById(panelId);
+    const header = panel.querySelector('.float-panel-header');
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    header.addEventListener('mousedown', (e) => {
+        // Don't drag if clicking buttons
+        if (e.target.tagName === 'BUTTON') return;
+        
+        isDragging = true;
+        const rect = panel.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        
+        // Switch to fixed positioning if not already
+        panel.style.position = 'fixed';
+        panel.style.left = startLeft + 'px';
+        panel.style.top = startTop + 'px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        
+        let newLeft = startLeft + dx;
+        let newTop = startTop + dy;
+        
+        // Keep panel within viewport bounds
+        newLeft = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, newLeft));
+        newTop = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, newTop));
+        
+        panel.style.left = newLeft + 'px';
+        panel.style.top = newTop + 'px';
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+}
+
+makePanelDraggable('vineyardPanel');
+makePanelDraggable('persistencePanel');
 
 // ========== History ==========
 function saveState() {
@@ -2042,8 +2181,12 @@ function computeRadiusSweep() {
     radiusSweepIdx = 0;
     updateRadiusSweepDisplay();
     
+    // Only show vineyard panel for radius sweep (not persistence diagram)
     document.getElementById('vineyardPanel').classList.add('active');
-    document.getElementById('persistencePanel').classList.add('active');
+    document.getElementById('showVineyardPlot').checked = true;
+    // Hide persistence panel during radius sweep
+    document.getElementById('persistencePanel').classList.remove('active');
+    document.getElementById('showPD').checked = false;
     
     draw();
 }
@@ -2070,7 +2213,7 @@ function updateRadiusSweepDisplay() {
     vineyardMaxVal = currentVineyard.infinityY;
     
     updateRadiusSweepVineyardPlot();
-    updateRadiusSweepPersistenceDiagram();
+    // Don't update persistence diagram during radius sweep - only vineyard changes
 }
 
 function updateRadiusSweepVineyardPlot() {
@@ -2302,14 +2445,24 @@ function triggerComputation(fullCompute = true) {
 
 // ========== Drawing ==========
 function draw() {
-    ctx.fillStyle = '#0a0a0f';
+    // Theme-aware colors
+    const bgColor = isDarkTheme ? '#0a0a0f' : '#f5f5f7';
+    const gridColor = isDarkTheme ? '#1a1a2e' : '#e0e0e0';
+    const curveColor = isDarkTheme ? '#4f8cff' : '#2563eb';
+    const focalColor = isDarkTheme ? '#22c55e' : '#16a34a';
+    const ssColor = isDarkTheme ? '#ef4444' : '#dc2626';
+    const vineyardColor = isDarkTheme ? '#a855f7' : '#7c3aed';
+    const controlActive = isDarkTheme ? '#fff' : '#1a1a1a';
+    const controlInactive = isDarkTheme ? '#666' : '#888';
+    
+    ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     ctx.save();
     ctx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
     ctx.scale(view.scale, -view.scale);
     
-    ctx.strokeStyle = '#1a1a2e';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1 / view.scale;
     ctx.beginPath();
     ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0);
@@ -2318,7 +2471,7 @@ function draw() {
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked) {
-            ctx.fillStyle = '#22c55e';
+            ctx.fillStyle = focalColor;
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -2334,7 +2487,7 @@ function draw() {
         }
 
         if (document.getElementById('showSS').checked && cachedSSData) {
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = ssColor;
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
@@ -2342,7 +2495,7 @@ function draw() {
         }
 
         if (document.getElementById('showCurve').checked) {
-            ctx.strokeStyle = '#4f8cff';
+            ctx.strokeStyle = curveColor;
             ctx.lineWidth = 2.5 / view.scale;
             
             let currentId = -1;
@@ -2410,22 +2563,41 @@ function draw() {
 
     if (document.getElementById('showVineyardCircle').checked) {
         if (vineyardCenter) {
-            ctx.fillStyle = '#a855f7';
+            ctx.fillStyle = vineyardColor;
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
             ctx.lineWidth = 1.5 / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
+            
+            // Radius sweep preview circles (start and end radii)
+            const startR = parseFloat(document.getElementById('radiusStart').value);
+            const endR = parseFloat(document.getElementById('radiusEnd').value);
+            
+            // Start radius - cyan/teal dashed
+            ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.4)' : 'rgba(6, 182, 212, 0.5)';
+            ctx.lineWidth = 1 / view.scale;
+            ctx.setLineDash([3 / view.scale, 3 / view.scale]);
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x, vineyardCenter.y, startR, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // End radius - orange dashed
+            ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.4)' : 'rgba(234, 88, 12, 0.5)';
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
         
         if (vineyardCenters.length > 0) {
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.4)' : 'rgba(124, 58, 237, 0.5)';
             const s = 3 / view.scale;
             for (let i = 0; i < vineyardCenters.length; i++) {
                 const c = vineyardCenters[i];
@@ -2467,15 +2639,15 @@ function draw() {
                 const isSelected = (selectedInfo && selectedInfo.cIdx === c && selectedInfo.pIdx === i);
                 const isActiveCurve = (c === activeCurveIdx);
                 
-                if (isSelected) ctx.fillStyle = '#4f8cff';
+                if (isSelected) ctx.fillStyle = curveColor;
                 else if (isHover) ctx.fillStyle = '#fbbf24';
-                else ctx.fillStyle = isActiveCurve ? '#fff' : '#666';
+                else ctx.fillStyle = isActiveCurve ? controlActive : controlInactive;
 
                 const s = (isHover || isSelected) ? hoverSize : baseSize;
                 ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
                 
                 if (isSelected) {
-                    ctx.strokeStyle = '#4f8cff';
+                    ctx.strokeStyle = curveColor;
                     ctx.lineWidth = 1.5 / view.scale;
                     ctx.strokeRect(p.x - s/2 - 2/view.scale, p.y - s/2 - 2/view.scale, s + 4/view.scale, s + 4/view.scale);
                 }
@@ -2485,6 +2657,705 @@ function draw() {
     
     ctx.restore();
 }
+
+// ========== Theme Toggle ==========
+let isDarkTheme = true;
+
+function toggleTheme() {
+    isDarkTheme = !isDarkTheme;
+    document.body.classList.toggle('light-theme', !isDarkTheme);
+    document.getElementById('themeToggleBtn').innerText = isDarkTheme ? '🌙' : '☀️';
+    draw();
+}
+
+document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+
+// ========== Export Functionality ==========
+const exportMenu = document.getElementById('exportMenu');
+const exportBtn = document.getElementById('exportBtn');
+
+exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rect = exportBtn.getBoundingClientRect();
+    exportMenu.style.top = (rect.bottom + 4) + 'px';
+    exportMenu.style.left = rect.left + 'px';
+    exportMenu.classList.toggle('active');
+});
+
+document.addEventListener('click', (e) => {
+    if (!exportMenu.contains(e.target) && e.target !== exportBtn) {
+        exportMenu.classList.remove('active');
+    }
+});
+
+function downloadDataURL(dataURL, filename) {
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataURL;
+    link.click();
+}
+
+function exportCanvasAsPNG() {
+    // Create a high-res export canvas with LIGHT theme
+    const scale = 2; // 2x resolution for better quality
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width * scale;
+    exportCanvas.height = canvas.height * scale;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    // Scale and redraw
+    exportCtx.scale(scale, scale);
+    
+    // Draw WHITE background for papers
+    exportCtx.fillStyle = '#ffffff';
+    exportCtx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    exportCtx.save();
+    exportCtx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
+    exportCtx.scale(view.scale, -view.scale);
+    
+    // Grid - light gray for white background
+    exportCtx.strokeStyle = '#e0e0e0';
+    exportCtx.lineWidth = 1 / view.scale;
+    exportCtx.beginPath();
+    exportCtx.moveTo(-1000, 0); exportCtx.lineTo(1000, 0);
+    exportCtx.moveTo(0, -1000); exportCtx.lineTo(0, 1000);
+    exportCtx.stroke();
+
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        // Focal set - darker green for visibility
+        if (document.getElementById('showFocal').checked) {
+            exportCtx.fillStyle = '#16a34a';
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+
+        // Symmetry set - darker red
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            exportCtx.fillStyle = '#dc2626';
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
+        }
+
+        // Curve - darker blue
+        if (document.getElementById('showCurve').checked) {
+            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.lineWidth = 2.5 / view.scale;
+            let currentId = -1;
+            exportCtx.beginPath();
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    exportCtx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    exportCtx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+        }
+    }
+
+    // Vineyard circle - darker purple
+    if (document.getElementById('showVineyardCircle').checked) {
+        if (vineyardCenter) {
+            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+            exportCtx.fill();
+            
+            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
+            exportCtx.stroke();
+            exportCtx.setLineDash([]);
+        }
+        
+        if (vineyardCenters.length > 0) {
+            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            const s = 3 / view.scale;
+            for (const c of vineyardCenters) {
+                exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
+            }
+        }
+    }
+
+    // Control points - dark gray/black
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            const pts = curves[c];
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                exportCtx.fillStyle = (c === activeCurveIdx) ? '#1a1a1a' : '#888';
+                exportCtx.fillRect(p.x - baseSize/2, p.y - baseSize/2, baseSize, baseSize);
+            }
+        }
+    }
+    
+    exportCtx.restore();
+    
+    const dataURL = exportCanvas.toDataURL('image/png');
+    downloadDataURL(dataURL, 'symmetry_canvas.png');
+    exportMenu.classList.remove('active');
+}
+
+function exportCanvasAsSVG() {
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">`;
+    // White background for papers
+    svg += `<rect width="100%" height="100%" fill="#ffffff"/>`;
+    
+    const cx = canvas.width / 2 + view.x;
+    const cy = canvas.height / 2 + view.y;
+    
+    svg += `<g transform="translate(${cx}, ${cy}) scale(${view.scale}, ${-view.scale})">`;
+    
+    // Grid - light gray
+    svg += `<line x1="-1000" y1="0" x2="1000" y2="0" stroke="#e0e0e0" stroke-width="${1/view.scale}"/>`;
+    svg += `<line x1="0" y1="-1000" x2="0" y2="1000" stroke="#e0e0e0" stroke-width="${1/view.scale}"/>`;
+    
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        // Focal set - darker green
+        if (document.getElementById('showFocal').checked) {
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#16a34a"/>`;
+                    }
+                }
+            }
+        }
+
+        // Symmetry set - darker red
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#dc2626"/>`;
+            }
+        }
+
+        // Curve - darker blue
+        if (document.getElementById('showCurve').checked) {
+            let currentId = -1;
+            let pathData = '';
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (pathData) {
+                        svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                    }
+                    pathData = `M ${pt.p.x} ${pt.p.y}`;
+                    currentId = pt.curveId;
+                } else {
+                    pathData += ` L ${pt.p.x} ${pt.p.y}`;
+                }
+            }
+            if (pathData) {
+                svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+            }
+        }
+    }
+
+    // Vineyard - darker purple
+    if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${6/view.scale}" fill="#7c3aed"/>`;
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${vineyardRadius}" stroke="rgba(124,58,237,0.6)" stroke-width="${1.5/view.scale}" fill="none" stroke-dasharray="${5/view.scale} ${5/view.scale}"/>`;
+    }
+
+    // Control points - dark
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            const pts = curves[c];
+            for (const p of pts) {
+                const fill = (c === activeCurveIdx) ? '#1a1a1a' : '#888';
+                svg += `<rect x="${p.x - baseSize/2}" y="${p.y - baseSize/2}" width="${baseSize}" height="${baseSize}" fill="${fill}"/>`;
+            }
+        }
+    }
+    
+    svg += `</g></svg>`;
+    
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    downloadDataURL(url, 'symmetry_canvas.svg');
+    URL.revokeObjectURL(url);
+    exportMenu.classList.remove('active');
+}
+
+function exportPlotlyAsPNG(plotId, filename) {
+    // Get the plot element and save current camera state
+    const plotDiv = document.getElementById(plotId);
+    let savedCamera = null;
+    
+    // Save 3D camera position if it's a 3D plot
+    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    }
+    
+    const lightLayout = {
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { color: '#1a1a1a' },
+        scene: plotId === 'vineyardPlot' ? {
+            xaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            yaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            zaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            bgcolor: '#ffffff',
+            camera: savedCamera // Preserve camera position
+        } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { font: { color: '#333' } } } : undefined,
+        legend: { font: { color: '#333' }, bgcolor: 'rgba(255,255,255,0.9)' },
+        title: { font: { color: '#333' } }
+    };
+    
+    Plotly.relayout(plotId, lightLayout).then(() => {
+        return Plotly.toImage(plotId, { format: 'png', width: 800, height: 600, scale: 2 });
+    }).then(dataURL => {
+        downloadDataURL(dataURL, filename);
+        exportMenu.classList.remove('active');
+        // Restore dark theme and camera position if needed
+        if (isDarkTheme) {
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
+                font: { color: '#ccc' },
+                scene: plotId === 'vineyardPlot' ? {
+                    xaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    yaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    zaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    camera: savedCamera
+                } : undefined,
+                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                legend: { font: { color: '#ccc' }, bgcolor: 'rgba(0,0,0,0.5)' },
+                title: { font: { color: '#aaa' } }
+            };
+            Plotly.relayout(plotId, darkLayout);
+        }
+    });
+}
+
+function exportPlotlyAsSVG(plotId, filename) {
+    const plotDiv = document.getElementById(plotId);
+    let savedCamera = null;
+    
+    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    }
+    
+    const lightLayout = {
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { color: '#1a1a1a' },
+        scene: plotId === 'vineyardPlot' ? {
+            xaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            yaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            zaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            bgcolor: '#ffffff',
+            camera: savedCamera
+        } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { font: { color: '#333' } } } : undefined,
+        legend: { font: { color: '#333' }, bgcolor: 'rgba(255,255,255,0.9)' },
+        title: { font: { color: '#333' } }
+    };
+    
+    Plotly.relayout(plotId, lightLayout).then(() => {
+        return Plotly.toImage(plotId, { format: 'svg', width: 800, height: 600 });
+    }).then(dataURL => {
+        downloadDataURL(dataURL, filename);
+        exportMenu.classList.remove('active');
+        if (isDarkTheme) {
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
+                font: { color: '#ccc' },
+                scene: plotId === 'vineyardPlot' ? {
+                    xaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    yaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    zaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    camera: savedCamera
+                } : undefined,
+                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                legend: { font: { color: '#ccc' }, bgcolor: 'rgba(0,0,0,0.5)' },
+                title: { font: { color: '#aaa' } }
+            };
+            Plotly.relayout(plotId, darkLayout);
+        }
+    });
+}
+
+function exportCanvasAsPDF() {
+    const { jsPDF } = window.jspdf;
+    
+    // Create high-res canvas with LIGHT theme
+    const scale = 2;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width * scale;
+    exportCanvas.height = canvas.height * scale;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    exportCtx.scale(scale, scale);
+    // White background for papers
+    exportCtx.fillStyle = '#ffffff';
+    exportCtx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    exportCtx.save();
+    exportCtx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
+    exportCtx.scale(view.scale, -view.scale);
+    
+    // Grid - light gray
+    exportCtx.strokeStyle = '#e0e0e0';
+    exportCtx.lineWidth = 1 / view.scale;
+    exportCtx.beginPath();
+    exportCtx.moveTo(-1000, 0); exportCtx.lineTo(1000, 0);
+    exportCtx.moveTo(0, -1000); exportCtx.lineTo(0, 1000);
+    exportCtx.stroke();
+
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        if (document.getElementById('showFocal').checked) {
+            exportCtx.fillStyle = '#16a34a';
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            exportCtx.fillStyle = '#dc2626';
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
+        }
+
+        if (document.getElementById('showCurve').checked) {
+            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.lineWidth = 2.5 / view.scale;
+            let currentId = -1;
+            exportCtx.beginPath();
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    exportCtx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    exportCtx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+        }
+    }
+
+    if (document.getElementById('showVineyardCircle').checked) {
+        if (vineyardCenter) {
+            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+            exportCtx.fill();
+            
+            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
+            exportCtx.stroke();
+            exportCtx.setLineDash([]);
+        }
+        
+        if (vineyardCenters.length > 0) {
+            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            const s = 3 / view.scale;
+            for (const c of vineyardCenters) {
+                exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
+            }
+        }
+    }
+
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            const pts = curves[c];
+            for (const p of pts) {
+                exportCtx.fillStyle = (c === activeCurveIdx) ? '#1a1a1a' : '#888';
+                exportCtx.fillRect(p.x - baseSize/2, p.y - baseSize/2, baseSize, baseSize);
+            }
+        }
+    }
+    
+    exportCtx.restore();
+    
+    const imgData = exportCanvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+    });
+    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+    pdf.save('symmetry_canvas.pdf');
+    exportMenu.classList.remove('active');
+}
+
+function exportPlotlyAsPDF(plotId, filename) {
+    const plotDiv = document.getElementById(plotId);
+    let savedCamera = null;
+    
+    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    }
+    
+    const lightLayout = {
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { color: '#1a1a1a' },
+        scene: plotId === 'vineyardPlot' ? {
+            xaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            yaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            zaxis: { color: '#333', gridcolor: '#ddd', title: { font: { color: '#333' } } },
+            bgcolor: '#ffffff',
+            camera: savedCamera
+        } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { font: { color: '#333' } } } : undefined,
+        legend: { font: { color: '#333' }, bgcolor: 'rgba(255,255,255,0.9)' },
+        title: { font: { color: '#333' } }
+    };
+    
+    Plotly.relayout(plotId, lightLayout).then(() => {
+        return Plotly.toImage(plotId, { format: 'png', width: 800, height: 600, scale: 2 });
+    }).then(dataURL => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'px',
+            format: [800, 600]
+        });
+        pdf.addImage(dataURL, 'PNG', 0, 0, 800, 600);
+        pdf.save(filename);
+        exportMenu.classList.remove('active');
+        if (isDarkTheme) {
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
+                font: { color: '#ccc' },
+                scene: plotId === 'vineyardPlot' ? {
+                    xaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    yaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    zaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    camera: savedCamera
+                } : undefined,
+                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                legend: { font: { color: '#ccc' }, bgcolor: 'rgba(0,0,0,0.5)' },
+                title: { font: { color: '#aaa' } }
+            };
+            Plotly.relayout(plotId, darkLayout);
+        }
+    });
+}
+
+function exportAllAsPNG() {
+    exportCanvasAsPNG();
+    
+    setTimeout(() => {
+        if (vineyardData) {
+            Plotly.toImage('vineyardPlot', { format: 'png', width: 800, height: 600, scale: 2 })
+                .then(dataURL => downloadDataURL(dataURL, 'vineyard_3d.png'));
+        }
+    }, 500);
+    
+    setTimeout(() => {
+        if (vineyardData) {
+            Plotly.toImage('persistencePlot', { format: 'png', width: 800, height: 600, scale: 2 })
+                .then(dataURL => downloadDataURL(dataURL, 'persistence_diagram.png'));
+        }
+    }, 1000);
+    
+    exportMenu.classList.remove('active');
+}
+
+async function exportAllAsPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [800, 600]
+    });
+    
+    // Canvas
+    const scale = 2;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width * scale;
+    exportCanvas.height = canvas.height * scale;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    exportCtx.scale(scale, scale);
+    exportCtx.fillStyle = '#0a0a0f';
+    exportCtx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    exportCtx.save();
+    exportCtx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
+    exportCtx.scale(view.scale, -view.scale);
+    
+    exportCtx.strokeStyle = '#1a1a2e';
+    exportCtx.lineWidth = 1 / view.scale;
+    exportCtx.beginPath();
+    exportCtx.moveTo(-1000, 0); exportCtx.lineTo(1000, 0);
+    exportCtx.moveTo(0, -1000); exportCtx.lineTo(0, 1000);
+    exportCtx.stroke();
+
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        if (document.getElementById('showFocal').checked) {
+            exportCtx.fillStyle = '#22c55e';
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            exportCtx.fillStyle = '#ef4444';
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
+        }
+        if (document.getElementById('showCurve').checked) {
+            exportCtx.strokeStyle = '#4f8cff';
+            exportCtx.lineWidth = 2.5 / view.scale;
+            let currentId = -1;
+            exportCtx.beginPath();
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    exportCtx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    exportCtx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+        }
+    }
+    if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
+        exportCtx.fillStyle = '#a855f7';
+        exportCtx.beginPath();
+        exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+        exportCtx.fill();
+    }
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            for (const p of curves[c]) {
+                exportCtx.fillStyle = (c === activeCurveIdx) ? '#fff' : '#666';
+                exportCtx.fillRect(p.x - baseSize/2, p.y - baseSize/2, baseSize, baseSize);
+            }
+        }
+    }
+    exportCtx.restore();
+    
+    // Scale canvas to fit PDF page
+    const canvasAspect = canvas.width / canvas.height;
+    let cw = 800, ch = 600;
+    if (canvasAspect > 800/600) {
+        ch = 800 / canvasAspect;
+    } else {
+        cw = 600 * canvasAspect;
+    }
+    const cx = (800 - cw) / 2;
+    const cy = (600 - ch) / 2;
+    
+    const canvasImg = exportCanvas.toDataURL('image/png');
+    pdf.addImage(canvasImg, 'PNG', cx, cy, cw, ch);
+    
+    if (vineyardData) {
+        // Vineyard 3D
+        pdf.addPage([800, 600], 'landscape');
+        const vineyardImg = await Plotly.toImage('vineyardPlot', { format: 'png', width: 800, height: 600, scale: 2 });
+        pdf.addImage(vineyardImg, 'PNG', 0, 0, 800, 600);
+        
+        // Persistence Diagram
+        pdf.addPage([800, 600], 'landscape');
+        const pdImg = await Plotly.toImage('persistencePlot', { format: 'png', width: 800, height: 600, scale: 2 });
+        pdf.addImage(pdImg, 'PNG', 0, 0, 800, 600);
+    }
+    
+    pdf.save('symmetry_all_figures.pdf');
+    exportMenu.classList.remove('active');
+}
+
+document.getElementById('exportCanvas').addEventListener('click', exportCanvasAsPNG);
+document.getElementById('exportCanvasSVG').addEventListener('click', exportCanvasAsSVG);
+document.getElementById('exportCanvasPDF').addEventListener('click', exportCanvasAsPDF);
+document.getElementById('exportVineyard').addEventListener('click', () => {
+    if (!vineyardData) { alert('No vineyard data to export'); return; }
+    exportPlotlyAsPNG('vineyardPlot', 'vineyard_3d.png');
+});
+document.getElementById('exportVineyardSVG').addEventListener('click', () => {
+    if (!vineyardData) { alert('No vineyard data to export'); return; }
+    exportPlotlyAsSVG('vineyardPlot', 'vineyard_3d.svg');
+});
+document.getElementById('exportVineyardPDF').addEventListener('click', () => {
+    if (!vineyardData) { alert('No vineyard data to export'); return; }
+    exportPlotlyAsPDF('vineyardPlot', 'vineyard_3d.pdf');
+});
+document.getElementById('exportPD').addEventListener('click', () => {
+    if (!vineyardData) { alert('No persistence data to export'); return; }
+    exportPlotlyAsPNG('persistencePlot', 'persistence_diagram.png');
+});
+document.getElementById('exportPDSVG').addEventListener('click', () => {
+    if (!vineyardData) { alert('No persistence data to export'); return; }
+    exportPlotlyAsSVG('persistencePlot', 'persistence_diagram.svg');
+});
+document.getElementById('exportPDPDF').addEventListener('click', () => {
+    if (!vineyardData) { alert('No persistence data to export'); return; }
+    exportPlotlyAsPDF('persistencePlot', 'persistence_diagram.pdf');
+});
+document.getElementById('exportAllPNG').addEventListener('click', exportAllAsPNG);
+document.getElementById('exportAllPDF').addEventListener('click', exportAllAsPDF);
 
 // ========== Resize ==========
 function resize() {

@@ -2806,9 +2806,10 @@ function exportCanvasAsPDF() {
 function exportPlotlyAsPDF(plotId, filename) {
     const plotDiv = document.getElementById(plotId);
     let savedCamera = null;
+    const savedScene = (plotDiv && plotDiv.layout && plotDiv.layout.scene) ? plotDiv.layout.scene : {};
 
-    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
-        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    if (savedScene && savedScene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(savedScene.camera));
     }
 
     // Use the plot element's on-screen size so export keeps the same aspect ratio
@@ -2816,28 +2817,29 @@ function exportPlotlyAsPDF(plotId, filename) {
     const exportWidth = Math.max(200, Math.round(rect.width) || 800);
     const exportHeight = Math.max(200, Math.round(rect.height) || 800);
 
+    // Build a scene object that preserves camera + aspect settings and sets axis titles
+    const sceneExport = {
+        camera: savedCamera,
+        bgcolor: '#ffffff',
+        xaxis: { title: { text: 'Birth', font: { color: '#333' } }, color: '#333', gridcolor: '#ddd' },
+        yaxis: { title: { text: 'Death', font: { color: '#333' } }, color: '#333', gridcolor: '#ddd' },
+        zaxis: { title: { text: 'Idx', font: { color: '#333' } }, color: '#333', gridcolor: '#ddd' }
+    };
+    if (savedScene && savedScene.aspectmode) sceneExport.aspectmode = savedScene.aspectmode;
+    if (savedScene && savedScene.aspectratio) sceneExport.aspectratio = savedScene.aspectratio;
+
     const lightLayout = {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        scene: plotId === 'vineyardPlot' ? {
-            xaxis: { title: { text: 'Birth', font: { color: '#333' } }, color: '#333', gridcolor: '#ddd' },
-            yaxis: { title: { text: 'Death', font: { color: '#333' } }, color: '#333', gridcolor: '#ddd' },
-            zaxis: { title: { text: 'Idx', font: { color: '#333' } }, color: '#333', gridcolor: '#ddd' },
-            bgcolor: '#ffffff',
-            camera: savedCamera
-        } : undefined,
-            xaxis: plotId === 'persistencePlot' ? {
+        scene: plotId === 'vineyardPlot' ? sceneExport : undefined,
+        xaxis: plotId === 'persistencePlot' ? {
             title: { text: 'Birth', font: { color: '#333' } },
-            color: '#333',
-            gridcolor: '#ddd',
-            zerolinecolor: '#999'
+            color: '#333', gridcolor: '#ddd', zerolinecolor: '#999'
         } : undefined,
-            yaxis: plotId === 'persistencePlot' ? {
+        yaxis: plotId === 'persistencePlot' ? {
             title: { text: 'Death', font: { color: '#333' } },
-            color: '#333',
-            gridcolor: '#ddd',
-            zerolinecolor: '#999'
+            color: '#333', gridcolor: '#ddd', zerolinecolor: '#999'
         } : undefined,
         legend: { font: { color: '#333' }, bgcolor: 'rgba(255,255,255,0.9)' },
         title: { font: { color: '#333' } }
@@ -2853,20 +2855,19 @@ function exportPlotlyAsPDF(plotId, filename) {
         pdf.save(filename);
         exportMenu.classList.remove('active');
 
+        // restore dark layout if needed (preserve axis titles + aspect)
         if (isDarkTheme) {
+            const darkScene = Object.assign({}, sceneExport);
+            darkScene.xaxis.title.font.color = '#aaa';
+            darkScene.yaxis.title.font.color = '#aaa';
+            darkScene.zaxis.title.font.color = '#aaa';
             const darkLayout = {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                scene: plotId === 'vineyardPlot' ? {
-                    xaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
-                    yaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
-                    zaxis: { color: '#888', gridcolor: '#333', title: { font: { color: '#aaa' } } },
-                    bgcolor: 'rgba(0,0,0,0)',
-                    camera: savedCamera
-                } : undefined,
-                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
-                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { font: { color: '#aaa' } } } : undefined,
+                scene: plotId === 'vineyardPlot' ? darkScene : undefined,
+                xaxis: plotId === 'persistencePlot' ? { title: { text: 'Birth', font: { color: '#aaa' } }, color: '#888', gridcolor: '#333', zerolinecolor: '#666' } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { title: { text: 'Death', font: { color: '#aaa' } }, color: '#888', gridcolor: '#333', zerolinecolor: '#666' } : undefined,
                 legend: { font: { color: '#ccc' }, bgcolor: 'rgba(0,0,0,0.5)' },
                 title: { font: { color: '#aaa' } }
             };
@@ -2876,10 +2877,6 @@ function exportPlotlyAsPDF(plotId, filename) {
 }
 
 document.getElementById('exportCanvasPDF').addEventListener('click', exportCanvasAsPDF);
-// document.getElementById('exportVineyard').addEventListener('click', () => {
-//     if (!vineyardData) { alert('No vineyard data to export'); return; }
-//     exportPlotlyAsPNG('vineyardPlot', 'vineyard_3d.png');
-// });
 document.getElementById('exportVineyardPDF').addEventListener('click', () => {
     if (!vineyardData) { alert('No vineyard data to export'); return; }
     exportPlotlyAsPDF('vineyardPlot', 'vineyard_3d.pdf');

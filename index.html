@@ -3,181 +3,662 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Symmetry Set Visualizer</title>
+    <title>Symmetry Set Visualizer + Vineyard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: #eee; font-family: sans-serif; }
-        canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap');
         
-        /* Left Panel: Main Actions */
-        .controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px;
-            border-radius: 8px;
-            width: 300px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            max-height: 90vh;
-            overflow-y: auto;
-            z-index: 10;
+        :root {
+            --bg-dark: #0a0a0f;
+            --panel-bg: rgba(15, 15, 25, 0.98);
+            --accent-blue: #4f8cff;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-purple: #a855f7;
+            --accent-amber: #f59e0b;
+            --text-primary: #e0e0e0;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-muted: rgba(255,255,255,0.4);
+            --border-color: rgba(255,255,255,0.08);
+            --grid-color: #1a1a2e;
         }
-
-        /* Right Panel: Guidelines & Toggles */
-        .controls-right {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px;
-            border-radius: 8px;
-            width: 260px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            z-index: 10;
+        
+        /* Light Theme */
+        body.light-theme {
+            --bg-dark: #f5f5f7;
+            --panel-bg: rgba(255, 255, 255, 0.98);
+            --text-primary: #1a1a1a;
+            --text-secondary: rgba(0,0,0,0.7);
+            --text-muted: rgba(0,0,0,0.4);
+            --border-color: rgba(0,0,0,0.1);
+            --grid-color: #e0e0e0;
         }
-
-        .slider-container { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85rem; margin-bottom: 5px; color: #ccc; font-weight: bold; }
-        input[type="range"] { width: 100%; cursor: pointer; accent-color: #60a5fa; }
         
-        .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.8rem; margin-top: 15px; border-top: 1px solid #444; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        body.light-theme .canvas-container {
+            background: var(--bg-dark);
+        }
         
-        #status { font-size: 0.8rem; color: #fbbf24; min-height: 1.2em; margin-bottom: 10px; font-weight: bold; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            overflow: hidden; 
+            background: var(--bg-dark); 
+            color: var(--text-primary); 
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+            transition: background 0.3s, color 0.3s;
+        }
         
-        .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
-        .btn { flex: 1; padding: 6px; font-size: 0.85rem; background: #374151; color: white; border-radius: 4px; transition: background 0.2s; }
-        .btn:hover { background: #4b5563; }
-        .btn:active { background: #1f2937; }
+        /* Main Layout */
+        .app-container {
+            display: grid;
+            grid-template-rows: 40px 1fr 24px;
+            grid-template-columns: 240px 1fr 200px;
+            height: 100vh;
+            width: 100vw;
+            overflow: visible;
+        }
+        
+        /* Top Toolbar */
+        .toolbar {
+            grid-column: 1 / -1;
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            gap: 2px;
+            overflow: visible;
+        }
+        
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px;
+            height: 100%;
+            border-right: 1px solid var(--border-color);
+            overflow: visible;
+        }
+        .toolbar-section:last-child { border-right: none; }
+        
+        .toolbar-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        
+        /* Bottom Status Bar */
+        .statusbar {
+            grid-column: 1 / -1;
+            background: rgba(128,128,128,0.1);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--accent-amber);
+        }
+        
+        .statusbar .legend {
+            margin-left: auto;
+            display: flex;
+            gap: 12px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 9px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
+        
+        /* Left Sidebar */
+        .sidebar-left {
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Right Sidebar */
+        .sidebar-right {
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Canvas Container */
+        .canvas-container {
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-dark);
+        }
+        
+        canvas#mainCanvas { 
+            width: 100%; 
+            height: 100%; 
+            cursor: crosshair; 
+            display: block;
+        }
+        
+        /* Collapsible Sections */
+        .section {
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            cursor: pointer;
+            user-select: none;
+            background: rgba(128,128,128,0.03);
+            transition: background 0.15s;
+        }
+        .section-header:hover { background: rgba(128,128,128,0.08); }
+        
+        .section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .section-icon { width: 6px; height: 6px; border-radius: 50%; }
+        
+        .section-toggle {
+            font-size: 8px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        .section.collapsed .section-toggle { transform: rotate(-90deg); }
+        .section.collapsed .section-content { display: none; }
+        
+        .section-content {
+            padding: 6px 10px 8px;
+            overflow: hidden;
+        }
+        
+        /* Compact Form Elements */
+        .btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        
+        .btn-primary { 
+            background: linear-gradient(135deg, var(--accent-blue), #3b7aeb);
+            color: white;
+        }
+        .btn-primary:hover { filter: brightness(1.1); }
+        
+        .btn-secondary {
+            background: rgba(128,128,128,0.15);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover { background: rgba(128,128,128,0.25); }
+        
+        .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .btn-purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); color: white; }
+        .btn-purple.active { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        
+        .btn-group { display: flex; gap: 3px; }
+        .btn-group .btn { flex: 1; }
+        
+        .btn-icon {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         
         select {
-            width: 100%;
-            background: #374151;
-            color: white;
-            padding: 8px;
+            background: rgba(128,128,128,0.15);
+            color: var(--text-primary);
+            padding: 3px 6px;
             border-radius: 4px;
-            font-size: 0.85rem;
-            border: 1px solid #4b5563;
-            margin-bottom: 10px;
+            font-size: 10px;
+            border: 1px solid var(--border-color);
             cursor: pointer;
+            font-family: inherit;
         }
-        select:focus { outline: none; border-color: #60a5fa; }
-
-        /* Scrollbar */
-        .controls::-webkit-scrollbar { width: 6px; }
-        .controls::-webkit-scrollbar-track { background: #222; }
-        .controls::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        select:focus { outline: none; border-color: var(--accent-blue); }
+        
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 3px 0;
+        }
+        .slider-row label {
+            font-size: 9px;
+            color: var(--text-muted);
+            min-width: 42px;
+            flex-shrink: 0;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            min-width: 60px;
+            height: 3px;
+            cursor: pointer;
+            accent-color: var(--accent-blue);
+        }
+        .slider-row .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--accent-blue);
+            min-width: 26px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+        
+        /* Toggle Rows */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2px 0;
+        }
+        .toggle-row span { font-size: 10px; color: var(--text-secondary); }
+        
+        input[type="checkbox"] {
+            width: 12px;
+            height: 12px;
+            cursor: pointer;
+            accent-color: var(--accent-blue);
+        }
+        
+        /* Mode Badge */
+        .mode-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            font-size: 9px;
+            border-radius: 3px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .mode-draw { background: var(--accent-blue); }
+        .mode-vineyard { background: var(--accent-purple); }
+        
+        /* Floating Plot Panels */
+        .float-panel {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            z-index: 100;
+            display: none;
+        }
+        .float-panel.active { display: flex; flex-direction: column; }
+        
+        .float-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: move;
+            background: rgba(128,128,128,0.05);
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .float-panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .float-panel-content { flex: 1; padding: 4px; overflow: hidden; }
+        
+        #vineyardPanel {
+            right: 210px;
+            bottom: 36px;
+            width: 360px;
+            height: 300px;
+        }
+        #vineyardPanel.expanded { width: 600px; height: 480px; }
+        
+        #persistencePanel {
+            left: 250px;
+            bottom: 36px;
+            width: 320px;
+            height: 320px;
+        }
+        #persistencePanel.expanded { width: 480px; height: 460px; }
+        
+        #vineyardPlot, #persistencePlot { width: 100%; height: 100%; }
+        
+        /* Animation Row */
+        .anim-row {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin: 4px 0;
+        }
+        .anim-row input[type="range"] { 
+            flex: 1;
+            min-width: 50px;
+        }
+        
+        /* Quick Keys */
+        .quick-keys {
+            padding: 6px 10px;
+            font-size: 9px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            border-top: 1px solid var(--border-color);
+            margin-top: auto;
+        }
+        .quick-keys kbd {
+            background: rgba(128,128,128,0.2);
+            padding: 0px 3px;
+            border-radius: 2px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+        }
+        
+        /* Curve Count Badge */
+        .curve-badge {
+            background: rgba(0,0,0,0.3);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Export Menu */
+        .export-menu {
+            display: none;
+            position: fixed;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            min-width: 220px;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .export-menu.active {
+            display: block;
+        }
+        .export-menu-item {
+            padding: 8px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.15s;
+            color: var(--text-primary);
+        }
+        .export-menu-item:hover {
+            background: rgba(79, 140, 255, 0.2);
+        }
+        .export-menu-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
     </style>
 </head>
 <body>
 
-    <!-- LEFT PANEL: Actions & Params -->
-    <div class="controls">
-        <h2 class="text-xl font-bold mb-2 text-white">Symmetry Set Visualizer</h2>
-
-        <div class="mb-4">
-            <label>Load Preset Shape</label>
-            <select id="presetSelect">
-                <option value="" disabled selected>Select a shape...</option>
-                <!-- <option value="circle">Circle (8 pts)</option> -->
-                <option value="ellipse">Ellipse (8 pts)</option>
-                <option value="astroid">Astroid (12 pts)</option>
-                <option value="bean">Kidney Bean (10 pts)</option>
-                <!-- <option value="two_circles">Two Circles (External SS)</option> -->
+<div class="app-container">
+    <!-- Top Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-section">
+            <span class="mode-badge mode-draw" id="modeIndicator">Draw</span>
+        </div>
+        
+        <div class="toolbar-section">
+            <span class="toolbar-label">Preset</span>
+            <select id="presetSelect" style="width: 90px;">
+                <option value="" disabled selected>Select...</option>
+                <option value="ellipse">Ellipse</option>
+                <!-- <option value="astroid">Astroid</option> -->
+                <option value="bean">Kidney Bean</option>
+                <!-- <option value="cardioid">Cardioid</option> -->
+                <!-- <option value="offsetSpiral">Offset Spiral</option> -->
             </select>
         </div>
-
-        <div id="status">Add points to start...</div>
-
-        <!-- Curve Management -->
-        <button id="newCurveBtn" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold mb-2 transition border border-emerald-500 flex justify-between items-center">
-            <span>+ New Curve</span>
-            <span id="curveCountBadge" class="bg-black bg-opacity-30 px-2 rounded text-xs">1</span>
-        </button>
-
-        <div class="btn-group">
-            <button id="undoBtn" class="btn">Undo (Ctrl+Z)</button>
-            <button id="clearBtn" class="btn bg-red-900 hover:bg-red-800">Clear All</button>
-        </div>
-
-        <div class="slider-container">
-            <label for="resolution">Resolution</label>
-            <input type="range" id="resolution" min="500" max="80000" step="100" value="1000">
-            <div id="res-val" class="text-xs text-right text-gray-400">1000 points</div>
-        </div>
-
-        <button id="computeBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm w-full font-bold transition mb-4">Re-Compute</button>
         
-        <!-- Focal Animation Controls -->
-        <div class="mb-4 p-3 bg-gray-800 rounded border border-gray-700">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-purple-400">Focal Animation</span>
-                <div class="flex gap-2">
-                    <button id="animStopBtn" class="bg-red-900 hover:bg-red-800 text-white px-2 py-1 rounded text-xs transition hidden border border-red-700">Stop</button>
-                    <button id="animFocalBtn" class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-bold transition w-16">Play</button>
+        <!-- <div class="toolbar-section">
+            <button class="btn btn-green" id="newCurveBtn" style="display: flex; align-items: center; gap: 4px;">
+                + Curve <span class="curve-badge" id="curveCountBadge">1</span>
+            </button>
+        </div> -->
+        
+        <div class="toolbar-section">
+            <button class="btn btn-secondary btn-icon" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+            <button class="btn btn-secondary" id="clearBtn">Clear</button>
+            <button class="btn btn-secondary btn-icon" id="resetViewBtn" title="Reset View">⊙</button>
+        </div>
+        
+        <div class="toolbar-section">
+            <button class="btn btn-primary" id="computeBtn">Compute SS</button>
+            <span class="toolbar-label">Res</span>
+            <input type="range" id="resolution" min="500" max="40000" step="500" value="5000" style="width: 50px; height: 3px;">
+            <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
+        </div>
+        
+        <div class="toolbar-section" style="position: relative;">
+            <button class="btn btn-secondary" id="exportBtn">
+                Export ▾
+            </button>
+        </div>
+        
+        <div class="toolbar-section" style="border-right: none;">
+            <button class="btn btn-secondary" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+                🌙
+            </button>
+        </div>
+        
+    </div>
+    
+    <!-- Left Sidebar -->
+    <div class="sidebar-left">
+        <!-- Focal Animation -->
+        <div class="section" id="focalSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-green);"></span>
+                    Focal Animation
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="anim-row">
+                    <button class="btn btn-green" id="focalPlayBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="focalStopBtn">◼</button>
+                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
                 </div>
             </div>
-            <input type="range" id="animSlider" min="0" max="1000" value="0" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500">
         </div>
-
-        <button id="resetViewBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm w-full mt-4">Reset View</button>
-
+        
+        <!-- Vineyard -->
+        <div class="section" id="vineyardSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-purple);"></span>
+                    Vineyard
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">Place Center</button>
+                <div class="slider-row">
+                    <label>Radius</label>
+                    <input type="range" id="vineyardRadius" min="0.001" max="10" step="0.01" value="1" style="accent-color: #a855f7;">
+                    <span class="val" id="radiusVal">1.0</span>
+                </div>
+                <div class="slider-row">
+                    <label>Samples</label>
+                    <input type="range" id="vineyardSamples" min="8" max="300" step="4" value="64" style="accent-color: #a855f7;">
+                    <span class="val" id="samplesVal">64</span>
+                </div>
+                <button class="btn btn-primary" id="computeVineyardBtn" style="width: 100%; margin: 5px 0;">Compute Vineyard</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playVineyardBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopVineyardBtn">◼</button>
+                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Radius Sweep -->
+        <div class="section" id="sweepSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: #c084fc;"></span>
+                    Radius Sweep
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="slider-row">
+                    <label>Start R</label>
+                    <input type="range" id="radiusStart" min="0.01" max="10" step="0.01" value="0.5" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusStartVal">0.5</span>
+                </div>
+                <div class="slider-row">
+                    <label>End R</label>
+                    <input type="range" id="radiusEnd" min="0.01" max="10" step="0.01" value="5" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusEndVal">5.0</span>
+                </div>
+                <div class="slider-row">
+                    <label>Steps</label>
+                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #c084fc;">
+                    <span class="val" id="radiusStepsVal">30</span>
+                </div>
+                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #c084fc, #a855f7); color: white;">Compute Sweep</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playRadiusSweepBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopRadiusSweepBtn">◼</button>
+                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
+                </div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #c084fc; margin-top: 2px;" id="currentSweepRadius">R: --</div>
+            </div>
+        </div>
+        
+        <!-- Quick Keys -->
+        <div class="quick-keys">
+            <kbd>Click</kbd> Add · <kbd>Drag</kbd> Move · <kbd>Right-drag</kbd> Pan<br>
+            <kbd>Scroll</kbd> Zoom · <kbd>Del</kbd> Delete · <kbd>Ctrl+Z</kbd> Undo
+        </div>
+    </div>
+    
+    <!-- Canvas -->
+    <div class="canvas-container">
+        <canvas id="mainCanvas"></canvas>
+        
+        <!-- Floating Vineyard Plot -->
+        <div class="float-panel" id="vineyardPanel">
+            <div class="float-panel-header">
+                <span class="float-panel-title" style="color: var(--accent-purple);">Vineyard 3D</span>
+                <div style="display: flex; gap: 3px;">
+                    <button class="btn btn-secondary" id="expandVineyardBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
+                    <button class="btn btn-secondary" id="closeVineyardBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
+                </div>
+            </div>
+            <div class="float-panel-content">
+                <div id="vineyardPlot"></div>
+            </div>
+        </div>
+        
+        <!-- Floating Persistence Diagram -->
+        <div class="float-panel" id="persistencePanel">
+            <div class="float-panel-header">
+                <span class="float-panel-title" style="color: var(--accent-red);">Persistence Diagram</span>
+                <div style="display: flex; gap: 3px;">
+                    <button class="btn btn-secondary" id="expandPDBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
+                    <button class="btn btn-secondary" id="closePDBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
+                </div>
+            </div>
+            <div class="float-panel-content">
+                <div id="persistencePlot"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Sidebar -->
+    <div class="sidebar-right">
+        <!-- Display Toggles -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Display</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Curve</span><input type="checkbox" id="showCurve" checked></div>
+                <div class="toggle-row"><span>Control Points</span><input type="checkbox" id="showControls" checked></div>
+                <div class="toggle-row"><span>Focal Set</span><input type="checkbox" id="showFocal" checked></div>
+                <div class="toggle-row"><span>Symmetry Set</span><input type="checkbox" id="showSS" checked></div>
+                <div class="toggle-row"><span>Vineyard Circle</span><input type="checkbox" id="showVineyardCircle" checked></div>
+            </div>
+        </div>
+        
+        <!-- Plot Windows -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Plot Windows</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
+                <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Status Bar -->
+    <div class="statusbar">
+        <span id="status">Click to add points or load a preset</span>
         <div class="legend">
-            <div class="flex items-center gap-1"><span class="dot bg-blue-400"></span> Curve</div>
-            <div class="flex items-center gap-1"><span class="dot bg-white border border-gray-500"></span> Ctrl Pts</div>
-            <div class="flex items-center gap-1"><span class="dot bg-green-400"></span> Focal</div>
-            <div class="flex items-center gap-1"><span class="dot bg-red-500"></span> Symm</div>
-        </div>
-
-        <br/>
-
-        <a href="deformed_ellipse.html" class="block w-full text-center bg-teal-700 hover:bg-teal-600 text-white px-4 py-2 rounded text-sm mb-4 transition shadow-lg border border-teal-500">
-            View Deformed Ellipse
-        </a>
-    </div>
-
-    <!-- RIGHT PANEL: Instructions & Visibility -->
-    <div class="controls-right">
-        <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider">Instructions</h3>
-        <div class="text-xs text-gray-300 mb-5 space-y-1.5">
-            <div><span class="text-blue-400">Left Click</span> Add Point / Select</div>
-            <div><span class="text-emerald-400">New Curve</span> Start new shape</div>
-            <div><span class="text-blue-400">Drag Point</span> Move Point</div>
-            <div><span class="text-blue-400">Drag Space</span> Pan View</div>
-            <div><span class="text-blue-400">Del / Backspace</span> Delete Point</div>
-            <div><span class="text-blue-400">Ctrl+Z</span> Undo</div>
-            <div><span class="text-blue-400">Scroll</span> Zoom</div>
-        </div>
-
-        <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 tracking-wider border-t border-gray-700 pt-3">Visibility</h3>
-        <div class="space-y-2">
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-300">Show Curve</span>
-                <input type="checkbox" id="showCurve" checked class="accent-blue-500 h-4 w-4 cursor-pointer">
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-300">Show Control Points</span>
-                <input type="checkbox" id="showControls" checked class="accent-blue-500 h-4 w-4 cursor-pointer">
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-300">Show Focal Set</span>
-                <input type="checkbox" id="showEvolute" checked class="accent-green-500 h-4 w-4 cursor-pointer">
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-300">Show Symmetry Set</span>
-                <input type="checkbox" id="showSS" checked class="accent-red-500 h-4 w-4 cursor-pointer">
-            </div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-blue);"></span> Curve</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-green);"></span> Focal</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-red);"></span> SS</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
         </div>
     </div>
+</div>
 
-    <canvas id="canvas"></canvas>
+<!-- Export Menu (positioned fixed via JS) -->
+<div id="exportMenu" class="export-menu">
+    <div class="export-menu-item" id="exportCanvas">Export Canvas (PNG)</div>
+    <div class="export-menu-item" id="exportCanvasSVG">Export Canvas (SVG)</div>
+    <div class="export-menu-item" id="exportCanvasPDF">Export Canvas (PDF)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportVineyard">Export Vineyard 3D (PNG)</div>
+    <div class="export-menu-item" id="exportVineyardSVG">Export Vineyard 3D (SVG)</div>
+    <div class="export-menu-item" id="exportVineyardPDF">Export Vineyard 3D (PDF)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportPD">Export Persistence Diagram (PNG)</div>
+    <div class="export-menu-item" id="exportPDSVG">Export Persistence Diagram (SVG)</div>
+    <div class="export-menu-item" id="exportPDPDF">Export Persistence Diagram (PDF)</div>
+    <div class="export-menu-divider"></div>
+    <div class="export-menu-item" id="exportAllPNG">Export All (PNG)</div>
+    <div class="export-menu-item" id="exportAllPDF">Export All (PDF)</div>
+</div>
 
 <script>
-// --- Math Classes ---
-
+// ========== Math Classes ==========
 class Point {
     constructor(x, y) { this.x = x; this.y = y; }
     add(o) { return new Point(this.x + o.x, this.y + o.y); }
@@ -188,47 +669,179 @@ class Point {
     normalize() { const n = this.norm(); return n < 1e-15 ? new Point(0,0) : this.mult(1/n); }
 }
 
-// Global Config
-const SAMPLING_DENSITY = 30000; 
+// ========== Union-Find for Persistence ==========
+class UnionFind {
+    constructor(n, birthValues) {
+        this.parent = Array.from({length: n}, (_, i) => i);
+        this.birth = [...birthValues];
+    }
+    
+    find(i) {
+        const path = [];
+        while (this.parent[i] !== i) {
+            path.push(i);
+            i = this.parent[i];
+        }
+        for (const node of path) {
+            this.parent[node] = i;
+        }
+        return i;
+    }
+    
+    union(i, j, currentValue) {
+        const rootI = this.find(i);
+        const rootJ = this.find(j);
+        
+        if (rootI !== rootJ) {
+            let elder, younger;
+            if (this.birth[rootI] < this.birth[rootJ]) {
+                elder = rootI; younger = rootJ;
+            } else if (this.birth[rootJ] < this.birth[rootI]) {
+                elder = rootJ; younger = rootI;
+            } else {
+                elder = rootI < rootJ ? rootI : rootJ;
+                younger = rootI < rootJ ? rootJ : rootI;
+            }
+            
+            const deathValue = currentValue;
+            const persistencePair = [this.birth[younger], deathValue];
+            this.parent[younger] = elder;
+            return { pair: persistencePair, isH1: false };
+        } else {
+            return { pair: [currentValue, null], isH1: true };
+        }
+    }
+}
+
+// ========== Global State ==========
+const SAMPLING_DENSITY = 30000;
 const LAMBDA_MAX = 5000.0;
 const R_MAX = 100000.0;
 
-// State
-// curves is now Array of Arrays of Points: [[p1, p2...], [q1, q2...]]
-let curves = [[]]; 
+let curves = [[]];
 let activeCurveIdx = 0;
 
-let cachedCurveData = null; 
+let cachedCurveData = null;
 let cachedSSData = null;
-let ssResolution = 1000;
+let ssResolution = 5000;
 
-// Interaction State
-let dragInfo = null; // { cIdx, pIdx }
-let hoverInfo = null; // { cIdx, pIdx }
-let selectedInfo = null; // { cIdx, pIdx }
+let dragInfo = null;
+let hoverInfo = null;
+let selectedInfo = null;
 let view = { x: 0, y: 0, scale: 50 };
 
-// Pan & Drag Logic
 let isInteractionActive = false;
-let interactionType = null; // 'DRAG_POINT', 'PAN', 'POTENTIAL_PAN'
+let interactionType = null;
 let mouseStart = { x: 0, y: 0 };
 let viewStart = { x: 0, y: 0 };
 
-// Undo History
 const MAX_HISTORY = 50;
 let historyStack = [];
 
-// Animation State
-let isFocalAnim = false;
-let focalIdx = 0;
+let vineyardMode = false;
+let vineyardCenter = null;
+let vineyardRadius = 1.0;
+let vineyardSamples = 64;
+let vineyardCenters = [];
+let vineyardData = null;
+let vineyardAnimIdx = 0;
+let vineyardAnimPlaying = false;
+let currentPersistence = null;
+let vineyardMaxVal = 1;
+let vineyardDragging = false;
 
-// --- History Management ---
+let focalAnimPlaying = false;
+let focalAnimIdx = 0;
 
+let radiusSweepData = null;
+let radiusSweepPlaying = false;
+let radiusSweepIdx = 0;
+let radiusStart = 0.5;
+let radiusEnd = 5.0;
+let radiusSteps = 30;
+
+let fixedCurveMode = false;
+
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+// ========== Collapsible Sections ==========
+document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', () => {
+        header.parentElement.classList.toggle('collapsed');
+    });
+});
+
+// ========== Close buttons for floating panels ==========
+document.getElementById('closeVineyardBtn').addEventListener('click', () => {
+    document.getElementById('vineyardPanel').classList.remove('active');
+    document.getElementById('showVineyardPlot').checked = false;
+});
+
+document.getElementById('closePDBtn').addEventListener('click', () => {
+    document.getElementById('persistencePanel').classList.remove('active');
+    document.getElementById('showPD').checked = false;
+});
+
+// ========== Panel Dragging ==========
+function makePanelDraggable(panelId) {
+    const panel = document.getElementById(panelId);
+    const header = panel.querySelector('.float-panel-header');
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    header.addEventListener('mousedown', (e) => {
+        // Don't drag if clicking buttons
+        if (e.target.tagName === 'BUTTON') return;
+        
+        isDragging = true;
+        const rect = panel.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        
+        // Switch to fixed positioning if not already
+        panel.style.position = 'fixed';
+        panel.style.left = startLeft + 'px';
+        panel.style.top = startTop + 'px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        
+        let newLeft = startLeft + dx;
+        let newTop = startTop + dy;
+        
+        // Keep panel within viewport bounds
+        newLeft = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, newLeft));
+        newTop = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, newTop));
+        
+        panel.style.left = newLeft + 'px';
+        panel.style.top = newTop + 'px';
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+}
+
+makePanelDraggable('vineyardPanel');
+makePanelDraggable('persistencePanel');
+
+// ========== History ==========
 function saveState() {
-    // Deep copy curves
     const state = {
         curves: curves.map(curve => curve.map(p => new Point(p.x, p.y))),
-        active: activeCurveIdx
+        activeCurveIdx: activeCurveIdx,
+        vineyardCenter: vineyardCenter ? new Point(vineyardCenter.x, vineyardCenter.y) : null
     };
     historyStack.push(state);
     if (historyStack.length > MAX_HISTORY) historyStack.shift();
@@ -238,19 +851,19 @@ function performUndo() {
     if (historyStack.length === 0) return;
     const state = historyStack.pop();
     curves = state.curves;
-    activeCurveIdx = state.active;
+    activeCurveIdx = state.activeCurveIdx;
+    vineyardCenter = state.vineyardCenter;
     
-    // Validate active index
     if (activeCurveIdx >= curves.length) activeCurveIdx = curves.length - 1;
     if (activeCurveIdx < 0) { activeCurveIdx = 0; curves = [[]]; }
-
+    
     selectedInfo = null;
+    updateStatus();
     updateUI();
     triggerComputation(true);
 }
 
-// --- Interpolating B-Spline Logic ---
-
+// ========== B-Spline ==========
 function solveControlPoints(points) {
     const n = points.length;
     if (n < 3) return points;
@@ -268,20 +881,16 @@ function solveControlPoints(points) {
     
     for(let i=0; i<n; i++) { solX[i] = points[i].x; solY[i] = points[i].y; }
 
-    const iterations = 20; 
-    for(let iter=0; iter<iterations; iter++) {
+    for(let iter=0; iter<20; iter++) {
         for(let i=0; i<n; i++) {
             const prev = (i === 0) ? n - 1 : i - 1;
             const next = (i === n - 1) ? 0 : i + 1;
-            
             solX[i] = (rhsX[i] - solX[prev] - solX[next]) * 0.25;
             solY[i] = (rhsY[i] - solY[prev] - solY[next]) * 0.25;
         }
     }
 
-    const res = [];
-    for(let i=0; i<n; i++) res.push(new Point(solX[i], solY[i]));
-    return res;
+    return Array.from({length: n}, (_, i) => new Point(solX[i], solY[i]));
 }
 
 function bSplineEval(p0, p1, p2, p3, t) {
@@ -290,10 +899,7 @@ function bSplineEval(p0, p1, p2, p3, t) {
     const b1 = (3*t3 - 6*t2 + 4)/6;
     const b2 = (-3*t3 + 3*t2 + 3*t + 1)/6;
     const b3 = t3/6;
-    return new Point(
-        p0.x*b0 + p1.x*b1 + p2.x*b2 + p3.x*b3,
-        p0.y*b0 + p1.y*b1 + p2.y*b2 + p3.y*b3
-    );
+    return new Point(p0.x*b0 + p1.x*b1 + p2.x*b2 + p3.x*b3, p0.y*b0 + p1.y*b1 + p2.y*b2 + p3.y*b3);
 }
 
 function bSplineDeriv1(p0, p1, p2, p3, t) {
@@ -302,10 +908,7 @@ function bSplineDeriv1(p0, p1, p2, p3, t) {
     const d1 = (9*t2 - 12*t)/6;
     const d2 = (-9*t2 + 6*t + 3)/6;
     const d3 = (3*t2)/6;
-    return new Point(
-        p0.x*d0 + p1.x*d1 + p2.x*d2 + p3.x*d3,
-        p0.y*d0 + p1.y*d1 + p2.y*d2 + p3.y*d3
-    );
+    return new Point(p0.x*d0 + p1.x*d1 + p2.x*d2 + p3.x*d3, p0.y*d0 + p1.y*d1 + p2.y*d2 + p3.y*d3);
 }
 
 function bSplineDeriv2(p0, p1, p2, p3, t) {
@@ -313,36 +916,26 @@ function bSplineDeriv2(p0, p1, p2, p3, t) {
     const dd1 = (18*t - 12)/6;
     const dd2 = (-18*t + 6)/6;
     const dd3 = (6*t)/6;
-    return new Point(
-        p0.x*dd0 + p1.x*dd1 + p2.x*dd2 + p3.x*dd3,
-        p0.y*dd0 + p1.y*dd1 + p2.y*dd2 + p3.y*dd3
-    );
+    return new Point(p0.x*dd0 + p1.x*dd1 + p2.x*dd2 + p3.x*dd3, p0.y*dd0 + p1.y*dd1 + p2.y*dd2 + p3.y*dd3);
 }
 
 function computeSplineData() {
     const allData = [];
     
-    // Process each curve independently
     for (let cIdx = 0; cIdx < curves.length; cIdx++) {
         const pts = curves[cIdx];
         if (pts.length < 3) continue;
 
         const C = solveControlPoints(pts);
         const n = C.length;
-        const drawC = [C[n-1], ...C, C[0], C[1]]; 
+        const drawC = [C[n-1], ...C, C[0], C[1]];
 
         const numSegments = pts.length;
-        // Split total density budget among curves, weighted by # of points?
-        // For simplicity, give each curve a good chunk of points.
-        // We divide SAMPLING_DENSITY by number of curves to keep perf steady.
         const budget = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
         const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
 
         for (let i = 0; i < numSegments; i++) {
-            const p0 = drawC[i];
-            const p1 = drawC[i+1];
-            const p2 = drawC[i+2];
-            const p3 = drawC[i+3];
+            const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
 
             for (let j = 0; j < pointsPerSeg; j++) {
                 const t = j / pointsPerSeg;
@@ -364,8 +957,7 @@ function computeSplineData() {
     return allData;
 }
 
-// --- Symmetry Set ---
-
+// ========== Symmetry Set ==========
 function computeSymmetrySet(data, resolutionLimit) {
     if (!data || data.length === 0) return [];
     
@@ -375,43 +967,34 @@ function computeSymmetrySet(data, resolutionLimit) {
     for (let i = 0; i < data.length; i += step) activeIndices.push(i);
     
     const n = activeIndices.length;
-    
     const Px = new Float64Array(n), Py = new Float64Array(n);
     const Tx = new Float64Array(n), Ty = new Float64Array(n);
     const Nx = new Float64Array(n), Ny = new Float64Array(n);
-    const Id = new Int32Array(n); // Store curve ID
+    const Id = new Int32Array(n);
     
     for(let k=0; k<n; k++) {
         const idx = activeIndices[k];
         Px[k] = data[idx].p.x; Py[k] = data[idx].p.y;
         Tx[k] = data[idx].T.x; Ty[k] = data[idx].T.y;
         Nx[k] = data[idx].N.x; Ny[k] = data[idx].N.y;
-        Id[k] = data[idx].curveId;
+        Id[k] = data[idx].curveId || 0;
     }
 
     const minChordSq = 0.3 * 0.3;
-    const radiusTol = 0.15; 
+    const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {
-        const px = Px[i], py = Py[i];
-        const tx = Tx[i], ty = Ty[i];
-        const nx = Nx[i], ny = Ny[i];
+        const px = Px[i], py = Py[i], tx = Tx[i], ty = Ty[i], nx = Nx[i], ny = Ny[i];
         const id1 = Id[i];
-        
-        let prev_check1 = NaN;
-        let prev_check2 = NaN;
+        let prev_check1 = NaN, prev_check2 = NaN;
 
         for (let j = i + 1; j < n; j++) {
-            // If on same curve, check distance. If different curves, no min distance needed.
+            const dx = px - Px[j], dy = py - Py[j];
+            
             if (id1 === Id[j]) {
-                const dx = px - Px[j];
-                const dy = py - Py[j];
                 if (dx*dx + dy*dy < minChordSq) continue;
             }
 
-            const dx = px - Px[j];
-            const dy = py - Py[j];
-            
             const t2x = Tx[j], t2y = Ty[j];
             const dotT = tx*t2x + ty*t2y;
 
@@ -423,8 +1006,7 @@ function computeSymmetrySet(data, resolutionLimit) {
                     if (den > 1e-10) {
                         const lam = (-dx*nsx - dy*nsy) / den;
                         if (Math.abs(lam) < LAMBDA_MAX) {
-                            const cx = px + nx*lam;
-                            const cy = py + ny*lam;
+                            const cx = px + nx*lam, cy = py + ny*lam;
                             const r1 = Math.abs(lam);
                             const r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
                             if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy});
@@ -442,8 +1024,7 @@ function computeSymmetrySet(data, resolutionLimit) {
                     if (den > 1e-10) {
                         const lam = (-dx*nsx - dy*nsy) / den;
                         if (Math.abs(lam) < LAMBDA_MAX) {
-                            const cx = px + nx*lam;
-                            const cy = py + ny*lam;
+                            const cx = px + nx*lam, cy = py + ny*lam;
                             const r1 = Math.abs(lam);
                             const r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
                             if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy});
@@ -457,38 +1038,387 @@ function computeSymmetrySet(data, resolutionLimit) {
     return centers;
 }
 
-// --- Presets ---
+// ========== Persistent Homology ==========
+function computePersistence(center, curveData) {
+    if (!curveData || curveData.length === 0) return { h0: [], h1: [] };
+    
+    const n = curveData.length;
+    const dists = curveData.map(d => ((d.p.x - center.x)**2 + (d.p.y - center.y)**2));
+    
+    const curveGroups = new Map();
+    for (let i = 0; i < n; i++) {
+        const cId = curveData[i].curveId || 0;
+        if (!curveGroups.has(cId)) {
+            curveGroups.set(cId, []);
+        }
+        curveGroups.get(cId).push(i);
+    }
+    
+    const neighbors = new Array(n);
+    for (let i = 0; i < n; i++) {
+        neighbors[i] = [];
+    }
+    
+    for (const [cId, indices] of curveGroups) {
+        const len = indices.length;
+        for (let j = 0; j < len; j++) {
+            const globalIdx = indices[j];
+            const prevIdx = indices[(j - 1 + len) % len];
+            const nextIdx = indices[(j + 1) % len];
+            neighbors[globalIdx] = [prevIdx, nextIdx];
+        }
+    }
+    
+    const sortedIndices = Array.from({length: n}, (_, i) => i)
+        .sort((a, b) => dists[a] - dists[b]);
+    
+    const uf = new UnionFind(n, dists);
+    const h0Pairs = [];
+    const h1Pairs = [];
+    const processed = new Array(n).fill(false);
+    
+    for (const v of sortedIndices) {
+        const currentR = dists[v];
+        processed[v] = true;
+        
+        for (const u of neighbors[v]) {
+            if (processed[u]) {
+                const result = uf.union(u, v, currentR);
+                if (result.isH1) {
+                    h1Pairs.push([currentR, Infinity]);
+                } else {
+                    if (result.pair[0] !== result.pair[1]) {
+                        h0Pairs.push(result.pair);
+                    }
+                }
+            }
+        }
+    }
+    
+    const roots = new Set();
+    for (let i = 0; i < n; i++) {
+        roots.add(uf.find(i));
+    }
+    
+    for (const root of roots) {
+        h0Pairs.push([uf.birth[root], Infinity]);
+    }
+    
+    return { h0: h0Pairs, h1: h1Pairs };
+}
 
+function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
+    const centers = [];
+    for (let i = 0; i < numSamples; i++) {
+        const theta = (i / numSamples) * Math.PI * 2;
+        centers.push(new Point(
+            centerPoint.x + radius * Math.cos(theta),
+            centerPoint.y + radius * Math.sin(theta)
+        ));
+    }
+    
+    let maxDist = 0;
+    for (const center of centers) {
+        for (const d of curveData) {
+            const dx = d.p.x - center.x;
+            const dy = d.p.y - center.y;
+            const dist = (dx*dx + dy*dy);
+            if (dist > maxDist) maxDist = dist;
+        }
+    }
+    
+    const infinityY = maxDist * 1.15;
+    
+    const h0 = [];
+    const h1 = [];
+    
+    for (let i = 0; i < centers.length; i++) {
+        const center = centers[i];
+        const pers = computePersistence(center, curveData);
+        
+        for (const [b, d] of pers.h0) {
+            h0.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity
+            });
+        }
+        for (const [b, d] of pers.h1) {
+            h1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity
+            });
+        }
+    }
+    
+    return {
+        h0: h0,
+        h1: h1,
+        centers: centers,
+        infinityY: infinityY,
+        radius: radius
+    };
+}
+
+function computeVineyard() {
+    if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need curve and center point!');
+        return;
+    }
+    
+    updateStatus('Computing vineyard...');
+    
+    const result = computeVineyardForRadius(vineyardCenter, vineyardRadius, vineyardSamples, cachedCurveData);
+    
+    vineyardCenters = result.centers;
+    vineyardData = {
+        h0: result.h0,
+        h1: result.h1,
+        infinityY: result.infinityY
+    };
+    vineyardMaxVal = result.infinityY;
+    
+    updateStatus(`Vineyard computed! ${vineyardData.h0.length + vineyardData.h1.length} points`);
+    
+    updateVineyardPlot();
+    updatePersistenceDiagram(0);
+    
+    document.getElementById('vineyardPanel').classList.add('active');
+    document.getElementById('persistencePanel').classList.add('active');
+    
+    draw();
+}
+
+function updateVineyardPlot() {
+    if (!vineyardData) return;
+    
+    const h0 = vineyardData.h0;
+    const h1 = vineyardData.h1;
+    const maxVal = vineyardMaxVal;
+    
+    const traceH0 = {
+        x: h0.map(d => d.birth),
+        y: h0.map(d => d.death),
+        z: h0.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'H₀',
+        marker: {
+            size: 3,
+            color: '#ef4444',
+            opacity: 0.7
+        }
+    };
+    
+    const traceH1 = {
+        x: h1.map(d => d.birth),
+        y: h1.map(d => d.death),
+        z: h1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'H₁',
+        marker: {
+            size: 3,
+            color: '#3b82f6',
+            opacity: 0.7,
+            symbol: 'diamond'
+        }
+    };
+    
+    const currentZ = vineyardAnimIdx;
+    const currentH0 = h0.filter(d => d.centerIdx === currentZ);
+    const currentH1 = h1.filter(d => d.centerIdx === currentZ);
+    
+    const currentTrace = {
+        x: [...currentH0.map(d => d.birth), ...currentH1.map(d => d.birth)],
+        y: [...currentH0.map(d => d.death), ...currentH1.map(d => d.death)],
+        z: [...currentH0.map(d => d.centerIdx), ...currentH1.map(d => d.centerIdx)],
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Current',
+        marker: {
+            size: 6,
+            color: '#fbbf24',
+            opacity: 1,
+            line: { color: 'white', width: 1 }
+        }
+    };
+    
+    const diagPoints = {
+        x: [0, maxVal, maxVal, 0],
+        y: [0, maxVal, maxVal, 0],
+        z: [0, 0, vineyardSamples - 1, vineyardSamples - 1],
+        i: [0, 0],
+        j: [1, 2],
+        k: [2, 3],
+        type: 'mesh3d',
+        name: 'Diagonal',
+        color: 'rgba(100,100,100,0.15)',
+        showscale: false,
+        hoverinfo: 'skip'
+    };
+    
+    const layout = {
+        scene: {
+            xaxis: { 
+                title: { text: 'Birth', font: { size: 10 } },
+                color: '#888', 
+                gridcolor: '#333',
+                range: [0, maxVal],
+                showspikes: false
+            },
+            yaxis: { 
+                title: { text: 'Death', font: { size: 10 } },
+                color: '#888', 
+                gridcolor: '#333',
+                range: [0, maxVal],
+                showspikes: false
+            },
+            zaxis: { 
+                title: { text: 'Time', font: { size: 10 } },
+                color: '#888', 
+                gridcolor: '#333',
+                range: [0, vineyardSamples - 1],
+                showspikes: false
+            },
+            bgcolor: 'rgba(0,0,0,0)',
+            camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
+            aspectmode: 'manual',
+            aspectratio: { x: 1, y: 1, z: 0.8 }
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: { l: 0, r: 0, t: 5, b: 0 },
+        showlegend: false
+    };
+    
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1, currentTrace], layout, {
+        displayModeBar: false,
+        responsive: true
+    });
+}
+
+function updatePersistenceDiagram(centerIdx) {
+    if (!vineyardData || !vineyardCenters[centerIdx]) return;
+    
+    const h0 = vineyardData.h0.filter(d => d.centerIdx === centerIdx);
+    const h1 = vineyardData.h1.filter(d => d.centerIdx === centerIdx);
+    
+    currentPersistence = { h0, h1 };
+    
+    const maxVal = vineyardMaxVal;
+    
+    const traceH0 = {
+        x: h0.map(d => d.birth),
+        y: h0.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'H₀',
+        marker: { size: 8, color: '#ef4444', symbol: 'circle' }
+    };
+    
+    const traceH1 = {
+        x: h1.map(d => d.birth),
+        y: h1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'H₁',
+        marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
+    };
+    
+    const diagonal = {
+        x: [0, maxVal],
+        y: [0, maxVal],
+        mode: 'lines',
+        type: 'scatter',
+        name: 'Diagonal',
+        line: { color: '#555', dash: 'dash', width: 1 },
+        showlegend: false,
+        hoverinfo: 'skip'
+    };
+    
+    const infinityY = vineyardData.infinityY;
+    const infinityLine = {
+        x: [0, maxVal],
+        y: [infinityY, infinityY],
+        mode: 'lines',
+        type: 'scatter',
+        name: '∞',
+        line: { color: '#888', dash: 'dot', width: 1 },
+        showlegend: false,
+        hoverinfo: 'skip'
+    };
+    
+    const layout = {
+        xaxis: { 
+            title: { text: 'Birth', font: { size: 11, color: '#aaa' } },
+            color: '#888', 
+            gridcolor: '#333',
+            range: [-maxVal * 0.02, maxVal * 1.02],
+            zeroline: true,
+            zerolinecolor: '#666'
+        },
+        yaxis: { 
+            title: { text: 'Death', font: { size: 11, color: '#aaa' } },
+            color: '#888', 
+            gridcolor: '#333',
+            range: [-maxVal * 0.02, maxVal * 1.02],
+            zeroline: true,
+            zerolinecolor: '#666',
+            scaleanchor: 'x',
+            scaleratio: 1
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(10,10,15,0.5)',
+        margin: { l: 45, r: 10, t: 25, b: 40 },
+        legend: {
+            x: 0.75, y: 0.15,
+            font: { color: '#ccc', size: 9 },
+            bgcolor: 'rgba(0,0,0,0.6)'
+        },
+        showlegend: true,
+        title: {
+            text: `Center ${centerIdx}`,
+            font: { color: '#aaa', size: 11 },
+            x: 0.5
+        }
+    };
+    
+    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, {
+        displayModeBar: false,
+        responsive: true
+    });
+}
+
+// ========== Presets ==========
 function loadPreset(type) {
     saveState();
     curves = [[]];
     activeCurveIdx = 0;
-    
     view.x = 0; view.y = 0; view.scale = 50;
+    fixedCurveMode = false;
     
     let count = 8;
     
-    // if (type === 'circle') {
-    //     const r = 3.0;
-    //     for(let i=0; i<count; i++) {
-    //         const t = (i/count) * Math.PI * 2;
-    //         curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
-    //     }
-    // } else 
     if (type === 'ellipse') {
         const a = 4.0, b = 2.5;
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
             curves[0].push(new Point(a*Math.cos(t), b*Math.sin(t)));
         }
-    } else if (type === 'astroid') {
-        count = 12;
-        const r = 3.5;
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
-        }
-    } else if (type === 'bean') {
+    } 
+    // else if (type === 'astroid') {
+    //     count = 12;
+    //     const r = 3.5;
+    //     for(let i=0; i<count; i++) {
+    //         const t = (i/count) * Math.PI * 2;
+    //         curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
+    //     }
+    // } 
+    else if (type === 'bean') {
         count = 10;
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
@@ -496,41 +1426,271 @@ function loadPreset(type) {
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
     } 
-    // else if (type === 'two_circles') {
-    //     // Circle 1
+    // else if (type === 'cardioid') {
+    //     count = 10;
+    //     const a = 1.5;
     //     for(let i=0; i<count; i++) {
     //         const t = (i/count) * Math.PI * 2;
-    //         curves[0].push(new Point(3.0*Math.cos(t) - 2, 3.0*Math.sin(t)));
+    //         const r = 2*a*(1 + Math.cos(t));
+    //         curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
     //     }
-    //     // Circle 2
-    //     activeCurveIdx = 1;
-    //     curves.push([]);
-    //     for(let i=0; i<count; i++) {
-    //         const t = (i/count) * Math.PI * 2;
-    //         curves[1].push(new Point(2.0*Math.cos(t) + 3, 2.0*Math.sin(t)));
-    //     }
+    // } else if (type === 'offsetSpiral') {
+    //     fixedCurveMode = true;
+    //     cachedCurveData = generateOffsetSpiralCurveData();
+    //     curves = [[]];
+    //     cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+    //     view.scale = 40;
+    //     view.x = 50;
+    //     view.y = 50;
+    //     updateUI();
+    //     updateStatus(`Fixed curve: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
+    //     draw();
+    //     document.getElementById('presetSelect').value = "";
+    //     return;
     // }
     
     updateUI();
     triggerComputation(true);
-    document.getElementById('presetSelect').value = ""; 
+    document.getElementById('presetSelect').value = "";
 }
 
-// --- UI & Interaction ---
+// function generateOffsetSpiralCurveData() {
+//     const b = 0.2;
+//     const tmin = 3.5;
+//     const tmax = tmin + 3 * Math.PI;
+    
+//     const ROuter = 4.5;
+//     const thickness = 1.0;
+//     const RInner = ROuter - thickness;
+    
+//     const ellipse_ratio = 2.0;
+//     const extension_len_factor = 0.2;
+    
+//     const aOuter = ROuter * Math.exp(b * tmin);
+//     const aInner = RInner * Math.exp(b * tmin);
+    
+//     function getSpiralData(t, a) {
+//         const exp_bt = Math.exp(-b * t);
+//         const r = a * exp_bt;
+//         const x = r * Math.cos(t);
+//         const y = r * Math.sin(t);
+        
+//         const dx = a * exp_bt * (-b * Math.cos(t) - Math.sin(t));
+//         const dy = a * exp_bt * (-b * Math.sin(t) + Math.cos(t));
+        
+//         const mag = Math.sqrt(dx*dx + dy*dy);
+//         return {
+//             pos: [x, y],
+//             tan: [dx/mag, dy/mag]
+//         };
+//     }
+    
+//     function getSpiralCurvePoints(tStart, tEnd, numPoints, a) {
+//         const pts = [];
+//         for (let i = 0; i < numPoints; i++) {
+//             const t = tStart + (tEnd - tStart) * (i / (numPoints - 1));
+//             const exp_bt = Math.exp(-b * t);
+//             const r = a * exp_bt;
+//             pts.push({x: r * Math.cos(t), y: r * Math.sin(t)});
+//         }
+//         return pts;
+//     }
+    
+//     function linspacePoints(start, end, num) {
+//         const pts = [];
+//         for (let i = 0; i < num; i++) {
+//             const t = i / (num - 1);
+//             pts.push({
+//                 x: start[0] + t * (end[0] - start[0]),
+//                 y: start[1] + t * (end[1] - start[1])
+//             });
+//         }
+//         return pts;
+//     }
+    
+//     function norm(v) {
+//         return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
+//     }
+    
+//     function normalize(v) {
+//         const n = norm(v);
+//         return [v[0]/n, v[1]/n];
+//     }
+    
+//     const outerStart = getSpiralData(tmin, aOuter);
+//     const innerStart = getSpiralData(tmin, aInner);
+//     const ext_dir_start = [-outerStart.tan[0], -outerStart.tan[1]];
+    
+//     const outerEnd = getSpiralData(tmax, aOuter);
+//     const innerEnd = getSpiralData(tmax, aInner);
+//     const ext_dir_end = outerEnd.tan;
+    
+//     const gap_start = norm([outerStart.pos[0] - innerStart.pos[0], outerStart.pos[1] - innerStart.pos[1]]);
+//     const gap_end = norm([outerEnd.pos[0] - innerEnd.pos[0], outerEnd.pos[1] - innerEnd.pos[1]]);
+    
+//     const L_ext_start = gap_start * extension_len_factor;
+//     const L_ext_end = gap_end * extension_len_factor;
+    
+//     const n_spi = 2000;
+//     const n_ext = 100;
+//     const n_cap_inner = 200;
+//     const n_cap_outer = 400;
+    
+//     const allPoints = [];
+    
+//     const ext_tip_outer_start = [
+//         outerStart.pos[0] + ext_dir_start[0] * L_ext_start,
+//         outerStart.pos[1] + ext_dir_start[1] * L_ext_start
+//     ];
+//     allPoints.push(...linspacePoints(ext_tip_outer_start, outerStart.pos, n_ext));
+    
+//     allPoints.push(...getSpiralCurvePoints(tmin, tmax, n_spi, aOuter));
+    
+//     const ext_tip_outer_end = [
+//         outerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
+//         outerEnd.pos[1] + ext_dir_end[1] * L_ext_end
+//     ];
+//     allPoints.push(...linspacePoints(outerEnd.pos, ext_tip_outer_end, n_ext));
+    
+//     const ext_tip_inner_end = [
+//         innerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
+//         innerEnd.pos[1] + ext_dir_end[1] * L_ext_end
+//     ];
+//     const center_end = [
+//         (ext_tip_outer_end[0] + ext_tip_inner_end[0]) / 2,
+//         (ext_tip_outer_end[1] + ext_tip_inner_end[1]) / 2
+//     ];
+//     const gap_vec_end = [
+//         ext_tip_inner_end[0] - ext_tip_outer_end[0],
+//         ext_tip_inner_end[1] - ext_tip_outer_end[1]
+//     ];
+//     const u_end = normalize(gap_vec_end);
+//     const v_end = normalize(ext_dir_end);
+//     const r_w_end = norm(gap_vec_end) / 2;
+//     const r_l_end = r_w_end * ellipse_ratio;
+    
+//     for (let i = 0; i < n_cap_inner; i++) {
+//         const ang = (i / (n_cap_inner - 1)) * Math.PI;
+//         allPoints.push({
+//             x: center_end[0] - r_w_end * Math.cos(ang) * u_end[0] + r_l_end * Math.sin(ang) * v_end[0],
+//             y: center_end[1] - r_w_end * Math.cos(ang) * u_end[1] + r_l_end * Math.sin(ang) * v_end[1]
+//         });
+//     }
+    
+//     allPoints.push(...linspacePoints(ext_tip_inner_end, innerEnd.pos, n_ext));
+    
+//     allPoints.push(...getSpiralCurvePoints(tmax, tmin, n_spi, aInner));
+    
+//     const ext_tip_inner_start = [
+//         innerStart.pos[0] + ext_dir_start[0] * L_ext_start,
+//         innerStart.pos[1] + ext_dir_start[1] * L_ext_start
+//     ];
+//     allPoints.push(...linspacePoints(innerStart.pos, ext_tip_inner_start, n_ext));
+    
+//     const center_start = [
+//         (ext_tip_inner_start[0] + ext_tip_outer_start[0]) / 2,
+//         (ext_tip_inner_start[1] + ext_tip_outer_start[1]) / 2
+//     ];
+//     const gap_vec_start = [
+//         ext_tip_outer_start[0] - ext_tip_inner_start[0],
+//         ext_tip_outer_start[1] - ext_tip_inner_start[1]
+//     ];
+//     const u_start = normalize(gap_vec_start);
+//     const v_start = normalize(ext_dir_start);
+//     const r_w_start = norm(gap_vec_start) / 2;
+//     const r_l_start = r_w_start * ellipse_ratio;
+    
+//     for (let i = 0; i < n_cap_outer; i++) {
+//         const ang = (i / (n_cap_outer - 1)) * Math.PI;
+//         allPoints.push({
+//             x: center_start[0] - r_w_start * Math.cos(ang) * u_start[0] + r_l_start * Math.sin(ang) * v_start[0],
+//             y: center_start[1] - r_w_start * Math.cos(ang) * u_start[1] + r_l_start * Math.sin(ang) * v_start[1]
+//         });
+//     }
+    
+//     const n = allPoints.length;
+//     const curveData = [];
+    
+//     for (let i = 0; i < n; i++) {
+//         const prev = allPoints[(i - 1 + n) % n];
+//         const curr = allPoints[i];
+//         const next = allPoints[(i + 1) % n];
+        
+//         const dx = (next.x - prev.x) / 2;
+//         const dy = (next.y - prev.y) / 2;
+//         const vel = Math.sqrt(dx*dx + dy*dy);
+        
+//         if (vel < 1e-10) continue;
+        
+//         const Tx = dx / vel;
+//         const Ty = dy / vel;
+//         const Nx = -Ty;
+//         const Ny = Tx;
+        
+//         const ddx = next.x - 2*curr.x + prev.x;
+//         const ddy = next.y - 2*curr.y + prev.y;
+        
+//         const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
+        
+//         curveData.push({
+//             p: new Point(curr.x, curr.y),
+//             T: new Point(Tx, Ty),
+//             N: new Point(Nx, Ny),
+//             curvature: curvature,
+//             curveId: 0
+//         });
+//     }
+    
+//     return curveData;
+// }
 
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const statusDiv = document.getElementById('status');
-const animBtn = document.getElementById('animFocalBtn');
-const stopAnimBtn = document.getElementById('animStopBtn');
-const animSlider = document.getElementById('animSlider');
-// const curveCountBadge = document.getElementById('curveCountBadge');
+// ========== UI Helpers ==========
+function updateStatus(msg) {
+    const pts = curves[activeCurveIdx] || [];
+    document.getElementById('status').innerText = msg || `Curve ${activeCurveIdx}: ${pts.length} pts`;
+}
 
 function updateUI() {
-    curveCountBadge.innerText = curves.length;
+    document.getElementById('curveCountBadge').innerText = curves.length;
 }
 
-// Helper for Insertion
+function updateModeIndicator() {
+    const indicator = document.getElementById('modeIndicator');
+    if (vineyardMode) {
+        indicator.innerText = 'Vineyard';
+        indicator.className = 'mode-badge mode-vineyard';
+    } else {
+        indicator.innerText = 'Draw';
+        indicator.className = 'mode-badge mode-draw';
+    }
+}
+
+function screenToWorld(sx, sy) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = canvas.width/2 + view.x;
+    const cy = canvas.height/2 + view.y;
+    return new Point((sx - rect.left - cx) / view.scale, -(sy - rect.top - cy) / view.scale);
+}
+
+function worldToScreen(p) {
+    const cx = canvas.width/2 + view.x;
+    const cy = canvas.height/2 + view.y;
+    return { x: cx + p.x * view.scale, y: cy - p.y * view.scale };
+}
+
+function findHitControlPoint(sx, sy) {
+    const threshSq = 144;
+    const rect = canvas.getBoundingClientRect();
+    for(let c=0; c<curves.length; c++) {
+        for(let i=0; i<curves[c].length; i++) {
+            const sp = worldToScreen(curves[c][i]);
+            const dx = sp.x - (sx - rect.left), dy = sp.y - (sy - rect.top);
+            if (dx*dx + dy*dy < threshSq) return { cIdx: c, pIdx: i };
+        }
+    }
+    return null;
+}
+
 function pointToSegmentDistSq(p, v, w) {
     const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
     if (l2 === 0) return (p.x - v.x)**2 + (p.y - v.y)**2;
@@ -542,7 +1702,6 @@ function pointToSegmentDistSq(p, v, w) {
 }
 
 function insertPointSmart(newPt) {
-    // Always insert into ACTIVE curve
     const pts = curves[activeCurveIdx];
     
     if (pts.length < 3) {
@@ -551,58 +1710,74 @@ function insertPointSmart(newPt) {
         return;
     }
 
-    let bestIdx = -1;
-    let minDistSq = Infinity;
-
+    let bestIdx = -1, minDistSq = Infinity;
     for (let i = 0; i < pts.length; i++) {
         const p1 = pts[i];
         const p2 = pts[(i + 1) % pts.length];
-        
         const distSq = pointToSegmentDistSq(newPt, p1, p2);
-        if (distSq < minDistSq) {
-            minDistSq = distSq;
-            bestIdx = i;
-        }
+        if (distSq < minDistSq) { minDistSq = distSq; bestIdx = i; }
     }
     
     pts.splice(bestIdx + 1, 0, newPt);
     selectedInfo = { cIdx: activeCurveIdx, pIdx: bestIdx + 1 };
 }
 
-// Handlers
+function findHitVineyardCenter(sx, sy) {
+    if (!vineyardCenter) return false;
+    const rect = canvas.getBoundingClientRect();
+    const sp = worldToScreen(vineyardCenter);
+    const dx = sp.x - (sx - rect.left), dy = sp.y - (sy - rect.top);
+    return dx*dx + dy*dy < 200;
+}
+
+// ========== Event Handlers ==========
 canvas.addEventListener('mousedown', e => {
     e.preventDefault();
     const mousePos = screenToWorld(e.clientX, e.clientY);
-    const hit = findHitControlPoint(e.clientX, e.clientY);
     
     mouseStart = { x: e.clientX, y: e.clientY };
     viewStart = { x: view.x, y: view.y };
     isInteractionActive = true;
 
-    // 1. Pan
     if (e.button === 2 || e.altKey) {
         interactionType = 'PAN';
         canvas.style.cursor = 'grabbing';
         return;
     }
 
-    // 2. Left Click
     if (e.button === 0) {
-        // A. Hit Point -> Select / Drag
-        if (hit) {
-            selectedInfo = { ...hit };
-            activeCurveIdx = hit.cIdx; // Switch active curve
-            
-            saveState(); 
-            dragInfo = hit;
-            interactionType = 'DRAG_POINT';
-            draw(); 
+        if (vineyardMode) {
+            saveState();
+            vineyardCenter = mousePos;
+            vineyardMode = false;
+            updateModeIndicator();
+            document.getElementById('vineyardModeBtn').classList.remove('active');
+            document.getElementById('vineyardModeBtn').innerText = 'Place Center';
+            updateStatus('Center placed!');
+            isInteractionActive = false;
+            draw();
             return;
         }
-
-        // B. Hit Empty -> Potential Add
+        
+        if (findHitVineyardCenter(e.clientX, e.clientY)) {
+            vineyardDragging = true;
+            interactionType = 'DRAG_VINEYARD';
+            canvas.style.cursor = 'grabbing';
+            return;
+        }
+        
+        const hit = findHitControlPoint(e.clientX, e.clientY);
+        if (hit !== null) {
+            selectedInfo = { ...hit };
+            activeCurveIdx = hit.cIdx;
+            saveState();
+            dragInfo = hit;
+            interactionType = 'DRAG_POINT';
+            draw();
+            return;
+        }
+        
         interactionType = 'POTENTIAL_PAN';
-        return;
     }
 });
 
@@ -611,15 +1786,30 @@ canvas.addEventListener('mousemove', e => {
     const dy = e.clientY - mouseStart.y;
     const distSq = dx*dx + dy*dy;
 
-    // Drag Point
-    if (interactionType === 'DRAG_POINT' && dragInfo) {
+    if (interactionType === 'DRAG_VINEYARD' && vineyardDragging) {
         const p = screenToWorld(e.clientX, e.clientY);
-        curves[dragInfo.cIdx][dragInfo.pIdx] = p;
-        triggerComputation(false); 
+        vineyardCenter = p;
+        if (vineyardCenters.length > 0) {
+            vineyardCenters = [];
+            for (let i = 0; i < vineyardSamples; i++) {
+                const theta = (i / vineyardSamples) * Math.PI * 2;
+                vineyardCenters.push(new Point(
+                    vineyardCenter.x + vineyardRadius * Math.cos(theta),
+                    vineyardCenter.y + vineyardRadius * Math.sin(theta)
+                ));
+            }
+        }
+        draw();
         return;
     }
 
-    // Pan
+    if (interactionType === 'DRAG_POINT' && dragInfo) {
+        const p = screenToWorld(e.clientX, e.clientY);
+        curves[dragInfo.cIdx][dragInfo.pIdx] = p;
+        triggerComputation(false);
+        return;
+    }
+
     if (interactionType === 'PAN') {
         view.x = viewStart.x + dx;
         view.y = viewStart.y + dy;
@@ -627,28 +1817,25 @@ canvas.addEventListener('mousemove', e => {
         return;
     }
 
-    // Check Pan Threshold
-    if (interactionType === 'POTENTIAL_PAN') {
-        if (distSq > 25) { 
-            interactionType = 'PAN';
-            canvas.style.cursor = 'grabbing';
-        }
+    if (interactionType === 'POTENTIAL_PAN' && distSq > 25) {
+        interactionType = 'PAN';
+        canvas.style.cursor = 'grabbing';
         return;
     }
 
-    // Hover
     if (!isInteractionActive) {
+        if (findHitVineyardCenter(e.clientX, e.clientY)) {
+            canvas.style.cursor = 'grab';
+            return;
+        }
+        
         const hit = findHitControlPoint(e.clientX, e.clientY);
+        hoverInfo = hit;
         if (hit) {
             canvas.style.cursor = 'grab';
-            hoverInfo = hit;
-            statusDiv.innerText = `Curve ${hit.cIdx}, Point ${hit.pIdx}`;
-            statusDiv.style.color = "#fbbf24";
+            updateStatus(`Curve ${hit.cIdx}, Point ${hit.pIdx}`);
         } else {
-            canvas.style.cursor = 'crosshair';
-            hoverInfo = null;
-            statusDiv.innerText = `Active: Curve ${activeCurveIdx}`;
-            statusDiv.style.color = "#9ca3af";
+            canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
         }
         draw();
     }
@@ -657,24 +1844,44 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mouseup', e => {
     if (!isInteractionActive) return;
 
+    if (interactionType === 'DRAG_VINEYARD') {
+        vineyardDragging = false;
+        if (vineyardData && cachedCurveData) {
+            computeVineyard();
+        }
+    }
+
     if (interactionType === 'DRAG_POINT') {
         dragInfo = null;
         triggerComputation(true);
     }
     
-    if (interactionType === 'POTENTIAL_PAN') {
-        saveState();
-        const mousePos = screenToWorld(e.clientX, e.clientY);
-        insertPointSmart(mousePos);
-        statusDiv.innerText = `Points: ${curves[activeCurveIdx].length}`;
-        triggerComputation(true);
+    if (interactionType === 'POTENTIAL_PAN' && !vineyardMode) {
+        if (fixedCurveMode) {
+            updateStatus('Fixed curve mode - Clear to draw');
+        } else {
+            saveState();
+            const mousePos = screenToWorld(e.clientX, e.clientY);
+            insertPointSmart(mousePos);
+            updateStatus();
+            triggerComputation(true);
+        }
     }
 
     isInteractionActive = false;
     interactionType = null;
-    canvas.style.cursor = 'crosshair';
+    canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
     draw();
 });
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = Math.exp(e.deltaY > 0 ? -0.1 : 0.1);
+    view.scale *= factor;
+    draw();
+}, { passive: false });
 
 window.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -689,39 +1896,38 @@ window.addEventListener('keydown', e => {
             if (selectedInfo.pIdx < pts.length) {
                 saveState();
                 pts.splice(selectedInfo.pIdx, 1);
-                // If curve becomes empty, could remove it, but keeping empty is simpler logic
-                // or switch active if current is empty?
                 if (pts.length === 0 && curves.length > 1) {
                     curves.splice(selectedInfo.cIdx, 1);
                     activeCurveIdx = Math.max(0, activeCurveIdx - 1);
                 }
                 selectedInfo = null;
                 updateUI();
+                updateStatus();
                 triggerComputation(true);
             }
         }
     }
+    
+    if (e.key === 'Escape') {
+        vineyardMode = false;
+        updateModeIndicator();
+        document.getElementById('vineyardModeBtn').classList.remove('active');
+        document.getElementById('vineyardModeBtn').innerText = 'Place Center';
+    }
 });
 
-document.getElementById('newCurveBtn').addEventListener('click', () => {
-    saveState();
-    curves.push([]); // Add new empty curve
-    activeCurveIdx = curves.length - 1;
-    selectedInfo = null;
-    updateUI();
-    statusDiv.innerText = `Active: Curve ${activeCurveIdx} (Empty)`;
-    draw();
-});
-
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    const factor = Math.exp(e.deltaY > 0 ? -0.1 : 0.1);
-    view.scale *= factor;
-    draw();
-}, { passive: false });
-
+// ========== Button Handlers ==========
 document.getElementById('undoBtn').addEventListener('click', performUndo);
+
+// document.getElementById('newCurveBtn').addEventListener('click', () => {
+//     saveState();
+//     curves.push([]);
+//     activeCurveIdx = curves.length - 1;
+//     selectedInfo = null;
+//     updateUI();
+//     updateStatus(`New Curve ${activeCurveIdx}`);
+//     draw();
+// });
 
 document.getElementById('clearBtn').addEventListener('click', () => {
     saveState();
@@ -730,82 +1936,496 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     selectedInfo = null;
     cachedCurveData = null;
     cachedSSData = null;
-    if (isFocalAnim) { isFocalAnim = false; resetAnimControls(); }
+    vineyardCenter = null;
+    vineyardData = null;
+    vineyardCenters = [];
+    fixedCurveMode = false;
+    stopVineyardAnim();
+    document.getElementById('vineyardPanel').classList.remove('active');
+    document.getElementById('persistencePanel').classList.remove('active');
     updateUI();
+    updateStatus('Cleared');
     draw();
-    statusDiv.innerText = "Cleared.";
 });
 
 document.getElementById('resetViewBtn').addEventListener('click', () => {
-    view.x = 0; view.y = 0; view.scale = 50; draw();
+    view.x = 0; view.y = 0; view.scale = 50;
+    draw();
 });
+
 document.getElementById('computeBtn').addEventListener('click', () => triggerComputation(true));
 
-// Animation Handlers
-stopAnimBtn.addEventListener('click', () => {
-    isFocalAnim = false;
-    resetAnimControls();
-    draw();
-});
-
-animBtn.addEventListener('click', toggleFocalAnim);
-
-animSlider.addEventListener('input', e => {
-    if (!cachedCurveData) return;
-    const pct = parseFloat(e.target.value) / 1000;
-    focalIdx = Math.floor(pct * (cachedCurveData.length - 1));
-    isFocalAnim = true; 
-    if (stopAnimBtn.classList.contains('hidden')) {
-        stopAnimBtn.classList.remove('hidden');
-    }
-    draw();
-});
-
-// Preset Handler
-document.getElementById('presetSelect').addEventListener('change', (e) => {
+document.getElementById('presetSelect').addEventListener('change', e => {
     if (e.target.value) loadPreset(e.target.value);
 });
 
 document.getElementById('resolution').addEventListener('input', e => {
     ssResolution = parseInt(e.target.value);
-    document.getElementById('res-val').innerText = `${ssResolution} points`;
+    document.getElementById('resVal').innerText = ssResolution;
 });
 
-function screenToWorld(sx, sy) {
-    const cx = canvas.width/2 + view.x;
-    const cy = canvas.height/2 + view.y;
-    return new Point( (sx - cx) / view.scale, -(sy - cy) / view.scale );
+document.getElementById('vineyardModeBtn').addEventListener('click', () => {
+    vineyardMode = !vineyardMode;
+    updateModeIndicator();
+    const btn = document.getElementById('vineyardModeBtn');
+    if (vineyardMode) {
+        btn.classList.add('active');
+        btn.innerText = 'Click Canvas...';
+        updateStatus('Click to place center');
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = '⬡ Place Center';
+    }
+});
+
+document.getElementById('vineyardRadius').addEventListener('input', e => {
+    vineyardRadius = parseFloat(e.target.value);
+    document.getElementById('radiusVal').innerText = vineyardRadius.toFixed(1);
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('vineyardSamples').addEventListener('input', e => {
+    vineyardSamples = parseInt(e.target.value);
+    document.getElementById('samplesVal').innerText = vineyardSamples;
+});
+
+document.getElementById('computeVineyardBtn').addEventListener('click', computeVineyard);
+
+document.getElementById('playVineyardBtn').addEventListener('click', () => {
+    if (!vineyardData) return;
+    vineyardAnimPlaying = !vineyardAnimPlaying;
+    document.getElementById('playVineyardBtn').innerText = vineyardAnimPlaying ? '⏸' : '▶';
+    if (vineyardAnimPlaying) vineyardAnimLoop();
+});
+
+document.getElementById('stopVineyardBtn').addEventListener('click', stopVineyardAnim);
+
+document.getElementById('vineyardAnimSlider').addEventListener('input', e => {
+    if (!vineyardCenters.length) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    vineyardAnimIdx = Math.floor(pct * (vineyardCenters.length - 1));
+    updatePersistenceDiagram(vineyardAnimIdx);
+    updateVineyardPlot();
+    draw();
+});
+
+['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle'].forEach(id => {
+    document.getElementById(id).addEventListener('change', draw);
+});
+
+document.getElementById('showVineyardPlot').addEventListener('change', e => {
+    document.getElementById('vineyardPanel').classList.toggle('active', e.target.checked && vineyardData);
+});
+
+document.getElementById('showPD').addEventListener('change', e => {
+    document.getElementById('persistencePanel').classList.toggle('active', e.target.checked && vineyardData);
+});
+
+let vineyardExpanded = false;
+document.getElementById('expandVineyardBtn').addEventListener('click', () => {
+    vineyardExpanded = !vineyardExpanded;
+    const panel = document.getElementById('vineyardPanel');
+    const btn = document.getElementById('expandVineyardBtn');
+    
+    if (vineyardExpanded) {
+        panel.classList.add('expanded');
+        btn.innerText = '⤡';
+    } else {
+        panel.classList.remove('expanded');
+        btn.innerText = '⤢';
+    }
+    
+    setTimeout(() => {
+        if (vineyardData) {
+            Plotly.relayout('vineyardPlot', { autosize: true });
+        }
+    }, 350);
+});
+
+let pdExpanded = false;
+document.getElementById('expandPDBtn').addEventListener('click', () => {
+    pdExpanded = !pdExpanded;
+    const panel = document.getElementById('persistencePanel');
+    const btn = document.getElementById('expandPDBtn');
+    
+    if (pdExpanded) {
+        panel.classList.add('expanded');
+        btn.innerText = '⤡';
+    } else {
+        panel.classList.remove('expanded');
+        btn.innerText = '⤢';
+    }
+    
+    setTimeout(() => {
+        if (vineyardData) {
+            Plotly.relayout('persistencePlot', { autosize: true });
+        }
+    }, 350);
+});
+
+function stopVineyardAnim() {
+    vineyardAnimPlaying = false;
+    vineyardAnimIdx = 0;
+    document.getElementById('playVineyardBtn').innerText = '▶';
+    document.getElementById('vineyardAnimSlider').value = 0;
+    if (vineyardData) {
+        updatePersistenceDiagram(0);
+        updateVineyardPlot();
+    }
+    draw();
 }
 
-function worldToScreen(p) {
-    const cx = canvas.width/2 + view.x;
-    const cy = canvas.height/2 + view.y;
-    return { x: cx + p.x * view.scale, y: cy - p.y * view.scale };
+function vineyardAnimLoop() {
+    if (!vineyardAnimPlaying || !vineyardCenters.length) return;
+    
+    vineyardAnimIdx = (vineyardAnimIdx + 1) % vineyardCenters.length;
+    const pct = vineyardAnimIdx / vineyardCenters.length;
+    document.getElementById('vineyardAnimSlider').value = Math.floor(pct * 1000);
+    
+    updatePersistenceDiagram(vineyardAnimIdx);
+    updateVineyardPlot();
+    draw();
+    
+    setTimeout(vineyardAnimLoop, 50);
 }
 
-function findHitControlPoint(sx, sy) {
-    const threshSq = 144; 
-    // Iterate all curves
-    for(let c=0; c<curves.length; c++) {
-        for(let i=0; i<curves[c].length; i++) {
-            const sp = worldToScreen(curves[c][i]);
-            const dx = sp.x - sx;
-            const dy = sp.y - sy;
-            if (dx*dx + dy*dy < threshSq) return { cIdx: c, pIdx: i };
+// ========== Focal Animation ==========
+function stopFocalAnim() {
+    focalAnimPlaying = false;
+    focalAnimIdx = 0;
+    document.getElementById('focalPlayBtn').innerText = '▶';
+    document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    document.getElementById('focalAnimSlider').value = 0;
+    draw();
+}
+
+function focalAnimLoop() {
+    if (!focalAnimPlaying || !cachedCurveData || cachedCurveData.length === 0) return;
+    
+    focalAnimIdx = (focalAnimIdx + 15) % cachedCurveData.length;
+    const pct = focalAnimIdx / cachedCurveData.length;
+    document.getElementById('focalAnimSlider').value = Math.floor(pct * 1000);
+    
+    draw();
+    requestAnimationFrame(focalAnimLoop);
+}
+
+document.getElementById('focalPlayBtn').addEventListener('click', () => {
+    if (!cachedCurveData || cachedCurveData.length === 0) return;
+    
+    focalAnimPlaying = !focalAnimPlaying;
+    const btn = document.getElementById('focalPlayBtn');
+    
+    if (focalAnimPlaying) {
+        btn.innerText = '⏸';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        focalAnimLoop();
+    } else {
+        btn.innerText = '▶';
+        btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    }
+});
+
+document.getElementById('focalStopBtn').addEventListener('click', stopFocalAnim);
+
+document.getElementById('focalAnimSlider').addEventListener('input', e => {
+    if (!cachedCurveData || cachedCurveData.length === 0) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    focalAnimIdx = Math.floor(pct * (cachedCurveData.length - 1));
+    draw();
+});
+
+// ========== Radius Sweep ==========
+function computeRadiusSweep() {
+    if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need curve and center!');
+        return;
+    }
+    
+    updateStatus('Computing sweep...');
+    
+    const radii = [];
+    for (let i = 0; i <= radiusSteps; i++) {
+        radii.push(radiusStart + (radiusEnd - radiusStart) * (i / radiusSteps));
+    }
+    
+    radiusSweepData = {
+        radii: radii,
+        vineyards: [],
+        infinityY: 0
+    };
+    
+    let globalInfinityY = 0;
+    
+    for (let rIdx = 0; rIdx < radii.length; rIdx++) {
+        const r = radii[rIdx];
+        const vineyard = computeVineyardForRadius(vineyardCenter, r, vineyardSamples, cachedCurveData);
+        radiusSweepData.vineyards.push(vineyard);
+        
+        if (vineyard.infinityY > globalInfinityY) {
+            globalInfinityY = vineyard.infinityY;
+        }
+        
+        if (rIdx % 5 === 0) {
+            updateStatus(`Sweep ${Math.round((rIdx / radii.length) * 100)}%`);
         }
     }
-    return null;
+    
+    radiusSweepData.infinityY = globalInfinityY;
+    vineyardMaxVal = globalInfinityY;
+    
+    updateStatus(`Sweep done! ${radii.length} vineyards`);
+    
+    radiusSweepIdx = 0;
+    updateRadiusSweepDisplay();
+    
+    // Only show vineyard panel for radius sweep (not persistence diagram)
+    document.getElementById('vineyardPanel').classList.add('active');
+    document.getElementById('showVineyardPlot').checked = true;
+    // Hide persistence panel during radius sweep
+    document.getElementById('persistencePanel').classList.remove('active');
+    document.getElementById('showPD').checked = false;
+    
+    draw();
 }
 
+function updateRadiusSweepDisplay() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    
+    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
+    const r = currentVineyard.radius;
+    
+    document.getElementById('currentSweepRadius').innerText = `R: ${r.toFixed(2)}`;
+    
+    vineyardRadius = r;
+    document.getElementById('vineyardRadius').value = Math.min(r, 10);
+    document.getElementById('radiusVal').innerText = r.toFixed(1);
+    
+    vineyardCenters = currentVineyard.centers;
+    
+    vineyardData = {
+        h0: currentVineyard.h0,
+        h1: currentVineyard.h1,
+        infinityY: currentVineyard.infinityY
+    };
+    vineyardMaxVal = currentVineyard.infinityY;
+    
+    updateRadiusSweepVineyardPlot();
+    // Don't update persistence diagram during radius sweep - only vineyard changes
+}
+
+function updateRadiusSweepVineyardPlot() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    
+    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
+    const r = currentVineyard.radius;
+    const maxVal = currentVineyard.infinityY;
+    
+    const h0 = currentVineyard.h0;
+    const h1 = currentVineyard.h1;
+    
+    const traceH0 = {
+        x: h0.map(d => d.birth),
+        y: h0.map(d => d.death),
+        z: h0.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'H₀',
+        marker: { size: 3, color: '#ef4444', opacity: 0.7 }
+    };
+    
+    const traceH1 = {
+        x: h1.map(d => d.birth),
+        y: h1.map(d => d.death),
+        z: h1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'H₁',
+        marker: { size: 3, color: '#3b82f6', opacity: 0.7, symbol: 'diamond' }
+    };
+    
+    const diagPoints = {
+        x: [0, maxVal, maxVal, 0],
+        y: [0, maxVal, maxVal, 0],
+        z: [0, 0, vineyardSamples - 1, vineyardSamples - 1],
+        i: [0, 0],
+        j: [1, 2],
+        k: [2, 3],
+        type: 'mesh3d',
+        name: 'Diagonal',
+        color: 'rgba(100,100,100,0.1)',
+        showscale: false,
+        hoverinfo: 'skip'
+    };
+    
+    const layout = {
+        scene: {
+            xaxis: { title: { text: 'Birth', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
+            yaxis: { title: { text: 'Death', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
+            zaxis: { title: { text: 'Time', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, vineyardSamples - 1], showspikes: false },
+            bgcolor: 'rgba(0,0,0,0)',
+            camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
+            aspectmode: 'manual',
+            aspectratio: { x: 1, y: 1, z: 0.8 }
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        margin: { l: 0, r: 0, t: 20, b: 0 },
+        showlegend: false,
+        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
+    };
+    
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1], layout, { displayModeBar: false, responsive: true });
+}
+
+function updateRadiusSweepPersistenceDiagram() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    
+    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
+    const r = currentVineyard.radius;
+    const maxVal = currentVineyard.infinityY;
+    
+    const h0 = currentVineyard.h0;
+    const h1 = currentVineyard.h1;
+    
+    const traceH0 = {
+        x: h0.map(d => d.birth),
+        y: h0.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'H₀',
+        marker: { size: 6, color: '#ef4444', symbol: 'circle', opacity: 0.6 }
+    };
+    
+    const traceH1 = {
+        x: h1.map(d => d.birth),
+        y: h1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'H₁',
+        marker: { size: 6, color: '#3b82f6', symbol: 'triangle-up', opacity: 0.6 }
+    };
+    
+    const diagonal = {
+        x: [0, maxVal],
+        y: [0, maxVal],
+        mode: 'lines',
+        type: 'scatter',
+        name: 'Diagonal',
+        line: { color: '#555', dash: 'dash', width: 1 },
+        showlegend: false,
+        hoverinfo: 'skip'
+    };
+    
+    const infinityLine = {
+        x: [0, maxVal],
+        y: [currentVineyard.infinityY, currentVineyard.infinityY],
+        mode: 'lines',
+        type: 'scatter',
+        name: '∞',
+        line: { color: '#888', dash: 'dot', width: 1 },
+        showlegend: false,
+        hoverinfo: 'skip'
+    };
+    
+    const layout = {
+        xaxis: { title: { text: 'Birth', font: { size: 11, color: '#aaa' } }, color: '#888', gridcolor: '#333', range: [-maxVal * 0.02, maxVal * 1.02], zeroline: true, zerolinecolor: '#666' },
+        yaxis: { title: { text: 'Death', font: { size: 11, color: '#aaa' } }, color: '#888', gridcolor: '#333', range: [-maxVal * 0.02, maxVal * 1.02], zeroline: true, zerolinecolor: '#666', scaleanchor: 'x', scaleratio: 1 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(10,10,15,0.5)',
+        margin: { l: 45, r: 10, t: 25, b: 40 },
+        legend: { x: 0.75, y: 0.15, font: { color: '#ccc', size: 9 }, bgcolor: 'rgba(0,0,0,0.6)' },
+        showlegend: true,
+        title: { text: `All PDs R=${r.toFixed(2)}`, font: { color: '#aaa', size: 11 }, x: 0.5 }
+    };
+    
+    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, { displayModeBar: false, responsive: true });
+}
+
+function stopRadiusSweep() {
+    radiusSweepPlaying = false;
+    document.getElementById('playRadiusSweepBtn').innerText = '▶';
+    document.getElementById('playRadiusSweepBtn').style.background = '';
+}
+
+function radiusSweepAnimLoop() {
+    if (!radiusSweepPlaying || !radiusSweepData) return;
+    
+    radiusSweepIdx = (radiusSweepIdx + 1) % radiusSweepData.radii.length;
+    const pct = radiusSweepIdx / (radiusSweepData.radii.length - 1);
+    document.getElementById('radiusSweepSlider').value = Math.floor(pct * 1000);
+    
+    updateRadiusSweepDisplay();
+    draw();
+    
+    setTimeout(radiusSweepAnimLoop, 200);
+}
+
+document.getElementById('radiusStart').addEventListener('input', e => {
+    radiusStart = parseFloat(e.target.value);
+    document.getElementById('radiusStartVal').innerText = radiusStart.toFixed(1);
+});
+
+document.getElementById('radiusEnd').addEventListener('input', e => {
+    radiusEnd = parseFloat(e.target.value);
+    document.getElementById('radiusEndVal').innerText = radiusEnd.toFixed(1);
+});
+
+document.getElementById('radiusSteps').addEventListener('input', e => {
+    radiusSteps = parseInt(e.target.value);
+    document.getElementById('radiusStepsVal').innerText = radiusSteps;
+});
+
+document.getElementById('computeRadiusSweepBtn').addEventListener('click', computeRadiusSweep);
+
+document.getElementById('playRadiusSweepBtn').addEventListener('click', () => {
+    if (!radiusSweepData) return;
+    
+    radiusSweepPlaying = !radiusSweepPlaying;
+    const btn = document.getElementById('playRadiusSweepBtn');
+    
+    if (radiusSweepPlaying) {
+        btn.innerText = '⏸';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        radiusSweepAnimLoop();
+    } else {
+        btn.innerText = '▶';
+        btn.style.background = '';
+    }
+});
+
+document.getElementById('stopRadiusSweepBtn').addEventListener('click', () => {
+    stopRadiusSweep();
+    radiusSweepIdx = 0;
+    document.getElementById('radiusSweepSlider').value = 0;
+    if (radiusSweepData) {
+        updateRadiusSweepDisplay();
+        draw();
+    }
+});
+
+document.getElementById('radiusSweepSlider').addEventListener('input', e => {
+    if (!radiusSweepData) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    radiusSweepIdx = Math.floor(pct * (radiusSweepData.radii.length - 1));
+    updateRadiusSweepDisplay();
+    draw();
+});
+
+// ========== Computation ==========
 let computeTimer = null;
 function triggerComputation(fullCompute = true) {
-    // Check if any curve has points
-    if (!curves.some(c => c.length >= 3)) { draw(); return; }
+    if (fixedCurveMode) {
+        draw();
+        return;
+    }
+    
+    const hasValidCurve = curves.some(c => c.length >= 3);
+    if (!hasValidCurve) { draw(); return; }
     
     if (!fullCompute) {
         cachedCurveData = computeSplineData();
-        cachedSSData = null; 
-        statusDiv.innerText = `Dragging...`;
+        cachedSSData = null;
         draw();
         return;
     }
@@ -815,68 +2435,48 @@ function triggerComputation(fullCompute = true) {
     computeTimer = setTimeout(() => {
         cachedCurveData = computeSplineData();
         cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
-        statusDiv.innerText = `SS Points: ${cachedSSData.length}`;
+        updateStatus(`SS: ${cachedSSData.length} pts`);
         draw();
     }, 10);
 }
 
-function resetAnimControls() {
-    animBtn.innerText = "Play";
-    animBtn.classList.replace('bg-red-600', 'bg-purple-700');
-    animBtn.classList.replace('hover:bg-red-500', 'hover:bg-purple-600');
-    stopAnimBtn.classList.add('hidden');
-}
-
-function toggleFocalAnim() {
-    if (isFocalAnim && animBtn.innerText === "Pause") {
-        animBtn.innerText = "Play";
-        animBtn.classList.replace('bg-red-600', 'bg-purple-700');
-        animBtn.classList.replace('hover:bg-red-500', 'hover:bg-purple-600');
-    } else {
-        if (!cachedCurveData) return;
-        isFocalAnim = true; 
-        animBtn.innerText = "Pause";
-        animBtn.classList.replace('bg-purple-700', 'bg-red-600');
-        animBtn.classList.replace('hover:bg-purple-600', 'hover:bg-red-500');
-        stopAnimBtn.classList.remove('hidden');
-        animLoop();
-    }
-}
-
-function animLoop() {
-    if (animBtn.innerText !== "Pause") return;
-    if (!cachedCurveData) { toggleFocalAnim(); return; }
-    
-    focalIdx = (focalIdx + 15) % cachedCurveData.length;
-    const pct = focalIdx / cachedCurveData.length;
-    animSlider.value = Math.floor(pct * 1000);
-
-    draw();
-    requestAnimationFrame(animLoop);
-}
-
+// ========== Drawing ==========
 function draw() {
-    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Theme-aware colors
+    const bgColor = isDarkTheme ? '#0a0a0f' : '#f5f5f7';
+    const gridColor = isDarkTheme ? '#1a1a2e' : '#e0e0e0';
+    const curveColor = isDarkTheme ? '#4f8cff' : '#2563eb';
+    const focalColor = isDarkTheme ? '#22c55e' : '#16a34a';
+    const ssColor = isDarkTheme ? '#ef4444' : '#dc2626';
+    const vineyardColor = isDarkTheme ? '#a855f7' : '#7c3aed';
+    const controlActive = isDarkTheme ? '#fff' : '#1a1a1a';
+    const controlInactive = isDarkTheme ? '#666' : '#888';
+    
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     ctx.save();
     ctx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
     ctx.scale(view.scale, -view.scale);
     
-    // Grid
-    ctx.strokeStyle = '#333'; ctx.lineWidth = 1 / view.scale;
-    ctx.beginPath(); ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0); ctx.moveTo(0, -1000); ctx.lineTo(0, 1000); ctx.stroke();
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1 / view.scale;
+    ctx.beginPath();
+    ctx.moveTo(-1000, 0); ctx.lineTo(1000, 0);
+    ctx.moveTo(0, -1000); ctx.lineTo(0, 1000);
+    ctx.stroke();
 
-    if (cachedCurveData) {
-        if (document.getElementById('showEvolute').checked) {
-            ctx.fillStyle = '#4ade80'; 
-            const s = 1.5 / view.scale; 
-            for (let i=0; i<cachedCurveData.length; i++) {
-                const k = cachedCurveData[i].curvature;
-                if (Math.abs(k) > 0.00000001) {
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        if (document.getElementById('showFocal').checked) {
+            ctx.fillStyle = focalColor;
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
                     const R = 1.0 / k;
                     if (Math.abs(R) < R_MAX) {
-                        const ex = cachedCurveData[i].p.x + cachedCurveData[i].N.x * R;
-                        const ey = cachedCurveData[i].p.y + cachedCurveData[i].N.y * R;
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
                         ctx.fillRect(ex - s/2, ey - s/2, s, s);
                     }
                 }
@@ -884,85 +2484,168 @@ function draw() {
         }
 
         if (document.getElementById('showSS').checked && cachedSSData) {
-            ctx.fillStyle = '#ef4444'; 
-            const s = 1.5 / view.scale; 
-            for (let p of cachedSSData) ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            ctx.fillStyle = ssColor;
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
         }
 
         if (document.getElementById('showCurve').checked) {
-            ctx.lineWidth = 3 / view.scale;
-            
-            // Draw each curve separately
-            // We can deduce segments from curveId in data, but simpler to re-plot from data
-            // We need to lift the pen when curveId changes
+            ctx.strokeStyle = curveColor;
+            ctx.lineWidth = 2.5 / view.scale;
             
             let currentId = -1;
             ctx.beginPath();
             
-            for (let i=0; i<cachedCurveData.length; i++) {
+            for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    // Start new path
-                    if (currentId !== -1) ctx.closePath(); // Close previous
+                    if (currentId !== -1) {
+                        ctx.closePath();
+                        ctx.stroke();
+                        ctx.beginPath();
+                    }
                     ctx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     ctx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            ctx.closePath(); // Close last
-            ctx.strokeStyle = '#60a5fa'; 
-            ctx.stroke();
+            if (currentId !== -1) {
+                ctx.closePath();
+                ctx.stroke();
+            }
         }
-
-        if (isFocalAnim && cachedCurveData && focalIdx < cachedCurveData.length) {
-            const i = Math.floor(focalIdx);
-            const pt = cachedCurveData[i];
+        
+        if ((focalAnimPlaying || focalAnimIdx > 0) && focalAnimIdx < cachedCurveData.length) {
+            const pt = cachedCurveData[focalAnimIdx];
             
             ctx.save();
-            ctx.strokeStyle = '#fcd34d'; ctx.fillStyle = '#fcd34d'; ctx.lineWidth = 2 / view.scale;
+            ctx.strokeStyle = '#fcd34d';
+            ctx.fillStyle = '#fcd34d';
+            ctx.lineWidth = 2 / view.scale;
             
             const s = 10 / view.scale;
-            ctx.beginPath(); ctx.arc(pt.p.x, pt.p.y, s/2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(pt.p.x, pt.p.y, s/2, 0, Math.PI * 2);
+            ctx.fill();
             
             const k = pt.curvature;
-            if (Math.abs(k) > 0.00000001) {
+            if (Math.abs(k) > 1e-8) {
                 const R = 1.0 / k;
                 if (Math.abs(R) < R_MAX) {
                     const ex = pt.p.x + pt.N.x * R;
                     const ey = pt.p.y + pt.N.y * R;
-                    ctx.beginPath(); ctx.arc(ex, ey, s/2, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.moveTo(pt.p.x, pt.p.y); ctx.lineTo(ex, ey); ctx.stroke();
-                    ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)'; ctx.lineWidth = 1 / view.scale;
-                    ctx.beginPath(); ctx.arc(ex, ey, Math.abs(R), 0, Math.PI*2); ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, s/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(pt.p.x, pt.p.y);
+                    ctx.lineTo(ex, ey);
+                    ctx.stroke();
+                    
+                    ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
+                    ctx.lineWidth = 1.5 / view.scale;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, Math.abs(R), 0, Math.PI * 2);
+                    ctx.stroke();
                 }
             }
             ctx.restore();
         }
     }
 
-    if (document.getElementById('showControls').checked) {
-        const baseSize = 8 / view.scale;
-        const hoverSize = 12 / view.scale;
+    if (document.getElementById('showVineyardCircle').checked) {
+        if (vineyardCenter) {
+            ctx.fillStyle = vineyardColor;
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
+            ctx.lineWidth = 1.5 / view.scale;
+            ctx.setLineDash([5 / view.scale, 5 / view.scale]);
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Radius sweep preview circles (start and end radii)
+            const startR = parseFloat(document.getElementById('radiusStart').value);
+            const endR = parseFloat(document.getElementById('radiusEnd').value);
+            
+            // Start radius - cyan/teal dashed
+            ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.4)' : 'rgba(6, 182, 212, 0.5)';
+            ctx.lineWidth = 1 / view.scale;
+            ctx.setLineDash([3 / view.scale, 3 / view.scale]);
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x, vineyardCenter.y, startR, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // End radius - orange dashed
+            ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.4)' : 'rgba(234, 88, 12, 0.5)';
+            ctx.beginPath();
+            ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
         
-        for(let c=0; c<curves.length; c++) {
+        if (vineyardCenters.length > 0) {
+            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.4)' : 'rgba(124, 58, 237, 0.5)';
+            const s = 3 / view.scale;
+            for (let i = 0; i < vineyardCenters.length; i++) {
+                const c = vineyardCenters[i];
+                ctx.fillRect(c.x - s/2, c.y - s/2, s, s);
+            }
+            
+            if (vineyardAnimIdx < vineyardCenters.length) {
+                const curr = vineyardCenters[vineyardAnimIdx];
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (cachedCurveData && cachedCurveData.length > 0) {
+                    ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
+                    ctx.lineWidth = 0.5 / view.scale;
+                    const step = Math.max(1, Math.floor(cachedCurveData.length / 50));
+                    for (let i = 0; i < cachedCurveData.length; i += step) {
+                        ctx.beginPath();
+                        ctx.moveTo(curr.x, curr.y);
+                        ctx.lineTo(cachedCurveData[i].p.x, cachedCurveData[i].p.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+    }
+
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        const hoverSize = 10 / view.scale;
+        
+        for (let c = 0; c < curves.length; c++) {
             const pts = curves[c];
-            for (let i=0; i<pts.length; i++) {
+            for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
-                const isHover = (hoverInfo && hoverInfo.cIdx === c && hoverInfo.pIdx === i) || (dragInfo && dragInfo.cIdx === c && dragInfo.pIdx === i);
+                const isHover = (hoverInfo && hoverInfo.cIdx === c && hoverInfo.pIdx === i) || 
+                               (dragInfo && dragInfo.cIdx === c && dragInfo.pIdx === i);
                 const isSelected = (selectedInfo && selectedInfo.cIdx === c && selectedInfo.pIdx === i);
                 const isActiveCurve = (c === activeCurveIdx);
                 
-                if (isSelected) ctx.fillStyle = '#3b82f6';
-                else if (isHover) ctx.fillStyle = '#fcd34d';
-                else ctx.fillStyle = isActiveCurve ? '#fff' : '#666'; // Dim inactive curves
+                if (isSelected) ctx.fillStyle = curveColor;
+                else if (isHover) ctx.fillStyle = '#fbbf24';
+                else ctx.fillStyle = isActiveCurve ? controlActive : controlInactive;
 
                 const s = (isHover || isSelected) ? hoverSize : baseSize;
                 ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
                 
                 if (isSelected) {
-                    ctx.strokeStyle = '#60a5fa';
-                    ctx.lineWidth = 2 / view.scale;
+                    ctx.strokeStyle = curveColor;
+                    ctx.lineWidth = 1.5 / view.scale;
                     ctx.strokeRect(p.x - s/2 - 2/view.scale, p.y - s/2 - 2/view.scale, s + 4/view.scale, s + 4/view.scale);
                 }
             }
@@ -972,15 +2655,750 @@ function draw() {
     ctx.restore();
 }
 
-// --- FIX: Add resize function ---
+// ========== Theme Toggle ==========
+let isDarkTheme = true;
+
+function toggleTheme() {
+    isDarkTheme = !isDarkTheme;
+    document.body.classList.toggle('light-theme', !isDarkTheme);
+    document.getElementById('themeToggleBtn').innerText = isDarkTheme ? '🌙' : '☀️';
+    draw();
+}
+
+document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+
+// ========== Export Functionality ==========
+const exportMenu = document.getElementById('exportMenu');
+const exportBtn = document.getElementById('exportBtn');
+
+exportBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rect = exportBtn.getBoundingClientRect();
+    exportMenu.style.top = (rect.bottom + 4) + 'px';
+    exportMenu.style.left = rect.left + 'px';
+    exportMenu.classList.toggle('active');
+});
+
+document.addEventListener('click', (e) => {
+    if (!exportMenu.contains(e.target) && e.target !== exportBtn) {
+        exportMenu.classList.remove('active');
+    }
+});
+
+function downloadDataURL(dataURL, filename) {
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataURL;
+    link.click();
+}
+
+function exportCanvasAsPNG() {
+    // Create a SQUARE high-res export canvas with LIGHT theme
+    const exportSize = Math.min(canvas.width, canvas.height);
+    const scale = 2; // 2x resolution for better quality
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = exportSize * scale;
+    exportCanvas.height = exportSize * scale;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    // Scale and redraw
+    exportCtx.scale(scale, scale);
+    
+    // Draw WHITE background for papers
+    exportCtx.fillStyle = '#ffffff';
+    exportCtx.fillRect(0, 0, exportSize, exportSize);
+    
+    exportCtx.save();
+    exportCtx.translate(exportSize / 2 + view.x, exportSize / 2 + view.y);
+    exportCtx.scale(view.scale, -view.scale);
+    
+    // NO GRID for clean export
+
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        // Focal set - darker green for visibility
+        if (document.getElementById('showFocal').checked) {
+            exportCtx.fillStyle = '#16a34a';
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+
+        // Symmetry set - darker red
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            exportCtx.fillStyle = '#dc2626';
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
+        }
+
+        // Curve - darker blue
+        if (document.getElementById('showCurve').checked) {
+            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.lineWidth = 2.5 / view.scale;
+            let currentId = -1;
+            exportCtx.beginPath();
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    exportCtx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    exportCtx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+        }
+    }
+
+    // Vineyard circle - darker purple
+    if (document.getElementById('showVineyardCircle').checked) {
+        if (vineyardCenter) {
+            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+            exportCtx.fill();
+            
+            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
+            exportCtx.stroke();
+            exportCtx.setLineDash([]);
+        }
+        
+        if (vineyardCenters.length > 0) {
+            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            const s = 3 / view.scale;
+            for (const c of vineyardCenters) {
+                exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
+            }
+            
+            // Yellow animated center marker
+            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
+                const curr = vineyardCenters[vineyardAnimIdx];
+                exportCtx.fillStyle = '#f59e0b';
+                exportCtx.beginPath();
+                exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+                exportCtx.fill();
+            }
+        }
+    }
+
+    // Control points - dark gray/black
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            const pts = curves[c];
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                exportCtx.fillStyle = (c === activeCurveIdx) ? '#1a1a1a' : '#888';
+                exportCtx.fillRect(p.x - baseSize/2, p.y - baseSize/2, baseSize, baseSize);
+            }
+        }
+    }
+    
+    exportCtx.restore();
+    
+    const dataURL = exportCanvas.toDataURL('image/png');
+    downloadDataURL(dataURL, 'symmetry_canvas.png');
+    exportMenu.classList.remove('active');
+}
+
+function exportCanvasAsSVG() {
+    // SQUARE export
+    const exportSize = Math.min(canvas.width, canvas.height);
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${exportSize}" height="${exportSize}" viewBox="0 0 ${exportSize} ${exportSize}">`;
+    // White background for papers
+    svg += `<rect width="100%" height="100%" fill="#ffffff"/>`;
+    
+    const cx = exportSize / 2 + view.x;
+    const cy = exportSize / 2 + view.y;
+    
+    svg += `<g transform="translate(${cx}, ${cy}) scale(${view.scale}, ${-view.scale})">`;
+    
+    // NO GRID for clean export
+    
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        // Focal set - darker green
+        if (document.getElementById('showFocal').checked) {
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#16a34a"/>`;
+                    }
+                }
+            }
+        }
+
+        // Symmetry set - darker red
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#dc2626"/>`;
+            }
+        }
+
+        // Curve - darker blue
+        if (document.getElementById('showCurve').checked) {
+            let currentId = -1;
+            let pathData = '';
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (pathData) {
+                        svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                    }
+                    pathData = `M ${pt.p.x} ${pt.p.y}`;
+                    currentId = pt.curveId;
+                } else {
+                    pathData += ` L ${pt.p.x} ${pt.p.y}`;
+                }
+            }
+            if (pathData) {
+                svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+            }
+        }
+    }
+
+    // Vineyard - darker purple
+    if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${6/view.scale}" fill="#7c3aed"/>`;
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${vineyardRadius}" stroke="rgba(124,58,237,0.6)" stroke-width="${1.5/view.scale}" fill="none" stroke-dasharray="${5/view.scale} ${5/view.scale}"/>`;
+        
+        // Vineyard center sample points
+        if (vineyardCenters.length > 0) {
+            const s = 3 / view.scale;
+            for (const c of vineyardCenters) {
+                svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(124,58,237,0.5)"/>`;
+            }
+            
+            // Yellow animated center marker
+            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
+                const curr = vineyardCenters[vineyardAnimIdx];
+                svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${8/view.scale}" fill="#f59e0b"/>`;
+            }
+        }
+    }
+
+    // Control points - dark
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            const pts = curves[c];
+            for (const p of pts) {
+                const fill = (c === activeCurveIdx) ? '#1a1a1a' : '#888';
+                svg += `<rect x="${p.x - baseSize/2}" y="${p.y - baseSize/2}" width="${baseSize}" height="${baseSize}" fill="${fill}"/>`;
+            }
+        }
+    }
+    
+    svg += `</g></svg>`;
+    
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    downloadDataURL(url, 'symmetry_canvas.svg');
+    URL.revokeObjectURL(url);
+    exportMenu.classList.remove('active');
+}
+
+function exportPlotlyAsPNG(plotId, filename) {
+    // Get the plot element and save current camera state
+    const plotDiv = document.getElementById(plotId);
+    let savedCamera = null;
+    
+    // Save 3D camera position if it's a 3D plot
+    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    }
+    
+    // Export as square with good quality
+    const exportSize = 800;
+    
+    const lightLayout = {
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { color: '#1a1a1a' },
+        showlegend: false,
+        scene: plotId === 'vineyardPlot' ? {
+            xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
+            yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
+            zaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Time', font: { color: '#333' } } },
+            bgcolor: '#ffffff',
+            camera: savedCamera // Preserve camera position
+        } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        title: { font: { color: '#333' } }
+    };
+    
+    Plotly.relayout(plotId, lightLayout).then(() => {
+        return Plotly.toImage(plotId, { format: 'png', width: exportSize, height: exportSize, scale: 2 });
+    }).then(dataURL => {
+        downloadDataURL(dataURL, filename);
+        exportMenu.classList.remove('active');
+        // Restore dark theme and camera position if needed
+        if (isDarkTheme) {
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
+                font: { color: '#ccc' },
+                showlegend: false,
+                scene: plotId === 'vineyardPlot' ? {
+                    xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
+                    yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
+                    zaxis: { color: '#888', gridcolor: '#333', title: { text: 'Time', font: { color: '#aaa' } } },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    camera: savedCamera
+                } : undefined,
+                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { text: 'Birth', font: { color: '#aaa' } } } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { text: 'Death', font: { color: '#aaa' } } } : undefined,
+                title: { font: { color: '#aaa' } }
+            };
+            Plotly.relayout(plotId, darkLayout);
+        }
+    });
+}
+
+function exportPlotlyAsSVG(plotId, filename) {
+    const plotDiv = document.getElementById(plotId);
+    let savedCamera = null;
+    
+    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    }
+    
+    // Export as square
+    const exportSize = 800;
+    
+    const lightLayout = {
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { color: '#1a1a1a' },
+        showlegend: false,
+        scene: plotId === 'vineyardPlot' ? {
+            xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
+            yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
+            zaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Time', font: { color: '#333' } } },
+            bgcolor: '#ffffff',
+            camera: savedCamera
+        } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        title: { font: { color: '#333' } }
+    };
+    
+    Plotly.relayout(plotId, lightLayout).then(() => {
+        return Plotly.toImage(plotId, { format: 'svg', width: exportSize, height: exportSize });
+    }).then(dataURL => {
+        downloadDataURL(dataURL, filename);
+        exportMenu.classList.remove('active');
+        if (isDarkTheme) {
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
+                font: { color: '#ccc' },
+                showlegend: false,
+                scene: plotId === 'vineyardPlot' ? {
+                    xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
+                    yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
+                    zaxis: { color: '#888', gridcolor: '#333', title: { text: 'Time', font: { color: '#aaa' } } },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    camera: savedCamera
+                } : undefined,
+                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { text: 'Birth', font: { color: '#aaa' } } } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { text: 'Death', font: { color: '#aaa' } } } : undefined,
+                title: { font: { color: '#aaa' } }
+            };
+            Plotly.relayout(plotId, darkLayout);
+        }
+    });
+}
+
+function exportCanvasAsPDF() {
+    const { jsPDF } = window.jspdf;
+    
+    // Create a SQUARE export canvas with good quality
+    const exportSize = Math.min(canvas.width, canvas.height);
+    const scale = 2;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = exportSize * scale;
+    exportCanvas.height = exportSize * scale;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    exportCtx.scale(scale, scale);
+    // White background for papers
+    exportCtx.fillStyle = '#ffffff';
+    exportCtx.fillRect(0, 0, exportSize, exportSize);
+    
+    exportCtx.save();
+    // Center the view in the square
+    exportCtx.translate(exportSize / 2 + view.x, exportSize / 2 + view.y);
+    exportCtx.scale(view.scale, -view.scale);
+    
+    // NO GRID for clean export
+
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        if (document.getElementById('showFocal').checked) {
+            exportCtx.fillStyle = '#16a34a';
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            exportCtx.fillStyle = '#dc2626';
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
+        }
+
+        if (document.getElementById('showCurve').checked) {
+            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.lineWidth = 2.5 / view.scale;
+            let currentId = -1;
+            exportCtx.beginPath();
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    exportCtx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    exportCtx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+        }
+    }
+
+    if (document.getElementById('showVineyardCircle').checked) {
+        if (vineyardCenter) {
+            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+            exportCtx.fill();
+            
+            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
+            exportCtx.beginPath();
+            exportCtx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
+            exportCtx.stroke();
+            exportCtx.setLineDash([]);
+        }
+        
+        if (vineyardCenters.length > 0) {
+            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            const s = 3 / view.scale;
+            for (const c of vineyardCenters) {
+                exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
+            }
+            
+            // Yellow animated center marker
+            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
+                const curr = vineyardCenters[vineyardAnimIdx];
+                exportCtx.fillStyle = '#f59e0b';
+                exportCtx.beginPath();
+                exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+                exportCtx.fill();
+            }
+        }
+    }
+
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            const pts = curves[c];
+            for (const p of pts) {
+                exportCtx.fillStyle = (c === activeCurveIdx) ? '#1a1a1a' : '#888';
+                exportCtx.fillRect(p.x - baseSize/2, p.y - baseSize/2, baseSize, baseSize);
+            }
+        }
+    }
+    
+    exportCtx.restore();
+    
+    // Use PNG for better quality
+    const imgData = exportCanvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [exportSize, exportSize]
+    });
+    pdf.addImage(imgData, 'PNG', 0, 0, exportSize, exportSize);
+    pdf.save('symmetry_canvas.pdf');
+    exportMenu.classList.remove('active');
+}
+
+function exportPlotlyAsPDF(plotId, filename) {
+    const plotDiv = document.getElementById(plotId);
+    let savedCamera = null;
+    
+    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
+        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
+    }
+    
+    // Export as square with good quality
+    const exportSize = 800;
+    
+    const lightLayout = {
+        paper_bgcolor: '#ffffff',
+        plot_bgcolor: '#ffffff',
+        font: { color: '#1a1a1a' },
+        showlegend: false,
+        scene: plotId === 'vineyardPlot' ? {
+            xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
+            yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
+            zaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Time', font: { color: '#333' } } },
+            bgcolor: '#ffffff',
+            camera: savedCamera
+        } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        title: { font: { color: '#333' } }
+    };
+    
+    Plotly.relayout(plotId, lightLayout).then(() => {
+        // Use PNG format for better quality
+        return Plotly.toImage(plotId, { format: 'png', width: exportSize, height: exportSize, scale: 2 });
+    }).then(dataURL => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'px',
+            format: [exportSize, exportSize]
+        });
+        pdf.addImage(dataURL, 'PNG', 0, 0, exportSize, exportSize);
+        pdf.save(filename);
+        exportMenu.classList.remove('active');
+        if (isDarkTheme) {
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
+                font: { color: '#ccc' },
+                showlegend: false,
+                scene: plotId === 'vineyardPlot' ? {
+                    xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
+                    yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
+                    zaxis: { color: '#888', gridcolor: '#333', title: { text: 'Time', font: { color: '#aaa' } } },
+                    bgcolor: 'rgba(0,0,0,0)',
+                    camera: savedCamera
+                } : undefined,
+                xaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { text: 'Birth', font: { color: '#aaa' } } } : undefined,
+                yaxis: plotId === 'persistencePlot' ? { color: '#888', gridcolor: '#333', zerolinecolor: '#666', title: { text: 'Death', font: { color: '#aaa' } } } : undefined,
+                title: { font: { color: '#aaa' } }
+            };
+            Plotly.relayout(plotId, darkLayout);
+        }
+    });
+}
+
+function exportAllAsPNG() {
+    exportCanvasAsPNG();
+    
+    setTimeout(() => {
+        if (vineyardData) {
+            Plotly.toImage('vineyardPlot', { format: 'png', width: 800, height: 600, scale: 2 })
+                .then(dataURL => downloadDataURL(dataURL, 'vineyard_3d.png'));
+        }
+    }, 500);
+    
+    setTimeout(() => {
+        if (vineyardData) {
+            Plotly.toImage('persistencePlot', { format: 'png', width: 800, height: 600, scale: 2 })
+                .then(dataURL => downloadDataURL(dataURL, 'persistence_diagram.png'));
+        }
+    }, 1000);
+    
+    exportMenu.classList.remove('active');
+}
+
+async function exportAllAsPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [800, 600]
+    });
+    
+    // Canvas
+    const scale = 2;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width * scale;
+    exportCanvas.height = canvas.height * scale;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    exportCtx.scale(scale, scale);
+    exportCtx.fillStyle = '#0a0a0f';
+    exportCtx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    exportCtx.save();
+    exportCtx.translate(canvas.width / 2 + view.x, canvas.height / 2 + view.y);
+    exportCtx.scale(view.scale, -view.scale);
+    
+    exportCtx.strokeStyle = '#1a1a2e';
+    exportCtx.lineWidth = 1 / view.scale;
+    exportCtx.beginPath();
+    exportCtx.moveTo(-1000, 0); exportCtx.lineTo(1000, 0);
+    exportCtx.moveTo(0, -1000); exportCtx.lineTo(0, 1000);
+    exportCtx.stroke();
+
+    if (cachedCurveData && cachedCurveData.length > 0) {
+        if (document.getElementById('showFocal').checked) {
+            exportCtx.fillStyle = '#22c55e';
+            const s = 1.5 / view.scale;
+            for (const pt of cachedCurveData) {
+                const k = pt.curvature;
+                if (Math.abs(k) > 1e-8) {
+                    const R = 1.0 / k;
+                    if (Math.abs(R) < R_MAX) {
+                        const ex = pt.p.x + pt.N.x * R;
+                        const ey = pt.p.y + pt.N.y * R;
+                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
+                    }
+                }
+            }
+        }
+        if (document.getElementById('showSS').checked && cachedSSData) {
+            exportCtx.fillStyle = '#ef4444';
+            const s = 1.5 / view.scale;
+            for (const p of cachedSSData) {
+                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            }
+        }
+        if (document.getElementById('showCurve').checked) {
+            exportCtx.strokeStyle = '#4f8cff';
+            exportCtx.lineWidth = 2.5 / view.scale;
+            let currentId = -1;
+            exportCtx.beginPath();
+            for (let i = 0; i < cachedCurveData.length; i++) {
+                const pt = cachedCurveData[i];
+                if (pt.curveId !== currentId) {
+                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    exportCtx.moveTo(pt.p.x, pt.p.y);
+                    currentId = pt.curveId;
+                } else {
+                    exportCtx.lineTo(pt.p.x, pt.p.y);
+                }
+            }
+            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+        }
+    }
+    if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
+        exportCtx.fillStyle = '#a855f7';
+        exportCtx.beginPath();
+        exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
+        exportCtx.fill();
+    }
+    if (document.getElementById('showControls').checked) {
+        const baseSize = 7 / view.scale;
+        for (let c = 0; c < curves.length; c++) {
+            for (const p of curves[c]) {
+                exportCtx.fillStyle = (c === activeCurveIdx) ? '#fff' : '#666';
+                exportCtx.fillRect(p.x - baseSize/2, p.y - baseSize/2, baseSize, baseSize);
+            }
+        }
+    }
+    exportCtx.restore();
+    
+    // Scale canvas to fit PDF page
+    const canvasAspect = canvas.width / canvas.height;
+    let cw = 800, ch = 600;
+    if (canvasAspect > 800/600) {
+        ch = 800 / canvasAspect;
+    } else {
+        cw = 600 * canvasAspect;
+    }
+    const cx = (800 - cw) / 2;
+    const cy = (600 - ch) / 2;
+    
+    const canvasImg = exportCanvas.toDataURL('image/png');
+    pdf.addImage(canvasImg, 'PNG', cx, cy, cw, ch);
+    
+    if (vineyardData) {
+        // Vineyard 3D
+        pdf.addPage([800, 600], 'landscape');
+        const vineyardImg = await Plotly.toImage('vineyardPlot', { format: 'png', width: 800, height: 600, scale: 2 });
+        pdf.addImage(vineyardImg, 'PNG', 0, 0, 800, 600);
+        
+        // Persistence Diagram
+        pdf.addPage([800, 600], 'landscape');
+        const pdImg = await Plotly.toImage('persistencePlot', { format: 'png', width: 800, height: 600, scale: 2 });
+        pdf.addImage(pdImg, 'PNG', 0, 0, 800, 600);
+    }
+    
+    pdf.save('symmetry_all_figures.pdf');
+    exportMenu.classList.remove('active');
+}
+
+document.getElementById('exportCanvas').addEventListener('click', exportCanvasAsPNG);
+document.getElementById('exportCanvasSVG').addEventListener('click', exportCanvasAsSVG);
+document.getElementById('exportCanvasPDF').addEventListener('click', exportCanvasAsPDF);
+document.getElementById('exportVineyard').addEventListener('click', () => {
+    if (!vineyardData) { alert('No vineyard data to export'); return; }
+    exportPlotlyAsPNG('vineyardPlot', 'vineyard_3d.png');
+});
+document.getElementById('exportVineyardSVG').addEventListener('click', () => {
+    if (!vineyardData) { alert('No vineyard data to export'); return; }
+    exportPlotlyAsSVG('vineyardPlot', 'vineyard_3d.svg');
+});
+document.getElementById('exportVineyardPDF').addEventListener('click', () => {
+    if (!vineyardData) { alert('No vineyard data to export'); return; }
+    exportPlotlyAsPDF('vineyardPlot', 'vineyard_3d.pdf');
+});
+document.getElementById('exportPD').addEventListener('click', () => {
+    if (!vineyardData) { alert('No persistence data to export'); return; }
+    exportPlotlyAsPNG('persistencePlot', 'persistence_diagram.png');
+});
+document.getElementById('exportPDSVG').addEventListener('click', () => {
+    if (!vineyardData) { alert('No persistence data to export'); return; }
+    exportPlotlyAsSVG('persistencePlot', 'persistence_diagram.svg');
+});
+document.getElementById('exportPDPDF').addEventListener('click', () => {
+    if (!vineyardData) { alert('No persistence data to export'); return; }
+    exportPlotlyAsPDF('persistencePlot', 'persistence_diagram.pdf');
+});
+document.getElementById('exportAllPNG').addEventListener('click', exportAllAsPNG);
+document.getElementById('exportAllPDF').addEventListener('click', exportAllAsPDF);
+
+// ========== Resize ==========
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const container = document.querySelector('.canvas-container');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
     draw();
 }
 window.addEventListener('resize', resize);
-
 resize();
+
+updateStatus('Click to add points or load a preset');
 </script>
 </body>
 </html>

@@ -130,6 +130,14 @@
             overflow: hidden;
         }
         
+        .sidebar-note {
+            margin-top: 16px;
+            padding: 6px 0;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+        }
+        
         /* Canvas Container */
         .canvas-container {
             position: relative;
@@ -446,13 +454,13 @@
         </div> -->
         
         <div class="toolbar-section">
-            <button class="btn btn-secondary btn-icon" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+            <button class="btn btn-secondary" id="undoBtn" title="Undo (Ctrl+Z)">Undo (Ctrl + Z)</button>
             <button class="btn btn-secondary" id="clearBtn">Clear</button>
-            <button class="btn btn-secondary btn-icon" id="resetViewBtn" title="Reset View">⊙</button>
+            <button class="btn btn-secondary" id="resetViewBtn" title="Reset View">Reset View</button>
         </div>
         
         <div class="toolbar-section">
-            <button class="btn btn-primary" id="computeBtn">Compute SS</button>
+            <button class="btn btn-primary" id="computeBtn">Compute Symmetry Set</button>
             <span class="toolbar-label">Res</span>
             <input type="range" id="resolution" min="500" max="40000" step="500" value="5000" style="width: 50px; height: 3px;">
             <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
@@ -624,6 +632,10 @@
                 <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
                 <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
             </div>
+        </div>
+
+        <div style="margin-top:16px; padding:6px 0; font-size:11px; color:#888; text-align:center;">
+            © 2026 Rohit Roy
         </div>
     </div>
     

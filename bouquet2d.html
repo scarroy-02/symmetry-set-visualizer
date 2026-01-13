@@ -474,7 +474,7 @@
         
         <div class="toolbar-section" style="border-right: none;">
             <button class="btn btn-secondary" id="themeToggleBtn" title="Toggle Light/Dark Theme">
-                🌙
+                ☀️
             </button>
         </div>
         
@@ -2668,7 +2668,10 @@ function draw() {
 }
 
 // ========== Theme Toggle ==========
-let isDarkTheme = true;
+let isDarkTheme = false;
+
+// Apply light theme by default
+document.body.classList.add('light-theme');
 
 function toggleTheme() {
     isDarkTheme = !isDarkTheme;

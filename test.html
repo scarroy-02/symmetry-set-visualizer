@@ -440,6 +440,14 @@
         </div>
         
         <div class="toolbar-section">
+            <span class="toolbar-label">Import</span>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+            <button class="btn btn-secondary" id="uploadCSVBtn" title="Upload CSV with x,y columns">
+                📄 CSV
+            </button>
+        </div>
+        
+        <div class="toolbar-section">
             <button class="btn btn-green" id="newCurveBtn" style="display: flex; align-items: center; gap: 4px;">
                 + Curve <span class="curve-badge" id="curveCountBadge">1</span>
             </button>
@@ -466,7 +474,7 @@
         
         <div class="toolbar-section" style="border-right: none;">
             <button class="btn btn-secondary" id="themeToggleBtn" title="Toggle Light/Dark Theme">
-                🌙
+                ☀️
             </button>
         </div>
         
@@ -714,8 +722,8 @@ class UnionFind {
 }
 
 // ========== Global State ==========
-const SAMPLING_DENSITY = 30000;
-const LAMBDA_MAX = 5000.0;
+const SAMPLING_DENSITY = 40000;
+const LAMBDA_MAX = 50000.0;
 const R_MAX = 100000.0;
 
 let curves = [[]];
@@ -1199,6 +1207,10 @@ function updateVineyardPlot() {
     const h1 = vineyardData.h1;
     const maxVal = vineyardMaxVal;
     
+    // Calculate dynamic z aspect ratio to make plot roughly cubic
+    // zAspect = maxVal / numSamples keeps visual proportions balanced
+    const zAspect = Math.min(1.5, maxVal / Math.max(1, vineyardSamples - 1));
+    
     const traceH0 = {
         x: h0.map(d => d.birth),
         y: h0.map(d => d.death),
@@ -1287,7 +1299,7 @@ function updateVineyardPlot() {
             bgcolor: 'rgba(0,0,0,0)',
             camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
             aspectmode: 'manual',
-            aspectratio: { x: 1, y: 1, z: 0.8 }
+            aspectratio: { x: 1, y: 1, z: zAspect }
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -1956,6 +1968,139 @@ document.getElementById('presetSelect').addEventListener('change', e => {
     if (e.target.value) loadPreset(e.target.value);
 });
 
+// ========== CSV Upload ==========
+document.getElementById('uploadCSVBtn').addEventListener('click', () => {
+    document.getElementById('csvFileInput').click();
+});
+
+document.getElementById('csvFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const csvText = event.target.result;
+            const points = parseCSV(csvText);
+            
+            if (points.length < 3) {
+                updateStatus('CSV needs at least 3 points');
+                return;
+            }
+            
+            loadCSVCurve(points);
+        } catch (err) {
+            updateStatus('Error parsing CSV: ' + err.message);
+            console.error(err);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input so same file can be re-uploaded
+    e.target.value = '';
+});
+
+function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) throw new Error('CSV must have header and data rows');
+    
+    // Parse header to find x and y columns
+    const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const xIdx = header.findIndex(h => h === 'x');
+    const yIdx = header.findIndex(h => h === 'y');
+    
+    if (xIdx === -1 || yIdx === -1) {
+        throw new Error('CSV must have "x" and "y" columns');
+    }
+    
+    const points = [];
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const values = line.split(',').map(v => v.trim());
+        const x = parseFloat(values[xIdx]);
+        const y = parseFloat(values[yIdx]);
+        
+        if (!isNaN(x) && !isNaN(y)) {
+            points.push({ x, y });
+        }
+    }
+    
+    return points;
+}
+
+function loadCSVCurve(points) {
+    saveState();
+    
+    // Enable fixed curve mode for CSV data
+    fixedCurveMode = true;
+    curves = [[]];
+    activeCurveIdx = 0;
+    
+    // Generate curve data from CSV points
+    const n = points.length;
+    cachedCurveData = [];
+    
+    for (let i = 0; i < n; i++) {
+        const prev = points[(i - 1 + n) % n];
+        const curr = points[i];
+        const next = points[(i + 1) % n];
+        
+        // Approximate tangent using central difference
+        const dx = (next.x - prev.x) / 2;
+        const dy = (next.y - prev.y) / 2;
+        const vel = Math.sqrt(dx*dx + dy*dy);
+        
+        if (vel < 1e-10) continue;
+        
+        const Tx = dx / vel;
+        const Ty = dy / vel;
+        const Nx = -Ty;
+        const Ny = Tx;
+        
+        // Approximate curvature using second derivative
+        const ddx = next.x - 2*curr.x + prev.x;
+        const ddy = next.y - 2*curr.y + prev.y;
+        const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
+        
+        cachedCurveData.push({
+            p: new Point(curr.x, curr.y),
+            T: new Point(Tx, Ty),
+            N: new Point(Nx, Ny),
+            curvature: curvature,
+            curveId: 0
+        });
+    }
+    
+    // Compute symmetry set
+    cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+    
+    // Auto-fit view to data
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const pt of points) {
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+    }
+    
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+    const maxRange = Math.max(rangeX, rangeY);
+    
+    // Set view to fit curve with some padding
+    view.scale = Math.min(canvas.width, canvas.height) / (maxRange * 1.5);
+    view.x = -centerX * view.scale;
+    view.y = centerY * view.scale;
+    
+    updateUI();
+    updateStatus(`CSV loaded: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
+    draw();
+}
+
 document.getElementById('resolution').addEventListener('input', e => {
     ssResolution = parseInt(e.target.value);
     document.getElementById('resVal').innerText = ssResolution;
@@ -2218,6 +2363,9 @@ function updateRadiusSweepVineyardPlot() {
     const r = currentVineyard.radius;
     const maxVal = currentVineyard.infinityY;
     
+    // Calculate dynamic z aspect ratio to make plot roughly cubic
+    const zAspect = Math.min(1.5, maxVal / Math.max(1, vineyardSamples - 1));
+    
     const h0 = currentVineyard.h0;
     const h1 = currentVineyard.h1;
     
@@ -2263,7 +2411,7 @@ function updateRadiusSweepVineyardPlot() {
             bgcolor: 'rgba(0,0,0,0)',
             camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
             aspectmode: 'manual',
-            aspectratio: { x: 1, y: 1, z: 0.8 }
+            aspectratio: { x: 1, y: 1, z: zAspect }
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -2653,7 +2801,10 @@ function draw() {
 }
 
 // ========== Theme Toggle ==========
-let isDarkTheme = true;
+let isDarkTheme = false;
+
+// Apply light theme by default
+document.body.classList.add('light-theme');
 
 function toggleTheme() {
     isDarkTheme = !isDarkTheme;

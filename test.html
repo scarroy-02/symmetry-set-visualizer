@@ -513,8 +513,7 @@
                 <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">⬡ Place Center</button>
                 <div class="slider-row">
                     <label>Radius</label>
-                    <input type="range" id="vineyardRadius" min="0.001" max="10" step="0.01" value="1" style="accent-color: #a855f7;">
-                    <span class="val" id="radiusVal">1.0</span>
+                    <input type="number" id="vineyardRadius" min="0.001" max="1000" step="0.1" value="1" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
                 </div>
                 <div class="slider-row">
                     <label>Samples</label>
@@ -542,13 +541,15 @@
             <div class="section-content">
                 <div class="slider-row">
                     <label>Start R</label>
-                    <input type="range" id="radiusStart" min="0.01" max="10" step="0.01" value="0.5" style="accent-color: #c084fc;">
-                    <span class="val" id="radiusStartVal">0.5</span>
+                    <input type="number" id="radiusStart" min="0.001" max="1000" step="0.1" value="0.5" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
                 </div>
                 <div class="slider-row">
                     <label>End R</label>
-                    <input type="range" id="radiusEnd" min="0.01" max="10" step="0.01" value="5" style="accent-color: #c084fc;">
-                    <span class="val" id="radiusEndVal">5.0</span>
+                    <input type="number" id="radiusEnd" min="0.001" max="1000" step="0.1" value="5" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                </div>
+                <div class="toggle-row" style="margin: 4px 0;">
+                    <span style="font-size: 9px;">Show Sweep Preview</span>
+                    <input type="checkbox" id="showSweepPreview" checked>
                 </div>
                 <div class="slider-row">
                     <label>Steps</label>
@@ -1001,7 +1002,7 @@ function computeSymmetrySet(data, resolutionLimit) {
     }
 
     // Minimum arc-length fraction to consider (5% of curve length)
-    const minArcLengthFraction = 0.02;
+    const minArcLengthFraction = 0.05;
     const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {
@@ -2140,8 +2141,16 @@ document.getElementById('vineyardModeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('vineyardRadius').addEventListener('input', e => {
-    vineyardRadius = parseFloat(e.target.value);
-    document.getElementById('radiusVal').innerText = vineyardRadius.toFixed(1);
+    vineyardRadius = parseFloat(e.target.value) || 1;
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('vineyardRadius').addEventListener('change', e => {
+    vineyardRadius = parseFloat(e.target.value) || 1;
+    if (vineyardRadius <= 0) {
+        vineyardRadius = 0.1;
+        e.target.value = 0.1;
+    }
     if (vineyardCenter) draw();
 });
 
@@ -2170,7 +2179,7 @@ document.getElementById('vineyardAnimSlider').addEventListener('input', e => {
     draw();
 });
 
-['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle'].forEach(id => {
+['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle', 'showSweepPreview'].forEach(id => {
     document.getElementById(id).addEventListener('change', draw);
 });
 
@@ -2359,8 +2368,7 @@ function updateRadiusSweepDisplay() {
     document.getElementById('currentSweepRadius').innerText = `R: ${r.toFixed(2)}`;
     
     vineyardRadius = r;
-    document.getElementById('vineyardRadius').value = Math.min(r, 10);
-    document.getElementById('radiusVal').innerText = r.toFixed(1);
+    document.getElementById('vineyardRadius').value = r.toFixed(2);
     
     vineyardCenters = currentVineyard.centers;
     
@@ -2522,13 +2530,31 @@ function radiusSweepAnimLoop() {
 }
 
 document.getElementById('radiusStart').addEventListener('input', e => {
-    radiusStart = parseFloat(e.target.value);
-    document.getElementById('radiusStartVal').innerText = radiusStart.toFixed(1);
+    radiusStart = parseFloat(e.target.value) || 0.5;
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('radiusStart').addEventListener('change', e => {
+    radiusStart = parseFloat(e.target.value) || 0.5;
+    if (radiusStart <= 0) {
+        radiusStart = 0.1;
+        e.target.value = 0.1;
+    }
+    if (vineyardCenter) draw();
 });
 
 document.getElementById('radiusEnd').addEventListener('input', e => {
-    radiusEnd = parseFloat(e.target.value);
-    document.getElementById('radiusEndVal').innerText = radiusEnd.toFixed(1);
+    radiusEnd = parseFloat(e.target.value) || 5;
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('radiusEnd').addEventListener('change', e => {
+    radiusEnd = parseFloat(e.target.value) || 5;
+    if (radiusEnd <= 0) {
+        radiusEnd = 0.1;
+        e.target.value = 0.1;
+    }
+    if (vineyardCenter) draw();
 });
 
 document.getElementById('radiusSteps').addEventListener('input', e => {
@@ -2725,32 +2751,65 @@ function draw() {
             ctx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
-            ctx.lineWidth = 1.5 / view.scale;
+            // Main vineyard radius - purple dashed
+            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+            ctx.lineWidth = 2 / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
             
+            // Label for main radius
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            const rLabelX = (vineyardCenter.x + vineyardRadius) * view.scale + view.x + canvas.width / 2;
+            const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale - view.y;
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.9)' : 'rgba(124, 58, 237, 1)';
+            ctx.fillText(`R=${vineyardRadius.toFixed(2)}`, rLabelX + 5, rLabelY);
+            ctx.restore();
+            
             // Radius sweep preview circles (start and end radii)
-            const startR = parseFloat(document.getElementById('radiusStart').value);
-            const endR = parseFloat(document.getElementById('radiusEnd').value);
-            
-            // Start radius - cyan/teal dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.4)' : 'rgba(6, 182, 212, 0.5)';
-            ctx.lineWidth = 1 / view.scale;
-            ctx.setLineDash([3 / view.scale, 3 / view.scale]);
-            ctx.beginPath();
-            ctx.arc(vineyardCenter.x, vineyardCenter.y, startR, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // End radius - orange dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.4)' : 'rgba(234, 88, 12, 0.5)';
-            ctx.beginPath();
-            ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            if (document.getElementById('showSweepPreview').checked) {
+                const startR = parseFloat(document.getElementById('radiusStart').value) || 0.5;
+                const endR = parseFloat(document.getElementById('radiusEnd').value) || 5;
+                
+                // Start radius - cyan/teal dashed
+                ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.6)' : 'rgba(6, 182, 212, 0.7)';
+                ctx.lineWidth = 1.5 / view.scale;
+                ctx.setLineDash([3 / view.scale, 3 / view.scale]);
+                ctx.beginPath();
+                ctx.arc(vineyardCenter.x, vineyardCenter.y, startR, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Label for start radius
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const startLabelX = (vineyardCenter.x + startR * 0.707) * view.scale + view.x + canvas.width / 2;
+                const startLabelY = canvas.height / 2 - (vineyardCenter.y + startR * 0.707) * view.scale - view.y;
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.fillStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.9)' : 'rgba(6, 182, 212, 1)';
+                ctx.fillText(`Start=${startR.toFixed(2)}`, startLabelX + 3, startLabelY - 3);
+                ctx.restore();
+                
+                // End radius - orange dashed
+                ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.6)' : 'rgba(234, 88, 12, 0.7)';
+                ctx.beginPath();
+                ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Label for end radius
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const endLabelX = (vineyardCenter.x + endR * 0.707) * view.scale + view.x + canvas.width / 2;
+                const endLabelY = canvas.height / 2 - (vineyardCenter.y + endR * 0.707) * view.scale - view.y;
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.fillStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.9)' : 'rgba(234, 88, 12, 1)';
+                ctx.fillText(`End=${endR.toFixed(2)}`, endLabelX + 3, endLabelY - 3);
+                ctx.restore();
+            }
         }
         
         if (vineyardCenters.length > 0) {

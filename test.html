@@ -510,10 +510,24 @@
                 <span class="section-toggle">▼</span>
             </div>
             <div class="section-content">
-                <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">⬡ Place Center</button>
-                <div class="slider-row">
-                    <label>Radius</label>
-                    <input type="number" id="vineyardRadius" min="0.001" max="1000" step="0.1" value="1" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                <div class="slider-row" style="margin-bottom: 6px;">
+                    <label>Loop</label>
+                    <select id="vineyardLoopType" style="flex: 1; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 10px;">
+                        <option value="circular">Circular</option>
+                        <option value="custom">Custom Spline</option>
+                    </select>
+                </div>
+                <div id="circularLoopControls">
+                    <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">⬡ Place Center</button>
+                    <div class="slider-row">
+                        <label>Radius</label>
+                        <input type="number" id="vineyardRadius" min="0.001" max="1000" step="0.1" value="1" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                    </div>
+                </div>
+                <div id="customLoopControls" style="display: none;">
+                    <button class="btn btn-purple" id="drawLoopBtn" style="width: 100%; margin-bottom: 4px;">✏️ Draw Loop</button>
+                    <button class="btn btn-secondary" id="clearLoopBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Clear Loop</button>
+                    <div style="font-size: 9px; color: var(--text-muted); text-align: center;" id="loopStatus">No loop drawn</div>
                 </div>
                 <div class="slider-row">
                     <label>Samples</label>
@@ -760,6 +774,13 @@ let vineyardAnimPlaying = false;
 let currentPersistence = null;
 let vineyardMaxVal = 1;
 let vineyardDragging = false;
+
+// Custom loop for vineyard
+let vineyardLoopType = 'circular'; // 'circular' or 'custom'
+let customLoopMode = false;
+let customLoopPoints = []; // Control points for the custom loop spline
+let customLoopDragIdx = -1;
+let customLoopHoverIdx = -1;
 
 let focalAnimPlaying = false;
 let focalAnimIdx = 0;
@@ -1197,14 +1218,34 @@ function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
 }
 
 function computeVineyard() {
-    if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
-        updateStatus('Need curve and center point!');
+    if (!cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need a curve first!');
         return;
     }
     
-    updateStatus('Computing vineyard...');
+    let result;
     
-    const result = computeVineyardForRadius(vineyardCenter, vineyardRadius, vineyardSamples, cachedCurveData);
+    if (vineyardLoopType === 'circular') {
+        if (!vineyardCenter) {
+            updateStatus('Need center point! Click "Place Center" first.');
+            return;
+        }
+        
+        updateStatus('Computing vineyard (circular loop)...');
+        result = computeVineyardForRadius(vineyardCenter, vineyardRadius, vineyardSamples, cachedCurveData);
+    } else {
+        // Custom loop mode (auto-closed)
+        if (customLoopPoints.length < 3) {
+            updateStatus('Need at least 3 loop points!');
+            return;
+        }
+        
+        updateStatus('Computing vineyard (custom loop)...');
+        
+        // Sample many points along the loop for smooth interpolation
+        const loopSamples = sampleCustomLoop(vineyardSamples * 10);
+        result = computeVineyardForCustomLoop(loopSamples, vineyardSamples, cachedCurveData);
+    }
     
     vineyardCenters = result.centers;
     vineyardData = {
@@ -1688,6 +1729,9 @@ function updateModeIndicator() {
     if (vineyardMode) {
         indicator.innerText = 'Vineyard';
         indicator.className = 'mode-badge mode-vineyard';
+    } else if (customLoopMode) {
+        indicator.innerText = 'Loop';
+        indicator.className = 'mode-badge mode-vineyard';
     } else {
         indicator.innerText = 'Draw';
         indicator.className = 'mode-badge mode-draw';
@@ -1775,6 +1819,28 @@ canvas.addEventListener('mousedown', e => {
     }
 
     if (e.button === 0) {
+        // Check for custom loop point drag FIRST (before adding new points)
+        if (customLoopPoints.length > 0) {
+            const hitIdx = findHitCustomLoopPoint(e.clientX, e.clientY);
+            if (hitIdx >= 0) {
+                saveState();
+                customLoopDragIdx = hitIdx;
+                interactionType = 'DRAG_LOOP_POINT';
+                canvas.style.cursor = 'grabbing';
+                return;
+            }
+        }
+        
+        // Custom loop mode - add new point only if not hitting existing point
+        if (customLoopMode) {
+            saveState();
+            customLoopPoints.push(new Point(mousePos.x, mousePos.y));
+            updateLoopStatus();
+            isInteractionActive = false;
+            draw();
+            return;
+        }
+        
         if (vineyardMode) {
             saveState();
             vineyardCenter = mousePos;
@@ -1810,6 +1876,22 @@ canvas.addEventListener('mousedown', e => {
     }
 });
 
+// Find hit custom loop point
+function findHitCustomLoopPoint(sx, sy) {
+    const worldPos = screenToWorld(sx, sy);
+    const hitRadius = 12 / view.scale;
+    
+    for (let i = 0; i < customLoopPoints.length; i++) {
+        const pt = customLoopPoints[i];
+        const dx = worldPos.x - pt.x;
+        const dy = worldPos.y - pt.y;
+        if (dx*dx + dy*dy < hitRadius * hitRadius) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 canvas.addEventListener('mousemove', e => {
     const dx = e.clientX - mouseStart.x;
     const dy = e.clientY - mouseStart.y;
@@ -1828,6 +1910,13 @@ canvas.addEventListener('mousemove', e => {
                 ));
             }
         }
+        draw();
+        return;
+    }
+    
+    if (interactionType === 'DRAG_LOOP_POINT' && customLoopDragIdx >= 0) {
+        const p = screenToWorld(e.clientX, e.clientY);
+        customLoopPoints[customLoopDragIdx] = new Point(p.x, p.y);
         draw();
         return;
     }
@@ -1853,6 +1942,18 @@ canvas.addEventListener('mousemove', e => {
     }
 
     if (!isInteractionActive) {
+        // Check custom loop point hover
+        if (customLoopPoints.length > 0) {
+            const hitIdx = findHitCustomLoopPoint(e.clientX, e.clientY);
+            if (hitIdx >= 0) {
+                customLoopHoverIdx = hitIdx;
+                canvas.style.cursor = 'grab';
+                draw();
+                return;
+            }
+            customLoopHoverIdx = -1;
+        }
+        
         if (findHitVineyardCenter(e.clientX, e.clientY)) {
             canvas.style.cursor = 'grab';
             return;
@@ -1864,7 +1965,7 @@ canvas.addEventListener('mousemove', e => {
             canvas.style.cursor = 'grab';
             updateStatus(`Curve ${hit.cIdx}, Point ${hit.pIdx}`);
         } else {
-            canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
+            canvas.style.cursor = (vineyardMode || customLoopMode) ? 'cell' : 'crosshair';
         }
         draw();
     }
@@ -1879,13 +1980,17 @@ canvas.addEventListener('mouseup', e => {
             computeVineyard();
         }
     }
+    
+    if (interactionType === 'DRAG_LOOP_POINT') {
+        customLoopDragIdx = -1;
+    }
 
     if (interactionType === 'DRAG_POINT') {
         dragInfo = null;
         triggerComputation(true);
     }
     
-    if (interactionType === 'POTENTIAL_PAN' && !vineyardMode) {
+    if (interactionType === 'POTENTIAL_PAN' && !vineyardMode && !customLoopMode) {
         if (fixedCurveMode) {
             updateStatus('Fixed curve mode - Clear to draw');
         } else {
@@ -1899,7 +2004,7 @@ canvas.addEventListener('mouseup', e => {
 
     isInteractionActive = false;
     interactionType = null;
-    canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
+    canvas.style.cursor = (vineyardMode || customLoopMode) ? 'cell' : 'crosshair';
     draw();
 });
 
@@ -1920,6 +2025,16 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Delete custom loop point if hovering
+        if (customLoopHoverIdx >= 0 && customLoopPoints.length > 0) {
+            saveState();
+            customLoopPoints.splice(customLoopHoverIdx, 1);
+            customLoopHoverIdx = -1;
+            updateLoopStatus();
+            draw();
+            return;
+        }
+        
         if (selectedInfo) {
             const pts = curves[selectedInfo.cIdx];
             if (selectedInfo.pIdx < pts.length) {
@@ -1939,9 +2054,12 @@ window.addEventListener('keydown', e => {
     
     if (e.key === 'Escape') {
         vineyardMode = false;
+        customLoopMode = false;
         updateModeIndicator();
         document.getElementById('vineyardModeBtn').classList.remove('active');
         document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
+        document.getElementById('drawLoopBtn').classList.remove('active');
+        draw();
     }
 });
 
@@ -1969,9 +2087,17 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     vineyardData = null;
     vineyardCenters = [];
     fixedCurveMode = false;
+    
+    // Clear custom loop
+    customLoopPoints = [];
+    customLoopMode = false;
+    document.getElementById('drawLoopBtn').classList.remove('active');
+    updateLoopStatus();
+    
     stopVineyardAnim();
     document.getElementById('vineyardPanel').classList.remove('active');
     document.getElementById('persistencePanel').classList.remove('active');
+    updateModeIndicator();
     updateUI();
     updateStatus('Cleared');
     draw();
@@ -2128,6 +2254,10 @@ document.getElementById('resolution').addEventListener('input', e => {
 
 document.getElementById('vineyardModeBtn').addEventListener('click', () => {
     vineyardMode = !vineyardMode;
+    if (vineyardMode) {
+        customLoopMode = false;
+        document.getElementById('drawLoopBtn').classList.remove('active');
+    }
     updateModeIndicator();
     const btn = document.getElementById('vineyardModeBtn');
     if (vineyardMode) {
@@ -2178,6 +2308,140 @@ document.getElementById('vineyardAnimSlider').addEventListener('input', e => {
     updateVineyardPlot();
     draw();
 });
+
+// Loop type selector
+document.getElementById('vineyardLoopType').addEventListener('change', e => {
+    vineyardLoopType = e.target.value;
+    const circularControls = document.getElementById('circularLoopControls');
+    const customControls = document.getElementById('customLoopControls');
+    
+    if (vineyardLoopType === 'circular') {
+        circularControls.style.display = 'block';
+        customControls.style.display = 'none';
+        customLoopMode = false;
+        document.getElementById('drawLoopBtn').classList.remove('active');
+    } else {
+        circularControls.style.display = 'none';
+        customControls.style.display = 'block';
+        vineyardMode = false;
+        document.getElementById('vineyardModeBtn').classList.remove('active');
+    }
+    draw();
+});
+
+// Draw loop button
+document.getElementById('drawLoopBtn').addEventListener('click', () => {
+    customLoopMode = !customLoopMode;
+    document.getElementById('drawLoopBtn').classList.toggle('active', customLoopMode);
+    if (customLoopMode) {
+        vineyardMode = false;
+        document.getElementById('vineyardModeBtn').classList.remove('active');
+    }
+    updateModeIndicator();
+    draw();
+});
+
+// Clear loop button
+document.getElementById('clearLoopBtn').addEventListener('click', () => {
+    customLoopPoints = [];
+    updateLoopStatus();
+    draw();
+});
+
+function updateLoopStatus() {
+    const status = document.getElementById('loopStatus');
+    if (customLoopPoints.length === 0) {
+        status.innerText = 'No loop drawn';
+        status.style.color = 'var(--text-muted)';
+    } else if (customLoopPoints.length < 3) {
+        status.innerText = `${customLoopPoints.length} points (need 3+)`;
+        status.style.color = '#f59e0b';
+    } else {
+        status.innerText = `${customLoopPoints.length} points ✓`;
+        status.style.color = '#22c55e';
+    }
+}
+
+// Sample points along the custom loop spline (auto-closed)
+function sampleCustomLoop(numSamples) {
+    if (customLoopPoints.length < 3) return [];
+    
+    const pts = customLoopPoints;
+    const C = solveControlPoints(pts);
+    const n = C.length;
+    // For closed loop, wrap around
+    const drawC = [C[n-1], ...C, C[0], C[1]];
+    
+    const numSegments = pts.length;
+    const pointsPerSeg = Math.ceil(numSamples / numSegments);
+    const samples = [];
+    
+    for (let i = 0; i < numSegments; i++) {
+        const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+        
+        const segSamples = (i === numSegments - 1) ? 
+            numSamples - samples.length : pointsPerSeg;
+        
+        for (let j = 0; j < segSamples; j++) {
+            const t = j / segSamples;
+            const P = bSplineEval(p0, p1, p2, p3, t);
+            samples.push({ x: P.x, y: P.y });
+        }
+    }
+    
+    return samples;
+}
+
+// Compute vineyard along custom loop
+function computeVineyardForCustomLoop(loopSamples, numVineyardSamples, curveData) {
+    const h0 = [], h1 = [];
+    const centers = [];
+    
+    // Sample centers evenly along the loop
+    const step = Math.max(1, Math.floor(loopSamples.length / numVineyardSamples));
+    
+    for (let i = 0; i < loopSamples.length; i += step) {
+        const center = loopSamples[i];
+        centers.push(center);
+    }
+    
+    // Calculate infinityY based on max distance from centers to curve
+    let maxDist = 0;
+    for (const center of centers) {
+        for (const d of curveData) {
+            const dx = d.p.x - center.x;
+            const dy = d.p.y - center.y;
+            const dist = (dx*dx + dy*dy);
+            if (dist > maxDist) maxDist = dist;
+        }
+    }
+    const infinityY = maxDist * 1.15;
+    
+    // Compute persistence for each center
+    for (let i = 0; i < centers.length; i++) {
+        const center = centers[i];
+        const pers = computePersistence(center, curveData);
+        
+        for (const [b, d] of pers.h0) {
+            h0.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity
+            });
+        }
+        for (const [b, d] of pers.h1) {
+            h1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity
+            });
+        }
+    }
+    
+    return { h0, h1, centers, infinityY };
+}
 
 ['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle', 'showSweepPreview'].forEach(id => {
     document.getElementById(id).addEventListener('change', draw);
@@ -2745,7 +3009,74 @@ function draw() {
     }
 
     if (document.getElementById('showVineyardCircle').checked) {
-        if (vineyardCenter) {
+        // Draw custom loop if exists
+        if (customLoopPoints.length > 0) {
+            // Draw spline curve through control points (auto-closed when 3+ points)
+            if (customLoopPoints.length >= 3) {
+                const loopSamples = sampleCustomLoop(200);
+                if (loopSamples.length > 0) {
+                    ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+                    ctx.lineWidth = 2 / view.scale;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(loopSamples[0].x, loopSamples[0].y);
+                    for (let i = 1; i < loopSamples.length; i++) {
+                        ctx.lineTo(loopSamples[i].x, loopSamples[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            } else if (customLoopPoints.length === 2) {
+                // Draw line between 2 points
+                ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
+                ctx.lineWidth = 1.5 / view.scale;
+                ctx.setLineDash([5 / view.scale, 5 / view.scale]);
+                ctx.beginPath();
+                ctx.moveTo(customLoopPoints[0].x, customLoopPoints[0].y);
+                ctx.lineTo(customLoopPoints[1].x, customLoopPoints[1].y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // Draw control points
+            for (let i = 0; i < customLoopPoints.length; i++) {
+                const pt = customLoopPoints[i];
+                const isHover = (i === customLoopHoverIdx);
+                const size = (isHover ? 8 : 6) / view.scale;
+                
+                ctx.fillStyle = isHover ? '#fbbf24' : vineyardColor;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Point number label
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const labelX = pt.x * view.scale + view.x + canvas.width / 2 + 8;
+                const labelY = canvas.height / 2 - pt.y * view.scale - view.y - 5;
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.8)' : 'rgba(124, 58, 237, 0.9)';
+                ctx.fillText(`${i+1}`, labelX, labelY);
+                ctx.restore();
+            }
+            
+            // Label showing loop status
+            if (customLoopPoints.length > 0) {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const firstPt = customLoopPoints[0];
+                const statusX = firstPt.x * view.scale + view.x + canvas.width / 2;
+                const statusY = canvas.height / 2 - firstPt.y * view.scale - view.y - 15;
+                ctx.font = '10px JetBrains Mono, monospace';
+                const isReady = customLoopPoints.length >= 3;
+                ctx.fillStyle = isReady ? '#22c55e' : '#f59e0b';
+                ctx.fillText(isReady ? `Loop (${customLoopPoints.length} pts)` : `${customLoopPoints.length}/3 pts`, statusX, statusY);
+                ctx.restore();
+            }
+        }
+        
+        // Draw circular vineyard (only when in circular mode)
+        if (vineyardLoopType === 'circular' && vineyardCenter) {
             ctx.fillStyle = vineyardColor;
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);

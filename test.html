@@ -634,6 +634,7 @@
                 <div class="toggle-row"><span>Focal Set</span><input type="checkbox" id="showFocal" checked></div>
                 <div class="toggle-row"><span>Symmetry Set</span><input type="checkbox" id="showSS" checked></div>
                 <div class="toggle-row"><span>Vineyard Circle</span><input type="checkbox" id="showVineyardCircle" checked></div>
+                <div class="toggle-row"><span>Birth/Death Circles</span><input type="checkbox" id="showBirthDeathCircles"></div>
             </div>
         </div>
         
@@ -2443,7 +2444,7 @@ function computeVineyardForCustomLoop(loopSamples, numVineyardSamples, curveData
     return { h0, h1, centers, infinityY };
 }
 
-['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle', 'showSweepPreview'].forEach(id => {
+['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle', 'showSweepPreview', 'showBirthDeathCircles'].forEach(id => {
     document.getElementById(id).addEventListener('change', draw);
 });
 
@@ -3048,16 +3049,6 @@ function draw() {
                 ctx.beginPath();
                 ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // Point number label
-                ctx.save();
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                const labelX = pt.x * view.scale + view.x + canvas.width / 2 + 8;
-                const labelY = canvas.height / 2 - pt.y * view.scale - view.y - 5;
-                ctx.font = '9px JetBrains Mono, monospace';
-                ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.8)' : 'rgba(124, 58, 237, 0.9)';
-                ctx.fillText(`${i+1}`, labelX, labelY);
-                ctx.restore();
             }
             
             // Label showing loop status
@@ -3066,7 +3057,7 @@ function draw() {
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 const firstPt = customLoopPoints[0];
                 const statusX = firstPt.x * view.scale + view.x + canvas.width / 2;
-                const statusY = canvas.height / 2 - firstPt.y * view.scale - view.y - 15;
+                const statusY = canvas.height / 2 - firstPt.y * view.scale + view.y - 15;
                 ctx.font = '10px JetBrains Mono, monospace';
                 const isReady = customLoopPoints.length >= 3;
                 ctx.fillStyle = isReady ? '#22c55e' : '#f59e0b';
@@ -3095,7 +3086,7 @@ function draw() {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             const rLabelX = (vineyardCenter.x + vineyardRadius) * view.scale + view.x + canvas.width / 2;
-            const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale - view.y;
+            const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale + view.y;
             ctx.font = '10px JetBrains Mono, monospace';
             ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.9)' : 'rgba(124, 58, 237, 1)';
             ctx.fillText(`R=${vineyardRadius.toFixed(2)}`, rLabelX + 5, rLabelY);
@@ -3118,7 +3109,7 @@ function draw() {
                 ctx.save();
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 const startLabelX = (vineyardCenter.x + startR * 0.707) * view.scale + view.x + canvas.width / 2;
-                const startLabelY = canvas.height / 2 - (vineyardCenter.y + startR * 0.707) * view.scale - view.y;
+                const startLabelY = canvas.height / 2 - (vineyardCenter.y + startR * 0.707) * view.scale + view.y;
                 ctx.font = '9px JetBrains Mono, monospace';
                 ctx.fillStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.9)' : 'rgba(6, 182, 212, 1)';
                 ctx.fillText(`Start=${startR.toFixed(2)}`, startLabelX + 3, startLabelY - 3);
@@ -3135,7 +3126,7 @@ function draw() {
                 ctx.save();
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 const endLabelX = (vineyardCenter.x + endR * 0.707) * view.scale + view.x + canvas.width / 2;
-                const endLabelY = canvas.height / 2 - (vineyardCenter.y + endR * 0.707) * view.scale - view.y;
+                const endLabelY = canvas.height / 2 - (vineyardCenter.y + endR * 0.707) * view.scale + view.y;
                 ctx.font = '9px JetBrains Mono, monospace';
                 ctx.fillStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.9)' : 'rgba(234, 88, 12, 1)';
                 ctx.fillText(`End=${endR.toFixed(2)}`, endLabelX + 3, endLabelY - 3);
@@ -3158,7 +3149,103 @@ function draw() {
                 ctx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
                 ctx.fill();
                 
-                if (cachedCurveData && cachedCurveData.length > 0) {
+                // Draw birth/death circles if enabled
+                if (document.getElementById('showBirthDeathCircles').checked && vineyardData) {
+                    const currentH0 = vineyardData.h0.filter(d => d.centerIdx === vineyardAnimIdx);
+                    const currentH1 = vineyardData.h1.filter(d => d.centerIdx === vineyardAnimIdx);
+                    
+                    // Draw H0 birth/death circles (red)
+                    for (const pt of currentH0) {
+                        const birthR = Math.sqrt(pt.birth);  // Actual radius for drawing
+                        const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
+                        
+                        // Birth circle - solid red
+                        ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+                        ctx.lineWidth = 2 / view.scale;
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        // Birth label (show r² to match persistence diagram)
+                        ctx.save();
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        const bLabelX = (curr.x + birthR) * view.scale + view.x + canvas.width / 2 + 3;
+                        const bLabelY = canvas.height / 2 - curr.y * view.scale + view.y - 3;
+                        ctx.font = '9px JetBrains Mono, monospace';
+                        ctx.fillStyle = 'rgba(239, 68, 68, 1)';
+                        ctx.fillText(`b=${pt.birth.toFixed(2)}`, bLabelX, bLabelY);
+                        ctx.restore();
+                        
+                        // Death circle - dashed red
+                        if (deathR !== null) {
+                            ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+                            ctx.lineWidth = 1.5 / view.scale;
+                            ctx.setLineDash([4 / view.scale, 4 / view.scale]);
+                            ctx.beginPath();
+                            ctx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            // Death label (show r² to match persistence diagram)
+                            ctx.save();
+                            ctx.setTransform(1, 0, 0, 1, 0, 0);
+                            const dLabelX = (curr.x + deathR * 0.707) * view.scale + view.x + canvas.width / 2 + 3;
+                            const dLabelY = canvas.height / 2 - (curr.y + deathR * 0.707) * view.scale + view.y - 3;
+                            ctx.font = '9px JetBrains Mono, monospace';
+                            ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+                            ctx.fillText(`d=${pt.death.toFixed(2)}`, dLabelX, dLabelY);
+                            ctx.restore();
+                        }
+                    }
+                    
+                    // Draw H1 birth/death circles (blue)
+                    for (const pt of currentH1) {
+                        const birthR = Math.sqrt(pt.birth);  // Actual radius for drawing
+                        const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
+                        
+                        // Birth circle - solid blue
+                        ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+                        ctx.lineWidth = 2 / view.scale;
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        // Birth label (show r² to match persistence diagram)
+                        ctx.save();
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        const bLabelX = (curr.x - birthR) * view.scale + view.x + canvas.width / 2 - 50;
+                        const bLabelY = canvas.height / 2 - curr.y * view.scale + view.y + 12;
+                        ctx.font = '9px JetBrains Mono, monospace';
+                        ctx.fillStyle = 'rgba(59, 130, 246, 1)';
+                        ctx.fillText(`b=${pt.birth.toFixed(2)}`, bLabelX, bLabelY);
+                        ctx.restore();
+                        
+                        // Death circle - dashed blue
+                        if (deathR !== null) {
+                            ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+                            ctx.lineWidth = 1.5 / view.scale;
+                            ctx.setLineDash([4 / view.scale, 4 / view.scale]);
+                            ctx.beginPath();
+                            ctx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            // Death label (show r² to match persistence diagram)
+                            ctx.save();
+                            ctx.setTransform(1, 0, 0, 1, 0, 0);
+                            const dLabelX = (curr.x - deathR * 0.707) * view.scale + view.x + canvas.width / 2 - 50;
+                            const dLabelY = canvas.height / 2 - (curr.y - deathR * 0.707) * view.scale + view.y + 12;
+                            ctx.font = '9px JetBrains Mono, monospace';
+                            ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+                            ctx.fillText(`d=${pt.death.toFixed(2)}`, dLabelX, dLabelY);
+                            ctx.restore();
+                        }
+                    }
+                }
+                
+                if (cachedCurveData && cachedCurveData.length > 0 && !document.getElementById('showBirthDeathCircles').checked) {
                     ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
                     ctx.lineWidth = 0.5 / view.scale;
                     const step = Math.max(1, Math.floor(cachedCurveData.length / 50));

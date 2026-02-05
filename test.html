@@ -1093,13 +1093,16 @@ function computeSymmetrySet(data, resolutionLimit) {
     return centers;
 }
 
-// ========== Persistent Homology ==========
-function computePersistence(center, curveData) {
-    if (!curveData || curveData.length === 0) return { h0: [], h1: [] };
+// ========== Extended Persistent Homology ==========
+function computeExtendedPersistence(center, curveData) {
+    if (!curveData || curveData.length === 0) {
+        return { ord0: [], ext0: [], ord1: [], ext1: [] };
+    }
     
     const n = curveData.length;
     const dists = curveData.map(d => ((d.p.x - center.x)**2 + (d.p.y - center.y)**2));
     
+    // Build neighbor structure for each curve
     const curveGroups = new Map();
     for (let i = 0; i < n; i++) {
         const cId = curveData[i].curveId || 0;
@@ -1124,42 +1127,190 @@ function computePersistence(center, curveData) {
         }
     }
     
-    const sortedIndices = Array.from({length: n}, (_, i) => i)
+    // Sort indices by distance
+    const sortedAsc = Array.from({length: n}, (_, i) => i)
         .sort((a, b) => dists[a] - dists[b]);
     
-    const uf = new UnionFind(n, dists);
-    const h0Pairs = [];
-    const h1Pairs = [];
-    const processed = new Array(n).fill(false);
+    const minDist = dists[sortedAsc[0]];
+    const maxDist = dists[sortedAsc[n - 1]];
     
-    for (const v of sortedIndices) {
-        const currentR = dists[v];
+    // ========== UP-SWEEP (Sublevel Filtration) ==========
+    const uf = new UnionFind(n, dists);
+    const ord0Pairs = [];  // Ordinary H0: born and die in sublevel
+    const h1Births = [];   // H1 birth times (will be paired in down-sweep or become extended)
+    const processed = new Array(n).fill(false);
+    const componentBirth = new Map(); // root -> birth time
+    
+    for (const v of sortedAsc) {
+        const currentDist = dists[v];
         processed[v] = true;
         
-        for (const u of neighbors[v]) {
-            if (processed[u]) {
-                const result = uf.union(u, v, currentR);
-                if (result.isH1) {
-                    h1Pairs.push([currentR, Infinity]);
+        const processedNeighbors = neighbors[v].filter(u => processed[u]);
+        
+        if (processedNeighbors.length === 0) {
+            // Local minimum - birth of H0 component
+            componentBirth.set(v, currentDist);
+        } else if (processedNeighbors.length === 1) {
+            // Extend existing component
+            const u = processedNeighbors[0];
+            const rootU = uf.find(u);
+            uf.parent[v] = rootU;
+        } else {
+            // Two neighbors processed
+            const u1 = processedNeighbors[0];
+            const u2 = processedNeighbors[1];
+            const root1 = uf.find(u1);
+            const root2 = uf.find(u2);
+            
+            if (root1 !== root2) {
+                // Merge two different components - younger dies (ordinary H0)
+                const birth1 = uf.birth[root1];
+                const birth2 = uf.birth[root2];
+                
+                let elder, younger;
+                if (birth1 < birth2) {
+                    elder = root1; younger = root2;
+                } else if (birth2 < birth1) {
+                    elder = root2; younger = root1;
                 } else {
-                    if (result.pair[0] !== result.pair[1]) {
-                        h0Pairs.push(result.pair);
-                    }
+                    elder = root1 < root2 ? root1 : root2;
+                    younger = root1 < root2 ? root2 : root1;
                 }
+                
+                // Ordinary H0 pair: younger component dies
+                ord0Pairs.push([uf.birth[younger], currentDist]);
+                
+                // Merge
+                uf.parent[younger] = elder;
+                uf.parent[v] = elder;
+            } else {
+                // Same component - closing a loop creates H1
+                h1Births.push(currentDist);
+                uf.parent[v] = root1;
             }
         }
     }
     
-    const roots = new Set();
+    // ========== DOWN-SWEEP (Superlevel Filtration) ==========
+    // For extended persistence, we now process in reverse
+    // Essential H0 components from up-sweep will die in down-sweep
+    // H1 features from up-sweep will die in down-sweep
+    
+    const sortedDesc = [...sortedAsc].reverse();
+    const ufDown = new UnionFind(n, dists.map(d => maxDist - d)); // Invert for superlevel
+    const processedDown = new Array(n).fill(false);
+    const ext0Pairs = [];  // Extended H0
+    const ext1Pairs = [];  // Extended H1
+    const ord1Pairs = [];  // Ordinary H1
+    
+    // Track which H1 births have been paired
+    const unpairedH1 = [...h1Births];
+    
+    // Find the essential H0 components (survived the entire up-sweep)
+    const essentialRoots = new Set();
     for (let i = 0; i < n; i++) {
-        roots.add(uf.find(i));
+        essentialRoots.add(uf.find(i));
     }
     
-    for (const root of roots) {
-        h0Pairs.push([uf.birth[root], Infinity]);
+    // For each essential root, record its birth (for extended pairing)
+    const essentialBirths = new Map();
+    for (const root of essentialRoots) {
+        essentialBirths.set(root, uf.birth[root]);
     }
     
-    return { h0: h0Pairs, h1: h1Pairs };
+    // Down-sweep: process from max to min
+    for (const v of sortedDesc) {
+        const currentDist = dists[v];
+        processedDown[v] = true;
+        
+        const processedNeighbors = neighbors[v].filter(u => processedDown[u]);
+        
+        if (processedNeighbors.length === 0) {
+            // Local maximum in down-sweep - "birth" in superlevel sense
+            // This will pair with an H1 from up-sweep (extended H1)
+            // Or mark death point for extended H0
+        } else if (processedNeighbors.length === 1) {
+            const u = processedNeighbors[0];
+            const rootU = ufDown.find(u);
+            ufDown.parent[v] = rootU;
+        } else {
+            // Two neighbors - potential H1 death or H0 extended death
+            const u1 = processedNeighbors[0];
+            const u2 = processedNeighbors[1];
+            const root1 = ufDown.find(u1);
+            const root2 = ufDown.find(u2);
+            
+            if (root1 !== root2) {
+                // Merging superlevel components
+                // This corresponds to an H1 dying (from the up-sweep)
+                if (unpairedH1.length > 0) {
+                    // Pair with the youngest H1 birth
+                    const h1Birth = unpairedH1.pop();
+                    if (h1Birth <= currentDist) {
+                        // Ordinary H1: born and died within the range
+                        ord1Pairs.push([h1Birth, currentDist]);
+                    } else {
+                        // Put it back, this doesn't make sense
+                        unpairedH1.push(h1Birth);
+                    }
+                }
+                
+                // Merge superlevel components
+                const birth1 = ufDown.birth[root1];
+                const birth2 = ufDown.birth[root2];
+                let elder = birth1 < birth2 ? root1 : root2;
+                let younger = birth1 < birth2 ? root2 : root1;
+                ufDown.parent[younger] = elder;
+                ufDown.parent[v] = elder;
+            } else {
+                // Same superlevel component - closing loop in superlevel
+                // This is where an essential H0 from up-sweep dies
+                ufDown.parent[v] = root1;
+            }
+        }
+    }
+    
+    // Remaining H1 from up-sweep that weren't paired become extended H1
+    // They're born in sublevel and persist through superlevel
+    for (const h1Birth of unpairedH1) {
+        ext1Pairs.push([h1Birth, maxDist]);
+    }
+    
+    // Essential H0 components: the global minimum survives everything
+    // In extended persistence, it pairs with the global maximum
+    // The eldest component (global min) pairs with global max for Ext0
+    let globalMinBirth = Infinity;
+    for (const [root, birth] of essentialBirths) {
+        if (birth < globalMinBirth) {
+            globalMinBirth = birth;
+        }
+    }
+    
+    // Create extended H0 pair: global min to global max
+    if (essentialRoots.size > 0) {
+        ext0Pairs.push([globalMinBirth, maxDist]);
+    }
+    
+    // If there are multiple essential components (shouldn't happen for connected curve)
+    // they would also need to be paired, but for a connected closed curve, there's only one
+    
+    return { 
+        ord0: ord0Pairs, 
+        ext0: ext0Pairs, 
+        ord1: ord1Pairs, 
+        ext1: ext1Pairs 
+    };
+}
+
+// Keep old function for compatibility, but use extended persistence
+function computePersistence(center, curveData) {
+    const ext = computeExtendedPersistence(center, curveData);
+    
+    // Combine ordinary and extended for backward compatibility
+    const h0 = [...ext.ord0, ...ext.ext0];
+    const h1 = [...ext.ord1, ...ext.ext1];
+    
+    return { h0, h1, extended: ext };
 }
 
 function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
@@ -1184,34 +1335,65 @@ function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
     
     const infinityY = maxDist * 1.15;
     
-    const h0 = [];
-    const h1 = [];
+    const ord0 = [];  // Ordinary H0
+    const ext0 = [];  // Extended H0
+    const ord1 = [];  // Ordinary H1
+    const ext1 = [];  // Extended H1
     
     for (let i = 0; i < centers.length; i++) {
         const center = centers[i];
         const pers = computePersistence(center, curveData);
+        const ext = pers.extended;
         
-        for (const [b, d] of pers.h0) {
-            h0.push({
+        for (const [b, d] of ext.ord0) {
+            ord0.push({
                 birth: b,
                 death: d === Infinity ? infinityY : d,
                 centerIdx: i,
-                isInfinite: d === Infinity
+                isInfinite: d === Infinity,
+                type: 'ord'
             });
         }
-        for (const [b, d] of pers.h1) {
-            h1.push({
+        for (const [b, d] of ext.ext0) {
+            ext0.push({
                 birth: b,
                 death: d === Infinity ? infinityY : d,
                 centerIdx: i,
-                isInfinite: d === Infinity
+                isInfinite: d === Infinity,
+                type: 'ext'
+            });
+        }
+        for (const [b, d] of ext.ord1) {
+            ord1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity,
+                type: 'ord'
+            });
+        }
+        for (const [b, d] of ext.ext1) {
+            ext1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity,
+                type: 'ext'
             });
         }
     }
     
+    // Combined for backward compatibility
+    const h0 = [...ord0, ...ext0];
+    const h1 = [...ord1, ...ext1];
+    
     return {
         h0: h0,
         h1: h1,
+        ord0: ord0,
+        ext0: ext0,
+        ord1: ord1,
+        ext1: ext1,
         centers: centers,
         infinityY: infinityY,
         radius: radius
@@ -1252,11 +1434,18 @@ function computeVineyard() {
     vineyardData = {
         h0: result.h0,
         h1: result.h1,
+        ord0: result.ord0,
+        ext0: result.ext0,
+        ord1: result.ord1,
+        ext1: result.ext1,
         infinityY: result.infinityY
     };
     vineyardMaxVal = result.infinityY;
     
-    updateStatus(`Vineyard computed! ${vineyardData.h0.length + vineyardData.h1.length} points`);
+    const totalPts = vineyardData.h0.length + vineyardData.h1.length;
+    const ordCount = (vineyardData.ord0?.length || 0) + (vineyardData.ord1?.length || 0);
+    const extCount = (vineyardData.ext0?.length || 0) + (vineyardData.ext1?.length || 0);
+    updateStatus(`Vineyard computed! ${totalPts} points (Ord: ${ordCount}, Ext: ${extCount})`);
     
     updateVineyardPlot();
     updatePersistenceDiagram(0);
@@ -1270,17 +1459,22 @@ function computeVineyard() {
 function updateVineyardPlot() {
     if (!vineyardData) return;
     
+    const ord0 = vineyardData.ord0 || [];
+    const ext0 = vineyardData.ext0 || [];
+    const ord1 = vineyardData.ord1 || [];
+    const ext1 = vineyardData.ext1 || [];
     const h0 = vineyardData.h0;
     const h1 = vineyardData.h1;
     const maxVal = vineyardMaxVal;
     
-    const traceH0 = {
-        x: h0.map(d => d.birth),
-        y: h0.map(d => d.death),
-        z: h0.map(d => d.centerIdx),
+    // Ordinary H0 - solid red
+    const traceOrd0 = {
+        x: ord0.map(d => d.birth),
+        y: ord0.map(d => d.death),
+        z: ord0.map(d => d.centerIdx),
         mode: 'markers',
         type: 'scatter3d',
-        name: 'H₀',
+        name: 'Ord H₀',
         marker: {
             size: 3,
             color: '#ef4444',
@@ -1288,17 +1482,49 @@ function updateVineyardPlot() {
         }
     };
     
-    const traceH1 = {
-        x: h1.map(d => d.birth),
-        y: h1.map(d => d.death),
-        z: h1.map(d => d.centerIdx),
+    // Extended H0 - red with diamond
+    const traceExt0 = {
+        x: ext0.map(d => d.birth),
+        y: ext0.map(d => d.death),
+        z: ext0.map(d => d.centerIdx),
         mode: 'markers',
         type: 'scatter3d',
-        name: 'H₁',
+        name: 'Ext H₀',
+        marker: {
+            size: 4,
+            color: '#f97316',  // Orange for extended
+            opacity: 0.8,
+            symbol: 'diamond'
+        }
+    };
+    
+    // Ordinary H1 - solid blue
+    const traceOrd1 = {
+        x: ord1.map(d => d.birth),
+        y: ord1.map(d => d.death),
+        z: ord1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ord H₁',
         marker: {
             size: 3,
             color: '#3b82f6',
-            opacity: 0.7,
+            opacity: 0.7
+        }
+    };
+    
+    // Extended H1 - cyan with diamond
+    const traceExt1 = {
+        x: ext1.map(d => d.birth),
+        y: ext1.map(d => d.death),
+        z: ext1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ext H₁',
+        marker: {
+            size: 4,
+            color: '#06b6d4',  // Cyan for extended
+            opacity: 0.8,
             symbol: 'diamond'
         }
     };
@@ -1369,7 +1595,7 @@ function updateVineyardPlot() {
         showlegend: false
     };
     
-    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1, currentTrace], layout, {
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceOrd0, traceExt0, traceOrd1, traceExt1, currentTrace], layout, {
         displayModeBar: false,
         responsive: true
     });
@@ -1378,29 +1604,57 @@ function updateVineyardPlot() {
 function updatePersistenceDiagram(centerIdx) {
     if (!vineyardData || !vineyardCenters[centerIdx]) return;
     
+    // Get extended persistence data for current center
+    const ord0 = (vineyardData.ord0 || []).filter(d => d.centerIdx === centerIdx);
+    const ext0 = (vineyardData.ext0 || []).filter(d => d.centerIdx === centerIdx);
+    const ord1 = (vineyardData.ord1 || []).filter(d => d.centerIdx === centerIdx);
+    const ext1 = (vineyardData.ext1 || []).filter(d => d.centerIdx === centerIdx);
+    
     const h0 = vineyardData.h0.filter(d => d.centerIdx === centerIdx);
     const h1 = vineyardData.h1.filter(d => d.centerIdx === centerIdx);
     
-    currentPersistence = { h0, h1 };
+    currentPersistence = { h0, h1, ord0, ext0, ord1, ext1 };
     
     const maxVal = vineyardMaxVal;
     
-    const traceH0 = {
-        x: h0.map(d => d.birth),
-        y: h0.map(d => d.death),
+    // Ordinary H0 - red circles
+    const traceOrd0 = {
+        x: ord0.map(d => d.birth),
+        y: ord0.map(d => d.death),
         mode: 'markers',
         type: 'scatter',
-        name: 'H₀',
+        name: 'Ord H₀',
         marker: { size: 8, color: '#ef4444', symbol: 'circle' }
     };
     
-    const traceH1 = {
-        x: h1.map(d => d.birth),
-        y: h1.map(d => d.death),
+    // Extended H0 - orange diamonds
+    const traceExt0 = {
+        x: ext0.map(d => d.birth),
+        y: ext0.map(d => d.death),
         mode: 'markers',
         type: 'scatter',
-        name: 'H₁',
+        name: 'Ext H₀',
+        marker: { size: 10, color: '#f97316', symbol: 'diamond' }
+    };
+    
+    // Ordinary H1 - blue triangles
+    const traceOrd1 = {
+        x: ord1.map(d => d.birth),
+        y: ord1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Ord H₁',
         marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
+    };
+    
+    // Extended H1 - cyan squares
+    const traceExt1 = {
+        x: ext1.map(d => d.birth),
+        y: ext1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Ext H₁',
+        marker: { size: 10, color: '#06b6d4', symbol: 'square' }
     };
     
     const diagonal = {
@@ -1449,7 +1703,7 @@ function updatePersistenceDiagram(centerIdx) {
         plot_bgcolor: 'rgba(10,10,15,0.5)',
         margin: { l: 45, r: 10, t: 25, b: 40 },
         legend: {
-            x: 0.75, y: 0.15,
+            x: 0.65, y: 0.25,
             font: { color: '#ccc', size: 9 },
             bgcolor: 'rgba(0,0,0,0.6)'
         },
@@ -1461,7 +1715,7 @@ function updatePersistenceDiagram(centerIdx) {
         }
     };
     
-    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, {
+    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceOrd0, traceExt0, traceOrd1, traceExt1], layout, {
         displayModeBar: false,
         responsive: true
     });
@@ -2395,7 +2649,7 @@ function sampleCustomLoop(numSamples) {
 
 // Compute vineyard along custom loop
 function computeVineyardForCustomLoop(loopSamples, numVineyardSamples, curveData) {
-    const h0 = [], h1 = [];
+    const ord0 = [], ext0 = [], ord1 = [], ext1 = [];
     const centers = [];
     
     // Sample centers evenly along the loop
@@ -2422,26 +2676,51 @@ function computeVineyardForCustomLoop(loopSamples, numVineyardSamples, curveData
     for (let i = 0; i < centers.length; i++) {
         const center = centers[i];
         const pers = computePersistence(center, curveData);
+        const ext = pers.extended;
         
-        for (const [b, d] of pers.h0) {
-            h0.push({
+        for (const [b, d] of ext.ord0) {
+            ord0.push({
                 birth: b,
                 death: d === Infinity ? infinityY : d,
                 centerIdx: i,
-                isInfinite: d === Infinity
+                isInfinite: d === Infinity,
+                type: 'ord'
             });
         }
-        for (const [b, d] of pers.h1) {
-            h1.push({
+        for (const [b, d] of ext.ext0) {
+            ext0.push({
                 birth: b,
                 death: d === Infinity ? infinityY : d,
                 centerIdx: i,
-                isInfinite: d === Infinity
+                isInfinite: d === Infinity,
+                type: 'ext'
+            });
+        }
+        for (const [b, d] of ext.ord1) {
+            ord1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity,
+                type: 'ord'
+            });
+        }
+        for (const [b, d] of ext.ext1) {
+            ext1.push({
+                birth: b,
+                death: d === Infinity ? infinityY : d,
+                centerIdx: i,
+                isInfinite: d === Infinity,
+                type: 'ext'
             });
         }
     }
     
-    return { h0, h1, centers, infinityY };
+    // Combined for backward compatibility
+    const h0 = [...ord0, ...ext0];
+    const h1 = [...ord1, ...ext1];
+    
+    return { h0, h1, ord0, ext0, ord1, ext1, centers, infinityY };
 }
 
 ['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle', 'showSweepPreview', 'showBirthDeathCircles'].forEach(id => {
@@ -3151,12 +3430,14 @@ function draw() {
                 
                 // Draw birth/death circles if enabled
                 if (document.getElementById('showBirthDeathCircles').checked && vineyardData) {
-                    const currentH0 = vineyardData.h0.filter(d => d.centerIdx === vineyardAnimIdx);
-                    const currentH1 = vineyardData.h1.filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ord0 = (vineyardData.ord0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ext0 = (vineyardData.ext0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ord1 = (vineyardData.ord1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ext1 = (vineyardData.ext1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
                     
-                    // Draw H0 birth/death circles (red)
-                    for (const pt of currentH0) {
-                        const birthR = Math.sqrt(pt.birth);  // Actual radius for drawing
+                    // Draw Ordinary H0 birth/death circles (red)
+                    for (const pt of ord0) {
+                        const birthR = Math.sqrt(pt.birth);
                         const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
                         
                         // Birth circle - solid red
@@ -3167,7 +3448,7 @@ function draw() {
                         ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
                         ctx.stroke();
                         
-                        // Birth label (show r² to match persistence diagram)
+                        // Birth label
                         ctx.save();
                         ctx.setTransform(1, 0, 0, 1, 0, 0);
                         const bLabelX = (curr.x + birthR) * view.scale + view.x + canvas.width / 2 + 3;
@@ -3187,7 +3468,6 @@ function draw() {
                             ctx.stroke();
                             ctx.setLineDash([]);
                             
-                            // Death label (show r² to match persistence diagram)
                             ctx.save();
                             ctx.setTransform(1, 0, 0, 1, 0, 0);
                             const dLabelX = (curr.x + deathR * 0.707) * view.scale + view.x + canvas.width / 2 + 3;
@@ -3199,9 +3479,53 @@ function draw() {
                         }
                     }
                     
-                    // Draw H1 birth/death circles (blue)
-                    for (const pt of currentH1) {
-                        const birthR = Math.sqrt(pt.birth);  // Actual radius for drawing
+                    // Draw Extended H0 birth/death circles (orange, thicker)
+                    for (const pt of ext0) {
+                        const birthR = Math.sqrt(pt.birth);
+                        const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
+                        
+                        // Birth circle - solid orange (thicker for extended)
+                        ctx.strokeStyle = 'rgba(249, 115, 22, 0.9)';
+                        ctx.lineWidth = 3 / view.scale;
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        // Birth label with "E" prefix for extended
+                        ctx.save();
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        const bLabelX = (curr.x + birthR * 0.707) * view.scale + view.x + canvas.width / 2 + 3;
+                        const bLabelY = canvas.height / 2 - (curr.y + birthR * 0.707) * view.scale + view.y - 3;
+                        ctx.font = 'bold 9px JetBrains Mono, monospace';
+                        ctx.fillStyle = 'rgba(249, 115, 22, 1)';
+                        ctx.fillText(`Eb=${pt.birth.toFixed(2)}`, bLabelX, bLabelY);
+                        ctx.restore();
+                        
+                        // Death circle - dashed orange
+                        if (deathR !== null) {
+                            ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
+                            ctx.lineWidth = 2.5 / view.scale;
+                            ctx.setLineDash([6 / view.scale, 4 / view.scale]);
+                            ctx.beginPath();
+                            ctx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            ctx.save();
+                            ctx.setTransform(1, 0, 0, 1, 0, 0);
+                            const dLabelX = (curr.x - deathR * 0.707) * view.scale + view.x + canvas.width / 2 - 55;
+                            const dLabelY = canvas.height / 2 - (curr.y - deathR * 0.707) * view.scale + view.y + 12;
+                            ctx.font = 'bold 9px JetBrains Mono, monospace';
+                            ctx.fillStyle = 'rgba(249, 115, 22, 0.9)';
+                            ctx.fillText(`Ed=${pt.death.toFixed(2)}`, dLabelX, dLabelY);
+                            ctx.restore();
+                        }
+                    }
+                    
+                    // Draw Ordinary H1 birth/death circles (blue)
+                    for (const pt of ord1) {
+                        const birthR = Math.sqrt(pt.birth);
                         const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
                         
                         // Birth circle - solid blue
@@ -3212,7 +3536,6 @@ function draw() {
                         ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
                         ctx.stroke();
                         
-                        // Birth label (show r² to match persistence diagram)
                         ctx.save();
                         ctx.setTransform(1, 0, 0, 1, 0, 0);
                         const bLabelX = (curr.x - birthR) * view.scale + view.x + canvas.width / 2 - 50;
@@ -3232,7 +3555,6 @@ function draw() {
                             ctx.stroke();
                             ctx.setLineDash([]);
                             
-                            // Death label (show r² to match persistence diagram)
                             ctx.save();
                             ctx.setTransform(1, 0, 0, 1, 0, 0);
                             const dLabelX = (curr.x - deathR * 0.707) * view.scale + view.x + canvas.width / 2 - 50;
@@ -3240,6 +3562,49 @@ function draw() {
                             ctx.font = '9px JetBrains Mono, monospace';
                             ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
                             ctx.fillText(`d=${pt.death.toFixed(2)}`, dLabelX, dLabelY);
+                            ctx.restore();
+                        }
+                    }
+                    
+                    // Draw Extended H1 birth/death circles (cyan, thicker)
+                    for (const pt of ext1) {
+                        const birthR = Math.sqrt(pt.birth);
+                        const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
+                        
+                        // Birth circle - solid cyan (thicker for extended)
+                        ctx.strokeStyle = 'rgba(6, 182, 212, 0.9)';
+                        ctx.lineWidth = 3 / view.scale;
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        ctx.save();
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        const bLabelX = (curr.x - birthR * 0.707) * view.scale + view.x + canvas.width / 2 - 55;
+                        const bLabelY = canvas.height / 2 - (curr.y + birthR * 0.707) * view.scale + view.y - 3;
+                        ctx.font = 'bold 9px JetBrains Mono, monospace';
+                        ctx.fillStyle = 'rgba(6, 182, 212, 1)';
+                        ctx.fillText(`Eb=${pt.birth.toFixed(2)}`, bLabelX, bLabelY);
+                        ctx.restore();
+                        
+                        // Death circle - dashed cyan
+                        if (deathR !== null) {
+                            ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+                            ctx.lineWidth = 2.5 / view.scale;
+                            ctx.setLineDash([6 / view.scale, 4 / view.scale]);
+                            ctx.beginPath();
+                            ctx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            ctx.save();
+                            ctx.setTransform(1, 0, 0, 1, 0, 0);
+                            const dLabelX = (curr.x + deathR * 0.707) * view.scale + view.x + canvas.width / 2 + 3;
+                            const dLabelY = canvas.height / 2 - (curr.y - deathR * 0.707) * view.scale + view.y + 12;
+                            ctx.font = 'bold 9px JetBrains Mono, monospace';
+                            ctx.fillStyle = 'rgba(6, 182, 212, 0.9)';
+                            ctx.fillText(`Ed=${pt.death.toFixed(2)}`, dLabelX, dLabelY);
                             ctx.restore();
                         }
                     }

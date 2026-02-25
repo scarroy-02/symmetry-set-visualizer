@@ -462,7 +462,7 @@
         <div class="toolbar-section">
             <button class="btn btn-primary" id="computeBtn">Compute SS</button>
             <span class="toolbar-label">Res</span>
-            <input type="range" id="resolution" min="500" max="40000" step="500" value="5000" style="width: 50px; height: 3px;">
+            <input type="range" id="resolution" min="500" max="60000" step="500" value="5000" style="width: 50px; height: 3px;">
             <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
         </div>
         
@@ -1212,7 +1212,7 @@ function updateVineyardPlot() {
         type: 'scatter3d',
         name: 'Rel H₀',
         marker: {
-            size: 3,
+            size: 2.5,
             color: '#f97316',  // Orange for relative
             opacity: 0.7,
             symbol: 'square'
@@ -1228,7 +1228,7 @@ function updateVineyardPlot() {
         type: 'scatter3d',
         name: 'Ext H₀',
         marker: {
-            size: 3,
+            size: 2.5,
             color: '#eab308',  // Yellow for extended
             opacity: 0.7,
             symbol: 'diamond'
@@ -1259,7 +1259,7 @@ function updateVineyardPlot() {
         type: 'scatter3d',
         name: 'Rel H₁',
         marker: {
-            size: 3,
+            size: 2.5,
             color: '#06b6d4',  // Cyan for relative
             opacity: 0.7,
             symbol: 'square'
@@ -1275,7 +1275,7 @@ function updateVineyardPlot() {
         type: 'scatter3d',
         name: 'Ext H₁',
         marker: {
-            size: 3,
+            size: 2.5,
             color: '#a855f7',  // Purple for extended
             opacity: 0.7,
             symbol: 'diamond'

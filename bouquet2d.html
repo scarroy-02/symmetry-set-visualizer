@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouquet2D</title>
+    <title>Symmetry Set Visualizer + Vineyard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -128,14 +128,6 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-        }
-        
-        .sidebar-note {
-            margin-top: 16px;
-            padding: 6px 0;
-            font-size: 11px;
-            color: #888;
-            text-align: center;
         }
         
         /* Canvas Container */
@@ -440,29 +432,37 @@
             <select id="presetSelect" style="width: 90px;">
                 <option value="" disabled selected>Select...</option>
                 <option value="ellipse">Ellipse</option>
-                <!-- <option value="astroid">Astroid</option> -->
+                <option value="astroid">Astroid</option>
                 <option value="bean">Kidney Bean</option>
-                <!-- <option value="cardioid">Cardioid</option> -->
-                <!-- <option value="offsetSpiral">Offset Spiral</option> -->
+                <option value="cardioid">Cardioid</option>
+                <option value="offsetSpiral">Offset Spiral</option>
             </select>
         </div>
         
-        <!-- <div class="toolbar-section">
+        <div class="toolbar-section">
+            <span class="toolbar-label">Import</span>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+            <button class="btn btn-secondary" id="uploadCSVBtn" title="Upload CSV with x,y columns">
+                📄 CSV
+            </button>
+        </div>
+        
+        <div class="toolbar-section">
             <button class="btn btn-green" id="newCurveBtn" style="display: flex; align-items: center; gap: 4px;">
                 + Curve <span class="curve-badge" id="curveCountBadge">1</span>
             </button>
-        </div> -->
+        </div>
         
         <div class="toolbar-section">
-            <button class="btn btn-secondary" id="undoBtn" title="Undo (Ctrl+Z)">Undo (Ctrl + Z)</button>
+            <button class="btn btn-secondary" id="undoBtn" title="Undo (Ctrl+Z)">Undo (Ctrl+Z)</button>
             <button class="btn btn-secondary" id="clearBtn">Clear</button>
             <button class="btn btn-secondary" id="resetViewBtn" title="Reset View">Reset View</button>
         </div>
         
         <div class="toolbar-section">
-            <button class="btn btn-primary" id="computeBtn">Compute Symmetry Set</button>
+            <button class="btn btn-primary" id="computeBtn">Compute SS</button>
             <span class="toolbar-label">Res</span>
-            <input type="range" id="resolution" min="500" max="40000" step="500" value="5000" style="width: 50px; height: 3px;">
+            <input type="range" id="resolution" min="500" max="60000" step="500" value="5000" style="width: 50px; height: 3px;">
             <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
         </div>
         
@@ -510,15 +510,28 @@
                 <span class="section-toggle">▼</span>
             </div>
             <div class="section-content">
-                <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">Place Center</button>
-                <div class="slider-row">
-                    <label>Radius</label>
-                    <input type="range" id="vineyardRadius" min="0.001" max="10" step="0.01" value="1" style="accent-color: #a855f7;">
-                    <span class="val" id="radiusVal">1.0</span>
+                <div class="slider-row" style="margin-bottom: 6px;">
+                    <label>Loop</label>
+                    <select id="vineyardLoopType" style="flex: 1; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 10px;">
+                        <option value="circular">Circular</option>
+                        <option value="custom">Custom Spline</option>
+                    </select>
+                </div>
+                <div id="circularLoopControls">
+                    <button class="btn btn-purple" id="vineyardModeBtn" style="width: 100%; margin-bottom: 8px;">⬡ Place Center</button>
+                    <div class="slider-row">
+                        <label>Radius</label>
+                        <input type="number" id="vineyardRadius" min="0.001" max="1000" step="0.1" value="1" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                    </div>
+                </div>
+                <div id="customLoopControls" style="display: none;">
+                    <button class="btn btn-purple" id="drawLoopBtn" style="width: 100%; margin-bottom: 4px;">✏️ Draw Loop</button>
+                    <button class="btn btn-secondary" id="clearLoopBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Clear Loop</button>
+                    <div style="font-size: 9px; color: var(--text-muted); text-align: center;" id="loopStatus">No loop drawn</div>
                 </div>
                 <div class="slider-row">
                     <label>Samples</label>
-                    <input type="range" id="vineyardSamples" min="8" max="300" step="4" value="64" style="accent-color: #a855f7;">
+                    <input type="range" id="vineyardSamples" min="8" max="600" step="4" value="64" style="accent-color: #a855f7;">
                     <span class="val" id="samplesVal">64</span>
                 </div>
                 <button class="btn btn-primary" id="computeVineyardBtn" style="width: 100%; margin: 5px 0;">Compute Vineyard</button>
@@ -542,13 +555,15 @@
             <div class="section-content">
                 <div class="slider-row">
                     <label>Start R</label>
-                    <input type="range" id="radiusStart" min="0.01" max="10" step="0.01" value="0.5" style="accent-color: #c084fc;">
-                    <span class="val" id="radiusStartVal">0.5</span>
+                    <input type="number" id="radiusStart" min="0.001" max="1000" step="0.1" value="0.5" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
                 </div>
                 <div class="slider-row">
                     <label>End R</label>
-                    <input type="range" id="radiusEnd" min="0.01" max="10" step="0.01" value="5" style="accent-color: #c084fc;">
-                    <span class="val" id="radiusEndVal">5.0</span>
+                    <input type="number" id="radiusEnd" min="0.001" max="1000" step="0.1" value="5" style="width: 70px; padding: 3px 6px; background: rgba(128,128,128,0.15); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                </div>
+                <div class="toggle-row" style="margin: 4px 0;">
+                    <span style="font-size: 9px;">Show Sweep Preview</span>
+                    <input type="checkbox" id="showSweepPreview" checked>
                 </div>
                 <div class="slider-row">
                     <label>Steps</label>
@@ -619,6 +634,7 @@
                 <div class="toggle-row"><span>Focal Set</span><input type="checkbox" id="showFocal" checked></div>
                 <div class="toggle-row"><span>Symmetry Set</span><input type="checkbox" id="showSS" checked></div>
                 <div class="toggle-row"><span>Vineyard Circle</span><input type="checkbox" id="showVineyardCircle" checked></div>
+                <div class="toggle-row"><span>Birth/Death Circles</span><input type="checkbox" id="showBirthDeathCircles"></div>
             </div>
         </div>
         
@@ -632,10 +648,6 @@
                 <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
                 <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
             </div>
-        </div>
-
-        <div style="margin-top:16px; padding:6px 0; font-size:11px; color:#888; text-align:center;">
-            © 2026 Rohit Roy
         </div>
     </div>
     
@@ -660,6 +672,8 @@
     <div class="export-menu-item" id="exportVineyard">Export Vineyard 3D (PNG)</div>
     <div class="export-menu-item" id="exportVineyardSVG">Export Vineyard 3D (SVG)</div>
     <div class="export-menu-item" id="exportVineyardPDF">Export Vineyard 3D (PDF)</div>
+    <div class="export-menu-item" id="exportVineyardOBJ">Export Vineyard 3D (OBJ)</div>
+    <div class="export-menu-item" id="exportVineyardPLY">Export Vineyard 3D (PLY)</div>
     <div class="export-menu-divider"></div>
     <div class="export-menu-item" id="exportPD">Export Persistence Diagram (PNG)</div>
     <div class="export-menu-item" id="exportPDSVG">Export Persistence Diagram (SVG)</div>
@@ -681,52 +695,14 @@ class Point {
     normalize() { const n = this.norm(); return n < 1e-15 ? new Point(0,0) : this.mult(1/n); }
 }
 
-// ========== Union-Find for Persistence ==========
-class UnionFind {
-    constructor(n, birthValues) {
-        this.parent = Array.from({length: n}, (_, i) => i);
-        this.birth = [...birthValues];
-    }
-    
-    find(i) {
-        const path = [];
-        while (this.parent[i] !== i) {
-            path.push(i);
-            i = this.parent[i];
-        }
-        for (const node of path) {
-            this.parent[node] = i;
-        }
-        return i;
-    }
-    
-    union(i, j, currentValue) {
-        const rootI = this.find(i);
-        const rootJ = this.find(j);
-        
-        if (rootI !== rootJ) {
-            let elder, younger;
-            if (this.birth[rootI] < this.birth[rootJ]) {
-                elder = rootI; younger = rootJ;
-            } else if (this.birth[rootJ] < this.birth[rootI]) {
-                elder = rootJ; younger = rootI;
-            } else {
-                elder = rootI < rootJ ? rootI : rootJ;
-                younger = rootI < rootJ ? rootJ : rootI;
-            }
-            
-            const deathValue = currentValue;
-            const persistencePair = [this.birth[younger], deathValue];
-            this.parent[younger] = elder;
-            return { pair: persistencePair, isH1: false };
-        } else {
-            return { pair: [currentValue, null], isH1: true };
-        }
-    }
-}
+// ========== API Configuration ==========
+// For GitHub Pages: Set this to your deployed Python server URL
+// For local development: Use 'http://localhost:5000'
+// For hosting: 'https://scarroy.eu.pythonanywhere.com/'
+const PERSISTENCE_API_URL = 'https://scarroy.eu.pythonanywhere.com/';
 
 // ========== Global State ==========
-const SAMPLING_DENSITY = 30000;
+const SAMPLING_DENSITY = 20000;
 const LAMBDA_MAX = 5000.0;
 const R_MAX = 100000.0;
 
@@ -761,6 +737,13 @@ let vineyardAnimPlaying = false;
 let currentPersistence = null;
 let vineyardMaxVal = 1;
 let vineyardDragging = false;
+
+// Custom loop for vineyard
+let vineyardLoopType = 'circular'; // 'circular' or 'custom'
+let customLoopMode = false;
+let customLoopPoints = []; // Control points for the custom loop spline
+let customLoopDragIdx = -1;
+let customLoopHoverIdx = -1;
 
 let focalAnimPlaying = false;
 let focalAnimIdx = 0;
@@ -983,16 +966,27 @@ function computeSymmetrySet(data, resolutionLimit) {
     const Tx = new Float64Array(n), Ty = new Float64Array(n);
     const Nx = new Float64Array(n), Ny = new Float64Array(n);
     const Id = new Int32Array(n);
+    const OrigIdx = new Int32Array(n); // Store original indices for arc-length calculation
     
+    // Count points per curve for arc-length normalization
+    const curvePointCounts = new Map();
     for(let k=0; k<n; k++) {
         const idx = activeIndices[k];
+        const cId = data[idx].curveId || 0;
         Px[k] = data[idx].p.x; Py[k] = data[idx].p.y;
         Tx[k] = data[idx].T.x; Ty[k] = data[idx].T.y;
         Nx[k] = data[idx].N.x; Ny[k] = data[idx].N.y;
-        Id[k] = data[idx].curveId || 0;
+        Id[k] = cId;
+        OrigIdx[k] = idx;
+        
+        if (!curvePointCounts.has(cId)) {
+            curvePointCounts.set(cId, { start: k, count: 0 });
+        }
+        curvePointCounts.get(cId).count++;
     }
 
-    const minChordSq = 0.3 * 0.3;
+    // Minimum arc-length fraction to consider (5% of curve length)
+    const minArcLengthFraction = 0.05;
     const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {
@@ -1003,8 +997,19 @@ function computeSymmetrySet(data, resolutionLimit) {
         for (let j = i + 1; j < n; j++) {
             const dx = px - Px[j], dy = py - Py[j];
             
+            // Use arc-length distance (index distance) instead of Euclidean distance
+            // for points on the same curve
             if (id1 === Id[j]) {
-                if (dx*dx + dy*dy < minChordSq) continue;
+                const curveInfo = curvePointCounts.get(id1);
+                const curveLen = curveInfo.count;
+                
+                // Calculate arc-length distance (accounting for closed curve)
+                const indexDiff = Math.abs(i - j);
+                const arcDist = Math.min(indexDiff, curveLen - indexDiff);
+                const arcFraction = arcDist / curveLen;
+                
+                // Skip if points are too close along the curve (not spatially)
+                if (arcFraction < minArcLengthFraction) continue;
             }
 
             const t2x = Tx[j], t2y = Ty[j];
@@ -1050,174 +1055,147 @@ function computeSymmetrySet(data, resolutionLimit) {
     return centers;
 }
 
-// ========== Persistent Homology ==========
-function computePersistence(center, curveData) {
-    if (!curveData || curveData.length === 0) return { h0: [], h1: [] };
+// ========== Persistence Computation via Python API ==========
+// All persistence is computed by the GUDHI-based Python server
+
+// Call Python API for vineyard computation
+async function computeVineyardAPI(centers, curveData) {
+    const response = await fetch(`${PERSISTENCE_API_URL}/vineyard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            centers: centers.map(c => ({ x: c.x, y: c.y })),
+            points: curveData.map(d => ({ x: d.p.x, y: d.p.y, curveId: d.curveId || 0 })),
+            use_squared_distance: true
+        })
+    });
     
-    const n = curveData.length;
-    const dists = curveData.map(d => ((d.p.x - center.x)**2 + (d.p.y - center.y)**2));
-    
-    const curveGroups = new Map();
-    for (let i = 0; i < n; i++) {
-        const cId = curveData[i].curveId || 0;
-        if (!curveGroups.has(cId)) {
-            curveGroups.set(cId, []);
-        }
-        curveGroups.get(cId).push(i);
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API error ${response.status}: ${errText}`);
     }
     
-    const neighbors = new Array(n);
-    for (let i = 0; i < n; i++) {
-        neighbors[i] = [];
-    }
-    
-    for (const [cId, indices] of curveGroups) {
-        const len = indices.length;
-        for (let j = 0; j < len; j++) {
-            const globalIdx = indices[j];
-            const prevIdx = indices[(j - 1 + len) % len];
-            const nextIdx = indices[(j + 1) % len];
-            neighbors[globalIdx] = [prevIdx, nextIdx];
-        }
-    }
-    
-    const sortedIndices = Array.from({length: n}, (_, i) => i)
-        .sort((a, b) => dists[a] - dists[b]);
-    
-    const uf = new UnionFind(n, dists);
-    const h0Pairs = [];
-    const h1Pairs = [];
-    const processed = new Array(n).fill(false);
-    
-    for (const v of sortedIndices) {
-        const currentR = dists[v];
-        processed[v] = true;
-        
-        for (const u of neighbors[v]) {
-            if (processed[u]) {
-                const result = uf.union(u, v, currentR);
-                if (result.isH1) {
-                    h1Pairs.push([currentR, Infinity]);
-                } else {
-                    if (result.pair[0] !== result.pair[1]) {
-                        h0Pairs.push(result.pair);
-                    }
-                }
-            }
-        }
-    }
-    
-    const roots = new Set();
-    for (let i = 0; i < n; i++) {
-        roots.add(uf.find(i));
-    }
-    
-    for (const root of roots) {
-        h0Pairs.push([uf.birth[root], Infinity]);
-    }
-    
-    return { h0: h0Pairs, h1: h1Pairs };
+    return await response.json();
 }
 
-function computeVineyardForRadius(centerPoint, radius, numSamples, curveData) {
-    const centers = [];
-    for (let i = 0; i < numSamples; i++) {
-        const theta = (i / numSamples) * Math.PI * 2;
-        centers.push(new Point(
-            centerPoint.x + radius * Math.cos(theta),
-            centerPoint.y + radius * Math.sin(theta)
-        ));
-    }
-    
-    let maxDist = 0;
-    for (const center of centers) {
-        for (const d of curveData) {
-            const dx = d.p.x - center.x;
-            const dy = d.p.y - center.y;
-            const dist = (dx*dx + dy*dy);
-            if (dist > maxDist) maxDist = dist;
-        }
-    }
-    
-    const infinityY = maxDist * 1.15;
-    
-    const h0 = [];
-    const h1 = [];
-    
-    for (let i = 0; i < centers.length; i++) {
-        const center = centers[i];
-        const pers = computePersistence(center, curveData);
-        
-        for (const [b, d] of pers.h0) {
-            h0.push({
-                birth: b,
-                death: d === Infinity ? infinityY : d,
-                centerIdx: i,
-                isInfinite: d === Infinity
-            });
-        }
-        for (const [b, d] of pers.h1) {
-            h1.push({
-                birth: b,
-                death: d === Infinity ? infinityY : d,
-                centerIdx: i,
-                isInfinite: d === Infinity
-            });
-        }
-    }
-    
-    return {
-        h0: h0,
-        h1: h1,
-        centers: centers,
-        infinityY: infinityY,
-        radius: radius
-    };
-}
-
-function computeVineyard() {
-    if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
-        updateStatus('Need curve and center point!');
+async function computeVineyard() {
+    if (!cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need a curve first!');
         return;
     }
     
-    updateStatus('Computing vineyard...');
+    if (!PERSISTENCE_API_URL) {
+        updateStatus('Error: PERSISTENCE_API_URL not set! Edit the HTML to set your server URL.');
+        return;
+    }
     
-    const result = computeVineyardForRadius(vineyardCenter, vineyardRadius, vineyardSamples, cachedCurveData);
+    let centers = [];
     
-    vineyardCenters = result.centers;
-    vineyardData = {
-        h0: result.h0,
-        h1: result.h1,
-        infinityY: result.infinityY
-    };
-    vineyardMaxVal = result.infinityY;
+    if (vineyardLoopType === 'circular') {
+        if (!vineyardCenter) {
+            updateStatus('Need center point! Click "Place Center" first.');
+            return;
+        }
+        
+        // Generate circular centers
+        for (let i = 0; i < vineyardSamples; i++) {
+            const theta = (i / vineyardSamples) * Math.PI * 2;
+            centers.push(new Point(
+                vineyardCenter.x + vineyardRadius * Math.cos(theta),
+                vineyardCenter.y + vineyardRadius * Math.sin(theta)
+            ));
+        }
+    } else {
+        // Custom loop mode
+        if (customLoopPoints.length < 3) {
+            updateStatus('Need at least 3 loop points!');
+            return;
+        }
+        
+        // Sample points along the loop
+        const loopSamples = sampleCustomLoop(vineyardSamples * 10);
+        const step = Math.max(1, Math.floor(loopSamples.length / vineyardSamples));
+        for (let i = 0; i < loopSamples.length; i += step) {
+            centers.push(loopSamples[i]);
+        }
+    }
     
-    updateStatus(`Vineyard computed! ${vineyardData.h0.length + vineyardData.h1.length} points`);
+    vineyardCenters = centers;
     
-    updateVineyardPlot();
-    updatePersistenceDiagram(0);
+    updateStatus(`Computing vineyard via API (${centers.length} centers, ${cachedCurveData.length} points)...`);
     
-    document.getElementById('vineyardPanel').classList.add('active');
-    document.getElementById('persistencePanel').classList.add('active');
-    
-    draw();
+    try {
+        const apiResult = await computeVineyardAPI(centers, cachedCurveData);
+        
+        // Process API result
+        const infinityY = apiResult.infinityY;
+        
+        const processEntries = (entries, type) => {
+            return (entries || []).map(e => ({
+                birth: e.birth,
+                death: e.death,
+                centerIdx: e.centerIdx,
+                isInfinite: e.isInfinite || false,
+                type: type
+            }));
+        };
+        
+        const ord0 = processEntries(apiResult.ord0, 'ord');
+        const rel0 = processEntries(apiResult.rel0, 'rel');
+        const ext0 = processEntries(apiResult.ext0, 'ext');
+        const ord1 = processEntries(apiResult.ord1, 'ord');
+        const rel1 = processEntries(apiResult.rel1, 'rel');
+        const ext1 = processEntries(apiResult.ext1, 'ext');
+        
+        vineyardData = {
+            h0: [...ord0, ...rel0, ...ext0],
+            h1: [...ord1, ...rel1, ...ext1],
+            ord0, rel0, ext0, ord1, rel1, ext1,
+            infinityY: infinityY
+        };
+        vineyardMaxVal = infinityY;
+        
+        const totalPts = vineyardData.h0.length + vineyardData.h1.length;
+        const ordCount = ord0.length + ord1.length;
+        const relCount = rel0.length + rel1.length;
+        const extCount = ext0.length + ext1.length;
+        updateStatus(`Vineyard: ${totalPts} pts (Ord: ${ordCount}, Rel: ${relCount}, Ext: ${extCount})`);
+        
+        updateVineyardPlot();
+        updatePersistenceDiagram(0);
+        
+        document.getElementById('vineyardPanel').classList.add('active');
+        document.getElementById('persistencePanel').classList.add('active');
+        
+        draw();
+        
+    } catch (err) {
+        console.error('API error:', err);
+        updateStatus(`Error: ${err.message}. Is the Python server running?`);
+    }
 }
 
 function updateVineyardPlot() {
     if (!vineyardData) return;
     
+    const ord0 = vineyardData.ord0 || [];
+    const rel0 = vineyardData.rel0 || [];
+    const ext0 = vineyardData.ext0 || [];
+    const ord1 = vineyardData.ord1 || [];
+    const rel1 = vineyardData.rel1 || [];
+    const ext1 = vineyardData.ext1 || [];
     const h0 = vineyardData.h0;
     const h1 = vineyardData.h1;
     const maxVal = vineyardMaxVal;
     
-    const traceH0 = {
-        x: h0.map(d => d.birth),
-        y: h0.map(d => d.death),
-        z: h0.map(d => d.centerIdx),
+    // Ordinary H0 - solid red
+    const traceOrd0 = {
+        x: ord0.map(d => d.birth),
+        y: ord0.map(d => d.death),
+        z: ord0.map(d => d.centerIdx),
         mode: 'markers',
         type: 'scatter3d',
-        name: 'H₀',
+        name: 'Ord H₀',
         marker: {
             size: 3,
             color: '#ef4444',
@@ -1225,16 +1203,80 @@ function updateVineyardPlot() {
         }
     };
     
-    const traceH1 = {
-        x: h1.map(d => d.birth),
-        y: h1.map(d => d.death),
-        z: h1.map(d => d.centerIdx),
+    // Relative H0 - orange squares
+    const traceRel0 = {
+        x: rel0.map(d => d.birth),
+        y: rel0.map(d => d.death),
+        z: rel0.map(d => d.centerIdx),
         mode: 'markers',
         type: 'scatter3d',
-        name: 'H₁',
+        name: 'Rel H₀',
+        marker: {
+            size: 2.1,
+            color: '#f97316',  // Orange for relative
+            opacity: 0.7,
+            symbol: 'square'
+        }
+    };
+    
+    // Extended H0 - yellow diamonds
+    const traceExt0 = {
+        x: ext0.map(d => d.birth),
+        y: ext0.map(d => d.death),
+        z: ext0.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ext H₀',
+        marker: {
+            size: 2.1,
+            color: '#eab308',  // Yellow for extended
+            opacity: 0.7,
+            symbol: 'diamond'
+        }
+    };
+    
+    // Ordinary H1 - solid blue
+    const traceOrd1 = {
+        x: ord1.map(d => d.birth),
+        y: ord1.map(d => d.death),
+        z: ord1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ord H₁',
         marker: {
             size: 3,
             color: '#3b82f6',
+            opacity: 0.7
+        }
+    };
+    
+    // Relative H1 - cyan squares
+    const traceRel1 = {
+        x: rel1.map(d => d.birth),
+        y: rel1.map(d => d.death),
+        z: rel1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Rel H₁',
+        marker: {
+            size: 2.1,
+            color: '#06b6d4',  // Cyan for relative
+            opacity: 0.7,
+            symbol: 'square'
+        }
+    };
+    
+    // Extended H1 - purple diamonds
+    const traceExt1 = {
+        x: ext1.map(d => d.birth),
+        y: ext1.map(d => d.death),
+        z: ext1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ext H₁',
+        marker: {
+            size: 2.1,
+            color: '#a855f7',  // Purple for extended
             opacity: 0.7,
             symbol: 'diamond'
         }
@@ -1298,8 +1340,7 @@ function updateVineyardPlot() {
             },
             bgcolor: 'rgba(0,0,0,0)',
             camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
-            aspectmode: 'manual',
-            aspectratio: { x: 1, y: 1, z: 0.8 }
+            aspectmode: 'cube'
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -1307,7 +1348,7 @@ function updateVineyardPlot() {
         showlegend: false
     };
     
-    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1, currentTrace], layout, {
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1, currentTrace], layout, {
         displayModeBar: false,
         responsive: true
     });
@@ -1316,29 +1357,79 @@ function updateVineyardPlot() {
 function updatePersistenceDiagram(centerIdx) {
     if (!vineyardData || !vineyardCenters[centerIdx]) return;
     
+    // Get extended persistence data for current center
+    const ord0 = (vineyardData.ord0 || []).filter(d => d.centerIdx === centerIdx);
+    const rel0 = (vineyardData.rel0 || []).filter(d => d.centerIdx === centerIdx);
+    const ext0 = (vineyardData.ext0 || []).filter(d => d.centerIdx === centerIdx);
+    const ord1 = (vineyardData.ord1 || []).filter(d => d.centerIdx === centerIdx);
+    const rel1 = (vineyardData.rel1 || []).filter(d => d.centerIdx === centerIdx);
+    const ext1 = (vineyardData.ext1 || []).filter(d => d.centerIdx === centerIdx);
+    
     const h0 = vineyardData.h0.filter(d => d.centerIdx === centerIdx);
     const h1 = vineyardData.h1.filter(d => d.centerIdx === centerIdx);
     
-    currentPersistence = { h0, h1 };
+    currentPersistence = { h0, h1, ord0, rel0, ext0, ord1, rel1, ext1 };
     
     const maxVal = vineyardMaxVal;
     
-    const traceH0 = {
-        x: h0.map(d => d.birth),
-        y: h0.map(d => d.death),
+    // Ordinary H0 - red circles
+    const traceOrd0 = {
+        x: ord0.map(d => d.birth),
+        y: ord0.map(d => d.death),
         mode: 'markers',
         type: 'scatter',
-        name: 'H₀',
+        name: 'Ord H₀',
         marker: { size: 8, color: '#ef4444', symbol: 'circle' }
     };
     
-    const traceH1 = {
-        x: h1.map(d => d.birth),
-        y: h1.map(d => d.death),
+    // Relative H0 - orange squares
+    const traceRel0 = {
+        x: rel0.map(d => d.birth),
+        y: rel0.map(d => d.death),
         mode: 'markers',
         type: 'scatter',
-        name: 'H₁',
+        name: 'Rel H₀',
+        marker: { size: 10, color: '#f97316', symbol: 'square' }
+    };
+    
+    // Extended H0 - yellow diamonds
+    const traceExt0 = {
+        x: ext0.map(d => d.birth),
+        y: ext0.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Ext H₀',
+        marker: { size: 12, color: '#eab308', symbol: 'diamond' }
+    };
+    
+    // Ordinary H1 - blue triangles
+    const traceOrd1 = {
+        x: ord1.map(d => d.birth),
+        y: ord1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Ord H₁',
         marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
+    };
+    
+    // Relative H1 - cyan squares
+    const traceRel1 = {
+        x: rel1.map(d => d.birth),
+        y: rel1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Rel H₁',
+        marker: { size: 10, color: '#06b6d4', symbol: 'square' }
+    };
+    
+    // Extended H1 - purple diamonds
+    const traceExt1 = {
+        x: ext1.map(d => d.birth),
+        y: ext1.map(d => d.death),
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Ext H₁',
+        marker: { size: 12, color: '#a855f7', symbol: 'diamond' }
     };
     
     const diagonal = {
@@ -1387,8 +1478,8 @@ function updatePersistenceDiagram(centerIdx) {
         plot_bgcolor: 'rgba(10,10,15,0.5)',
         margin: { l: 45, r: 10, t: 25, b: 40 },
         legend: {
-            x: 0.75, y: 0.15,
-            font: { color: '#ccc', size: 9 },
+            x: 0.60, y: 0.35,
+            font: { color: '#ccc', size: 8 },
             bgcolor: 'rgba(0,0,0,0.6)'
         },
         showlegend: true,
@@ -1399,7 +1490,7 @@ function updatePersistenceDiagram(centerIdx) {
         }
     };
     
-    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceH0, traceH1], layout, {
+    Plotly.newPlot('persistencePlot', [diagonal, infinityLine, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, {
         displayModeBar: false,
         responsive: true
     });
@@ -1421,240 +1512,237 @@ function loadPreset(type) {
             const t = (i/count) * Math.PI * 2;
             curves[0].push(new Point(a*Math.cos(t), b*Math.sin(t)));
         }
-    } 
-    // else if (type === 'astroid') {
-    //     count = 12;
-    //     const r = 3.5;
-    //     for(let i=0; i<count; i++) {
-    //         const t = (i/count) * Math.PI * 2;
-    //         curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
-    //     }
-    // } 
-    else if (type === 'bean') {
+    } else if (type === 'astroid') {
+        count = 12;
+        const r = 3.5;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
+        }
+    } else if (type === 'bean') {
         count = 10;
         for(let i=0; i<count; i++) {
             const t = (i/count) * Math.PI * 2;
             const r = 2.0 + Math.cos(t) + Math.pow(Math.sin(t), 2);
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
-    } 
-    // else if (type === 'cardioid') {
-    //     count = 10;
-    //     const a = 1.5;
-    //     for(let i=0; i<count; i++) {
-    //         const t = (i/count) * Math.PI * 2;
-    //         const r = 2*a*(1 + Math.cos(t));
-    //         curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
-    //     }
-    // } else if (type === 'offsetSpiral') {
-    //     fixedCurveMode = true;
-    //     cachedCurveData = generateOffsetSpiralCurveData();
-    //     curves = [[]];
-    //     cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
-    //     view.scale = 40;
-    //     view.x = 50;
-    //     view.y = 50;
-    //     updateUI();
-    //     updateStatus(`Fixed curve: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
-    //     draw();
-    //     document.getElementById('presetSelect').value = "";
-    //     return;
-    // }
+    } else if (type === 'cardioid') {
+        count = 10;
+        const a = 1.5;
+        for(let i=0; i<count; i++) {
+            const t = (i/count) * Math.PI * 2;
+            const r = 2*a*(1 + Math.cos(t));
+            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
+        }
+    } else if (type === 'offsetSpiral') {
+        fixedCurveMode = true;
+        cachedCurveData = generateOffsetSpiralCurveData();
+        curves = [[]];
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+        view.scale = 40;
+        view.x = 50;
+        view.y = 50;
+        updateUI();
+        updateStatus(`Fixed curve: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
+        draw();
+        document.getElementById('presetSelect').value = "";
+        return;
+    }
     
     updateUI();
     triggerComputation(true);
     document.getElementById('presetSelect').value = "";
 }
 
-// function generateOffsetSpiralCurveData() {
-//     const b = 0.2;
-//     const tmin = 3.5;
-//     const tmax = tmin + 3 * Math.PI;
+function generateOffsetSpiralCurveData() {
+    const b = 0.2;
+    const tmin = 3.5;
+    const tmax = tmin + 3 * Math.PI;
     
-//     const ROuter = 4.5;
-//     const thickness = 1.0;
-//     const RInner = ROuter - thickness;
+    const ROuter = 4.5;
+    const thickness = 1.0;
+    const RInner = ROuter - thickness;
     
-//     const ellipse_ratio = 2.0;
-//     const extension_len_factor = 0.2;
+    const ellipse_ratio = 2.0;
+    const extension_len_factor = 0.2;
     
-//     const aOuter = ROuter * Math.exp(b * tmin);
-//     const aInner = RInner * Math.exp(b * tmin);
+    const aOuter = ROuter * Math.exp(b * tmin);
+    const aInner = RInner * Math.exp(b * tmin);
     
-//     function getSpiralData(t, a) {
-//         const exp_bt = Math.exp(-b * t);
-//         const r = a * exp_bt;
-//         const x = r * Math.cos(t);
-//         const y = r * Math.sin(t);
+    function getSpiralData(t, a) {
+        const exp_bt = Math.exp(-b * t);
+        const r = a * exp_bt;
+        const x = r * Math.cos(t);
+        const y = r * Math.sin(t);
         
-//         const dx = a * exp_bt * (-b * Math.cos(t) - Math.sin(t));
-//         const dy = a * exp_bt * (-b * Math.sin(t) + Math.cos(t));
+        const dx = a * exp_bt * (-b * Math.cos(t) - Math.sin(t));
+        const dy = a * exp_bt * (-b * Math.sin(t) + Math.cos(t));
         
-//         const mag = Math.sqrt(dx*dx + dy*dy);
-//         return {
-//             pos: [x, y],
-//             tan: [dx/mag, dy/mag]
-//         };
-//     }
+        const mag = Math.sqrt(dx*dx + dy*dy);
+        return {
+            pos: [x, y],
+            tan: [dx/mag, dy/mag]
+        };
+    }
     
-//     function getSpiralCurvePoints(tStart, tEnd, numPoints, a) {
-//         const pts = [];
-//         for (let i = 0; i < numPoints; i++) {
-//             const t = tStart + (tEnd - tStart) * (i / (numPoints - 1));
-//             const exp_bt = Math.exp(-b * t);
-//             const r = a * exp_bt;
-//             pts.push({x: r * Math.cos(t), y: r * Math.sin(t)});
-//         }
-//         return pts;
-//     }
+    function getSpiralCurvePoints(tStart, tEnd, numPoints, a) {
+        const pts = [];
+        for (let i = 0; i < numPoints; i++) {
+            const t = tStart + (tEnd - tStart) * (i / (numPoints - 1));
+            const exp_bt = Math.exp(-b * t);
+            const r = a * exp_bt;
+            pts.push({x: r * Math.cos(t), y: r * Math.sin(t)});
+        }
+        return pts;
+    }
     
-//     function linspacePoints(start, end, num) {
-//         const pts = [];
-//         for (let i = 0; i < num; i++) {
-//             const t = i / (num - 1);
-//             pts.push({
-//                 x: start[0] + t * (end[0] - start[0]),
-//                 y: start[1] + t * (end[1] - start[1])
-//             });
-//         }
-//         return pts;
-//     }
+    function linspacePoints(start, end, num) {
+        const pts = [];
+        for (let i = 0; i < num; i++) {
+            const t = i / (num - 1);
+            pts.push({
+                x: start[0] + t * (end[0] - start[0]),
+                y: start[1] + t * (end[1] - start[1])
+            });
+        }
+        return pts;
+    }
     
-//     function norm(v) {
-//         return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
-//     }
+    function norm(v) {
+        return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
+    }
     
-//     function normalize(v) {
-//         const n = norm(v);
-//         return [v[0]/n, v[1]/n];
-//     }
+    function normalize(v) {
+        const n = norm(v);
+        return [v[0]/n, v[1]/n];
+    }
     
-//     const outerStart = getSpiralData(tmin, aOuter);
-//     const innerStart = getSpiralData(tmin, aInner);
-//     const ext_dir_start = [-outerStart.tan[0], -outerStart.tan[1]];
+    const outerStart = getSpiralData(tmin, aOuter);
+    const innerStart = getSpiralData(tmin, aInner);
+    const ext_dir_start = [-outerStart.tan[0], -outerStart.tan[1]];
     
-//     const outerEnd = getSpiralData(tmax, aOuter);
-//     const innerEnd = getSpiralData(tmax, aInner);
-//     const ext_dir_end = outerEnd.tan;
+    const outerEnd = getSpiralData(tmax, aOuter);
+    const innerEnd = getSpiralData(tmax, aInner);
+    const ext_dir_end = outerEnd.tan;
     
-//     const gap_start = norm([outerStart.pos[0] - innerStart.pos[0], outerStart.pos[1] - innerStart.pos[1]]);
-//     const gap_end = norm([outerEnd.pos[0] - innerEnd.pos[0], outerEnd.pos[1] - innerEnd.pos[1]]);
+    const gap_start = norm([outerStart.pos[0] - innerStart.pos[0], outerStart.pos[1] - innerStart.pos[1]]);
+    const gap_end = norm([outerEnd.pos[0] - innerEnd.pos[0], outerEnd.pos[1] - innerEnd.pos[1]]);
     
-//     const L_ext_start = gap_start * extension_len_factor;
-//     const L_ext_end = gap_end * extension_len_factor;
+    const L_ext_start = gap_start * extension_len_factor;
+    const L_ext_end = gap_end * extension_len_factor;
     
-//     const n_spi = 2000;
-//     const n_ext = 100;
-//     const n_cap_inner = 200;
-//     const n_cap_outer = 400;
+    const n_spi = 2000;
+    const n_ext = 100;
+    const n_cap_inner = 200;
+    const n_cap_outer = 400;
     
-//     const allPoints = [];
+    const allPoints = [];
     
-//     const ext_tip_outer_start = [
-//         outerStart.pos[0] + ext_dir_start[0] * L_ext_start,
-//         outerStart.pos[1] + ext_dir_start[1] * L_ext_start
-//     ];
-//     allPoints.push(...linspacePoints(ext_tip_outer_start, outerStart.pos, n_ext));
+    const ext_tip_outer_start = [
+        outerStart.pos[0] + ext_dir_start[0] * L_ext_start,
+        outerStart.pos[1] + ext_dir_start[1] * L_ext_start
+    ];
+    allPoints.push(...linspacePoints(ext_tip_outer_start, outerStart.pos, n_ext));
     
-//     allPoints.push(...getSpiralCurvePoints(tmin, tmax, n_spi, aOuter));
+    allPoints.push(...getSpiralCurvePoints(tmin, tmax, n_spi, aOuter));
     
-//     const ext_tip_outer_end = [
-//         outerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
-//         outerEnd.pos[1] + ext_dir_end[1] * L_ext_end
-//     ];
-//     allPoints.push(...linspacePoints(outerEnd.pos, ext_tip_outer_end, n_ext));
+    const ext_tip_outer_end = [
+        outerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
+        outerEnd.pos[1] + ext_dir_end[1] * L_ext_end
+    ];
+    allPoints.push(...linspacePoints(outerEnd.pos, ext_tip_outer_end, n_ext));
     
-//     const ext_tip_inner_end = [
-//         innerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
-//         innerEnd.pos[1] + ext_dir_end[1] * L_ext_end
-//     ];
-//     const center_end = [
-//         (ext_tip_outer_end[0] + ext_tip_inner_end[0]) / 2,
-//         (ext_tip_outer_end[1] + ext_tip_inner_end[1]) / 2
-//     ];
-//     const gap_vec_end = [
-//         ext_tip_inner_end[0] - ext_tip_outer_end[0],
-//         ext_tip_inner_end[1] - ext_tip_outer_end[1]
-//     ];
-//     const u_end = normalize(gap_vec_end);
-//     const v_end = normalize(ext_dir_end);
-//     const r_w_end = norm(gap_vec_end) / 2;
-//     const r_l_end = r_w_end * ellipse_ratio;
+    const ext_tip_inner_end = [
+        innerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
+        innerEnd.pos[1] + ext_dir_end[1] * L_ext_end
+    ];
+    const center_end = [
+        (ext_tip_outer_end[0] + ext_tip_inner_end[0]) / 2,
+        (ext_tip_outer_end[1] + ext_tip_inner_end[1]) / 2
+    ];
+    const gap_vec_end = [
+        ext_tip_inner_end[0] - ext_tip_outer_end[0],
+        ext_tip_inner_end[1] - ext_tip_outer_end[1]
+    ];
+    const u_end = normalize(gap_vec_end);
+    const v_end = normalize(ext_dir_end);
+    const r_w_end = norm(gap_vec_end) / 2;
+    const r_l_end = r_w_end * ellipse_ratio;
     
-//     for (let i = 0; i < n_cap_inner; i++) {
-//         const ang = (i / (n_cap_inner - 1)) * Math.PI;
-//         allPoints.push({
-//             x: center_end[0] - r_w_end * Math.cos(ang) * u_end[0] + r_l_end * Math.sin(ang) * v_end[0],
-//             y: center_end[1] - r_w_end * Math.cos(ang) * u_end[1] + r_l_end * Math.sin(ang) * v_end[1]
-//         });
-//     }
+    for (let i = 0; i < n_cap_inner; i++) {
+        const ang = (i / (n_cap_inner - 1)) * Math.PI;
+        allPoints.push({
+            x: center_end[0] - r_w_end * Math.cos(ang) * u_end[0] + r_l_end * Math.sin(ang) * v_end[0],
+            y: center_end[1] - r_w_end * Math.cos(ang) * u_end[1] + r_l_end * Math.sin(ang) * v_end[1]
+        });
+    }
     
-//     allPoints.push(...linspacePoints(ext_tip_inner_end, innerEnd.pos, n_ext));
+    allPoints.push(...linspacePoints(ext_tip_inner_end, innerEnd.pos, n_ext));
     
-//     allPoints.push(...getSpiralCurvePoints(tmax, tmin, n_spi, aInner));
+    allPoints.push(...getSpiralCurvePoints(tmax, tmin, n_spi, aInner));
     
-//     const ext_tip_inner_start = [
-//         innerStart.pos[0] + ext_dir_start[0] * L_ext_start,
-//         innerStart.pos[1] + ext_dir_start[1] * L_ext_start
-//     ];
-//     allPoints.push(...linspacePoints(innerStart.pos, ext_tip_inner_start, n_ext));
+    const ext_tip_inner_start = [
+        innerStart.pos[0] + ext_dir_start[0] * L_ext_start,
+        innerStart.pos[1] + ext_dir_start[1] * L_ext_start
+    ];
+    allPoints.push(...linspacePoints(innerStart.pos, ext_tip_inner_start, n_ext));
     
-//     const center_start = [
-//         (ext_tip_inner_start[0] + ext_tip_outer_start[0]) / 2,
-//         (ext_tip_inner_start[1] + ext_tip_outer_start[1]) / 2
-//     ];
-//     const gap_vec_start = [
-//         ext_tip_outer_start[0] - ext_tip_inner_start[0],
-//         ext_tip_outer_start[1] - ext_tip_inner_start[1]
-//     ];
-//     const u_start = normalize(gap_vec_start);
-//     const v_start = normalize(ext_dir_start);
-//     const r_w_start = norm(gap_vec_start) / 2;
-//     const r_l_start = r_w_start * ellipse_ratio;
+    const center_start = [
+        (ext_tip_inner_start[0] + ext_tip_outer_start[0]) / 2,
+        (ext_tip_inner_start[1] + ext_tip_outer_start[1]) / 2
+    ];
+    const gap_vec_start = [
+        ext_tip_outer_start[0] - ext_tip_inner_start[0],
+        ext_tip_outer_start[1] - ext_tip_inner_start[1]
+    ];
+    const u_start = normalize(gap_vec_start);
+    const v_start = normalize(ext_dir_start);
+    const r_w_start = norm(gap_vec_start) / 2;
+    const r_l_start = r_w_start * ellipse_ratio;
     
-//     for (let i = 0; i < n_cap_outer; i++) {
-//         const ang = (i / (n_cap_outer - 1)) * Math.PI;
-//         allPoints.push({
-//             x: center_start[0] - r_w_start * Math.cos(ang) * u_start[0] + r_l_start * Math.sin(ang) * v_start[0],
-//             y: center_start[1] - r_w_start * Math.cos(ang) * u_start[1] + r_l_start * Math.sin(ang) * v_start[1]
-//         });
-//     }
+    for (let i = 0; i < n_cap_outer; i++) {
+        const ang = (i / (n_cap_outer - 1)) * Math.PI;
+        allPoints.push({
+            x: center_start[0] - r_w_start * Math.cos(ang) * u_start[0] + r_l_start * Math.sin(ang) * v_start[0],
+            y: center_start[1] - r_w_start * Math.cos(ang) * u_start[1] + r_l_start * Math.sin(ang) * v_start[1]
+        });
+    }
     
-//     const n = allPoints.length;
-//     const curveData = [];
+    const n = allPoints.length;
+    const curveData = [];
     
-//     for (let i = 0; i < n; i++) {
-//         const prev = allPoints[(i - 1 + n) % n];
-//         const curr = allPoints[i];
-//         const next = allPoints[(i + 1) % n];
+    for (let i = 0; i < n; i++) {
+        const prev = allPoints[(i - 1 + n) % n];
+        const curr = allPoints[i];
+        const next = allPoints[(i + 1) % n];
         
-//         const dx = (next.x - prev.x) / 2;
-//         const dy = (next.y - prev.y) / 2;
-//         const vel = Math.sqrt(dx*dx + dy*dy);
+        const dx = (next.x - prev.x) / 2;
+        const dy = (next.y - prev.y) / 2;
+        const vel = Math.sqrt(dx*dx + dy*dy);
         
-//         if (vel < 1e-10) continue;
+        if (vel < 1e-10) continue;
         
-//         const Tx = dx / vel;
-//         const Ty = dy / vel;
-//         const Nx = -Ty;
-//         const Ny = Tx;
+        const Tx = dx / vel;
+        const Ty = dy / vel;
+        const Nx = -Ty;
+        const Ny = Tx;
         
-//         const ddx = next.x - 2*curr.x + prev.x;
-//         const ddy = next.y - 2*curr.y + prev.y;
+        const ddx = next.x - 2*curr.x + prev.x;
+        const ddy = next.y - 2*curr.y + prev.y;
         
-//         const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
+        const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
         
-//         curveData.push({
-//             p: new Point(curr.x, curr.y),
-//             T: new Point(Tx, Ty),
-//             N: new Point(Nx, Ny),
-//             curvature: curvature,
-//             curveId: 0
-//         });
-//     }
+        curveData.push({
+            p: new Point(curr.x, curr.y),
+            T: new Point(Tx, Ty),
+            N: new Point(Nx, Ny),
+            curvature: curvature,
+            curveId: 0
+        });
+    }
     
-//     return curveData;
-// }
+    return curveData;
+}
 
 // ========== UI Helpers ==========
 function updateStatus(msg) {
@@ -1670,6 +1758,9 @@ function updateModeIndicator() {
     const indicator = document.getElementById('modeIndicator');
     if (vineyardMode) {
         indicator.innerText = 'Vineyard';
+        indicator.className = 'mode-badge mode-vineyard';
+    } else if (customLoopMode) {
+        indicator.innerText = 'Loop';
         indicator.className = 'mode-badge mode-vineyard';
     } else {
         indicator.innerText = 'Draw';
@@ -1758,13 +1849,35 @@ canvas.addEventListener('mousedown', e => {
     }
 
     if (e.button === 0) {
+        // Check for custom loop point drag FIRST (before adding new points)
+        if (customLoopPoints.length > 0) {
+            const hitIdx = findHitCustomLoopPoint(e.clientX, e.clientY);
+            if (hitIdx >= 0) {
+                saveState();
+                customLoopDragIdx = hitIdx;
+                interactionType = 'DRAG_LOOP_POINT';
+                canvas.style.cursor = 'grabbing';
+                return;
+            }
+        }
+        
+        // Custom loop mode - add new point only if not hitting existing point
+        if (customLoopMode) {
+            saveState();
+            customLoopPoints.push(new Point(mousePos.x, mousePos.y));
+            updateLoopStatus();
+            isInteractionActive = false;
+            draw();
+            return;
+        }
+        
         if (vineyardMode) {
             saveState();
             vineyardCenter = mousePos;
             vineyardMode = false;
             updateModeIndicator();
             document.getElementById('vineyardModeBtn').classList.remove('active');
-            document.getElementById('vineyardModeBtn').innerText = 'Place Center';
+            document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
             updateStatus('Center placed!');
             isInteractionActive = false;
             draw();
@@ -1793,6 +1906,22 @@ canvas.addEventListener('mousedown', e => {
     }
 });
 
+// Find hit custom loop point
+function findHitCustomLoopPoint(sx, sy) {
+    const worldPos = screenToWorld(sx, sy);
+    const hitRadius = 12 / view.scale;
+    
+    for (let i = 0; i < customLoopPoints.length; i++) {
+        const pt = customLoopPoints[i];
+        const dx = worldPos.x - pt.x;
+        const dy = worldPos.y - pt.y;
+        if (dx*dx + dy*dy < hitRadius * hitRadius) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 canvas.addEventListener('mousemove', e => {
     const dx = e.clientX - mouseStart.x;
     const dy = e.clientY - mouseStart.y;
@@ -1811,6 +1940,13 @@ canvas.addEventListener('mousemove', e => {
                 ));
             }
         }
+        draw();
+        return;
+    }
+    
+    if (interactionType === 'DRAG_LOOP_POINT' && customLoopDragIdx >= 0) {
+        const p = screenToWorld(e.clientX, e.clientY);
+        customLoopPoints[customLoopDragIdx] = new Point(p.x, p.y);
         draw();
         return;
     }
@@ -1836,6 +1972,18 @@ canvas.addEventListener('mousemove', e => {
     }
 
     if (!isInteractionActive) {
+        // Check custom loop point hover
+        if (customLoopPoints.length > 0) {
+            const hitIdx = findHitCustomLoopPoint(e.clientX, e.clientY);
+            if (hitIdx >= 0) {
+                customLoopHoverIdx = hitIdx;
+                canvas.style.cursor = 'grab';
+                draw();
+                return;
+            }
+            customLoopHoverIdx = -1;
+        }
+        
         if (findHitVineyardCenter(e.clientX, e.clientY)) {
             canvas.style.cursor = 'grab';
             return;
@@ -1847,7 +1995,7 @@ canvas.addEventListener('mousemove', e => {
             canvas.style.cursor = 'grab';
             updateStatus(`Curve ${hit.cIdx}, Point ${hit.pIdx}`);
         } else {
-            canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
+            canvas.style.cursor = (vineyardMode || customLoopMode) ? 'cell' : 'crosshair';
         }
         draw();
     }
@@ -1862,13 +2010,17 @@ canvas.addEventListener('mouseup', e => {
             computeVineyard();
         }
     }
+    
+    if (interactionType === 'DRAG_LOOP_POINT') {
+        customLoopDragIdx = -1;
+    }
 
     if (interactionType === 'DRAG_POINT') {
         dragInfo = null;
         triggerComputation(true);
     }
     
-    if (interactionType === 'POTENTIAL_PAN' && !vineyardMode) {
+    if (interactionType === 'POTENTIAL_PAN' && !vineyardMode && !customLoopMode) {
         if (fixedCurveMode) {
             updateStatus('Fixed curve mode - Clear to draw');
         } else {
@@ -1882,7 +2034,7 @@ canvas.addEventListener('mouseup', e => {
 
     isInteractionActive = false;
     interactionType = null;
-    canvas.style.cursor = vineyardMode ? 'cell' : 'crosshair';
+    canvas.style.cursor = (vineyardMode || customLoopMode) ? 'cell' : 'crosshair';
     draw();
 });
 
@@ -1903,6 +2055,16 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Delete custom loop point if hovering
+        if (customLoopHoverIdx >= 0 && customLoopPoints.length > 0) {
+            saveState();
+            customLoopPoints.splice(customLoopHoverIdx, 1);
+            customLoopHoverIdx = -1;
+            updateLoopStatus();
+            draw();
+            return;
+        }
+        
         if (selectedInfo) {
             const pts = curves[selectedInfo.cIdx];
             if (selectedInfo.pIdx < pts.length) {
@@ -1922,24 +2084,27 @@ window.addEventListener('keydown', e => {
     
     if (e.key === 'Escape') {
         vineyardMode = false;
+        customLoopMode = false;
         updateModeIndicator();
         document.getElementById('vineyardModeBtn').classList.remove('active');
-        document.getElementById('vineyardModeBtn').innerText = 'Place Center';
+        document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
+        document.getElementById('drawLoopBtn').classList.remove('active');
+        draw();
     }
 });
 
 // ========== Button Handlers ==========
 document.getElementById('undoBtn').addEventListener('click', performUndo);
 
-// document.getElementById('newCurveBtn').addEventListener('click', () => {
-//     saveState();
-//     curves.push([]);
-//     activeCurveIdx = curves.length - 1;
-//     selectedInfo = null;
-//     updateUI();
-//     updateStatus(`New Curve ${activeCurveIdx}`);
-//     draw();
-// });
+document.getElementById('newCurveBtn').addEventListener('click', () => {
+    saveState();
+    curves.push([]);
+    activeCurveIdx = curves.length - 1;
+    selectedInfo = null;
+    updateUI();
+    updateStatus(`New Curve ${activeCurveIdx}`);
+    draw();
+});
 
 document.getElementById('clearBtn').addEventListener('click', () => {
     saveState();
@@ -1952,9 +2117,17 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     vineyardData = null;
     vineyardCenters = [];
     fixedCurveMode = false;
+    
+    // Clear custom loop
+    customLoopPoints = [];
+    customLoopMode = false;
+    document.getElementById('drawLoopBtn').classList.remove('active');
+    updateLoopStatus();
+    
     stopVineyardAnim();
     document.getElementById('vineyardPanel').classList.remove('active');
     document.getElementById('persistencePanel').classList.remove('active');
+    updateModeIndicator();
     updateUI();
     updateStatus('Cleared');
     draw();
@@ -1971,6 +2144,139 @@ document.getElementById('presetSelect').addEventListener('change', e => {
     if (e.target.value) loadPreset(e.target.value);
 });
 
+// ========== CSV Upload ==========
+document.getElementById('uploadCSVBtn').addEventListener('click', () => {
+    document.getElementById('csvFileInput').click();
+});
+
+document.getElementById('csvFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const csvText = event.target.result;
+            const points = parseCSV(csvText);
+            
+            if (points.length < 3) {
+                updateStatus('CSV needs at least 3 points');
+                return;
+            }
+            
+            loadCSVCurve(points);
+        } catch (err) {
+            updateStatus('Error parsing CSV: ' + err.message);
+            console.error(err);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input so same file can be re-uploaded
+    e.target.value = '';
+});
+
+function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) throw new Error('CSV must have header and data rows');
+    
+    // Parse header to find x and y columns
+    const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const xIdx = header.findIndex(h => h === 'x');
+    const yIdx = header.findIndex(h => h === 'y');
+    
+    if (xIdx === -1 || yIdx === -1) {
+        throw new Error('CSV must have "x" and "y" columns');
+    }
+    
+    const points = [];
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const values = line.split(',').map(v => v.trim());
+        const x = parseFloat(values[xIdx]);
+        const y = parseFloat(values[yIdx]);
+        
+        if (!isNaN(x) && !isNaN(y)) {
+            points.push({ x, y });
+        }
+    }
+    
+    return points;
+}
+
+function loadCSVCurve(points) {
+    saveState();
+    
+    // Enable fixed curve mode for CSV data
+    fixedCurveMode = true;
+    curves = [[]];
+    activeCurveIdx = 0;
+    
+    // Generate curve data from CSV points
+    const n = points.length;
+    cachedCurveData = [];
+    
+    for (let i = 0; i < n; i++) {
+        const prev = points[(i - 1 + n) % n];
+        const curr = points[i];
+        const next = points[(i + 1) % n];
+        
+        // Approximate tangent using central difference
+        const dx = (next.x - prev.x) / 2;
+        const dy = (next.y - prev.y) / 2;
+        const vel = Math.sqrt(dx*dx + dy*dy);
+        
+        if (vel < 1e-10) continue;
+        
+        const Tx = dx / vel;
+        const Ty = dy / vel;
+        const Nx = -Ty;
+        const Ny = Tx;
+        
+        // Approximate curvature using second derivative
+        const ddx = next.x - 2*curr.x + prev.x;
+        const ddy = next.y - 2*curr.y + prev.y;
+        const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
+        
+        cachedCurveData.push({
+            p: new Point(curr.x, curr.y),
+            T: new Point(Tx, Ty),
+            N: new Point(Nx, Ny),
+            curvature: curvature,
+            curveId: 0
+        });
+    }
+    
+    // Compute symmetry set
+    cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+    
+    // Auto-fit view to data
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const pt of points) {
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+    }
+    
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+    const maxRange = Math.max(rangeX, rangeY);
+    
+    // Set view to fit curve with some padding
+    view.scale = Math.min(canvas.width, canvas.height) / (maxRange * 1.5);
+    view.x = -centerX * view.scale;
+    view.y = centerY * view.scale;
+    
+    updateUI();
+    updateStatus(`CSV loaded: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
+    draw();
+}
+
 document.getElementById('resolution').addEventListener('input', e => {
     ssResolution = parseInt(e.target.value);
     document.getElementById('resVal').innerText = ssResolution;
@@ -1978,6 +2284,10 @@ document.getElementById('resolution').addEventListener('input', e => {
 
 document.getElementById('vineyardModeBtn').addEventListener('click', () => {
     vineyardMode = !vineyardMode;
+    if (vineyardMode) {
+        customLoopMode = false;
+        document.getElementById('drawLoopBtn').classList.remove('active');
+    }
     updateModeIndicator();
     const btn = document.getElementById('vineyardModeBtn');
     if (vineyardMode) {
@@ -1991,8 +2301,16 @@ document.getElementById('vineyardModeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('vineyardRadius').addEventListener('input', e => {
-    vineyardRadius = parseFloat(e.target.value);
-    document.getElementById('radiusVal').innerText = vineyardRadius.toFixed(1);
+    vineyardRadius = parseFloat(e.target.value) || 1;
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('vineyardRadius').addEventListener('change', e => {
+    vineyardRadius = parseFloat(e.target.value) || 1;
+    if (vineyardRadius <= 0) {
+        vineyardRadius = 0.1;
+        e.target.value = 0.1;
+    }
     if (vineyardCenter) draw();
 });
 
@@ -2021,7 +2339,91 @@ document.getElementById('vineyardAnimSlider').addEventListener('input', e => {
     draw();
 });
 
-['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle'].forEach(id => {
+// Loop type selector
+document.getElementById('vineyardLoopType').addEventListener('change', e => {
+    vineyardLoopType = e.target.value;
+    const circularControls = document.getElementById('circularLoopControls');
+    const customControls = document.getElementById('customLoopControls');
+    
+    if (vineyardLoopType === 'circular') {
+        circularControls.style.display = 'block';
+        customControls.style.display = 'none';
+        customLoopMode = false;
+        document.getElementById('drawLoopBtn').classList.remove('active');
+    } else {
+        circularControls.style.display = 'none';
+        customControls.style.display = 'block';
+        vineyardMode = false;
+        document.getElementById('vineyardModeBtn').classList.remove('active');
+    }
+    draw();
+});
+
+// Draw loop button
+document.getElementById('drawLoopBtn').addEventListener('click', () => {
+    customLoopMode = !customLoopMode;
+    document.getElementById('drawLoopBtn').classList.toggle('active', customLoopMode);
+    if (customLoopMode) {
+        vineyardMode = false;
+        document.getElementById('vineyardModeBtn').classList.remove('active');
+    }
+    updateModeIndicator();
+    draw();
+});
+
+// Clear loop button
+document.getElementById('clearLoopBtn').addEventListener('click', () => {
+    customLoopPoints = [];
+    updateLoopStatus();
+    draw();
+});
+
+function updateLoopStatus() {
+    const status = document.getElementById('loopStatus');
+    if (customLoopPoints.length === 0) {
+        status.innerText = 'No loop drawn';
+        status.style.color = 'var(--text-muted)';
+    } else if (customLoopPoints.length < 3) {
+        status.innerText = `${customLoopPoints.length} points (need 3+)`;
+        status.style.color = '#f59e0b';
+    } else {
+        status.innerText = `${customLoopPoints.length} points ✓`;
+        status.style.color = '#22c55e';
+    }
+}
+
+// Sample points along the custom loop spline (auto-closed)
+function sampleCustomLoop(numSamples) {
+    if (customLoopPoints.length < 3) return [];
+    
+    const pts = customLoopPoints;
+    const C = solveControlPoints(pts);
+    const n = C.length;
+    // For closed loop, wrap around
+    const drawC = [C[n-1], ...C, C[0], C[1]];
+    
+    const numSegments = pts.length;
+    const pointsPerSeg = Math.ceil(numSamples / numSegments);
+    const samples = [];
+    
+    for (let i = 0; i < numSegments; i++) {
+        const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+        
+        const segSamples = (i === numSegments - 1) ? 
+            numSamples - samples.length : pointsPerSeg;
+        
+        for (let j = 0; j < segSamples; j++) {
+            const t = j / segSamples;
+            const P = bSplineEval(p0, p1, p2, p3, t);
+            samples.push({ x: P.x, y: P.y });
+        }
+    }
+    
+    return samples;
+}
+
+// Compute vineyard along custom loop
+['showCurve', 'showControls', 'showFocal', 'showSS', 'showVineyardCircle', 'showSweepPreview', 'showBirthDeathCircles'].forEach(id => {
     document.getElementById(id).addEventListener('change', draw);
 });
 
@@ -2148,13 +2550,18 @@ document.getElementById('focalAnimSlider').addEventListener('input', e => {
 });
 
 // ========== Radius Sweep ==========
-function computeRadiusSweep() {
+async function computeRadiusSweep() {
     if (!vineyardCenter || !cachedCurveData || cachedCurveData.length === 0) {
         updateStatus('Need curve and center!');
         return;
     }
     
-    updateStatus('Computing sweep...');
+    if (!PERSISTENCE_API_URL) {
+        updateStatus('Error: PERSISTENCE_API_URL not set!');
+        return;
+    }
+    
+    updateStatus('Computing sweep via API...');
     
     const radii = [];
     for (let i = 0; i <= radiusSteps; i++) {
@@ -2169,36 +2576,83 @@ function computeRadiusSweep() {
     
     let globalInfinityY = 0;
     
-    for (let rIdx = 0; rIdx < radii.length; rIdx++) {
-        const r = radii[rIdx];
-        const vineyard = computeVineyardForRadius(vineyardCenter, r, vineyardSamples, cachedCurveData);
-        radiusSweepData.vineyards.push(vineyard);
-        
-        if (vineyard.infinityY > globalInfinityY) {
-            globalInfinityY = vineyard.infinityY;
+    try {
+        for (let rIdx = 0; rIdx < radii.length; rIdx++) {
+            const r = radii[rIdx];
+            
+            // Generate centers for this radius
+            const centers = [];
+            for (let i = 0; i < vineyardSamples; i++) {
+                const theta = (i / vineyardSamples) * Math.PI * 2;
+                centers.push(new Point(
+                    vineyardCenter.x + r * Math.cos(theta),
+                    vineyardCenter.y + r * Math.sin(theta)
+                ));
+            }
+            
+            // Call API
+            const apiResult = await computeVineyardAPI(centers, cachedCurveData);
+            
+            const infinityY = apiResult.infinityY;
+            
+            const processEntries = (entries, type) => {
+                return (entries || []).map(e => ({
+                    birth: e.birth,
+                    death: e.death,
+                    centerIdx: e.centerIdx,
+                    isInfinite: e.isInfinite || false,
+                    type: type
+                }));
+            };
+            
+            const ord0 = processEntries(apiResult.ord0, 'ord');
+            const rel0 = processEntries(apiResult.rel0, 'rel');
+            const ext0 = processEntries(apiResult.ext0, 'ext');
+            const ord1 = processEntries(apiResult.ord1, 'ord');
+            const rel1 = processEntries(apiResult.rel1, 'rel');
+            const ext1 = processEntries(apiResult.ext1, 'ext');
+            
+            const vineyard = {
+                h0: [...ord0, ...rel0, ...ext0],
+                h1: [...ord1, ...rel1, ...ext1],
+                ord0, rel0, ext0, ord1, rel1, ext1,
+                centers: centers,
+                infinityY: infinityY,
+                radius: r
+            };
+            
+            radiusSweepData.vineyards.push(vineyard);
+            
+            if (infinityY > globalInfinityY) {
+                globalInfinityY = infinityY;
+            }
+            
+            if (rIdx % 3 === 0) {
+                updateStatus(`Sweep ${Math.round((rIdx / radii.length) * 100)}%`);
+            }
         }
         
-        if (rIdx % 5 === 0) {
-            updateStatus(`Sweep ${Math.round((rIdx / radii.length) * 100)}%`);
-        }
+        radiusSweepData.infinityY = globalInfinityY;
+        vineyardMaxVal = globalInfinityY;
+        
+        updateStatus(`Sweep done! ${radii.length} vineyards`);
+        
+        radiusSweepIdx = 0;
+        updateRadiusSweepDisplay();
+        
+        // Only show vineyard panel for radius sweep (not persistence diagram)
+        document.getElementById('vineyardPanel').classList.add('active');
+        document.getElementById('showVineyardPlot').checked = true;
+        // Hide persistence panel during radius sweep
+        document.getElementById('persistencePanel').classList.remove('active');
+        document.getElementById('showPD').checked = false;
+        
+        draw();
+        
+    } catch (err) {
+        console.error('API error:', err);
+        updateStatus(`Error: ${err.message}`);
     }
-    
-    radiusSweepData.infinityY = globalInfinityY;
-    vineyardMaxVal = globalInfinityY;
-    
-    updateStatus(`Sweep done! ${radii.length} vineyards`);
-    
-    radiusSweepIdx = 0;
-    updateRadiusSweepDisplay();
-    
-    // Only show vineyard panel for radius sweep (not persistence diagram)
-    document.getElementById('vineyardPanel').classList.add('active');
-    document.getElementById('showVineyardPlot').checked = true;
-    // Hide persistence panel during radius sweep
-    document.getElementById('persistencePanel').classList.remove('active');
-    document.getElementById('showPD').checked = false;
-    
-    draw();
 }
 
 function updateRadiusSweepDisplay() {
@@ -2210,14 +2664,19 @@ function updateRadiusSweepDisplay() {
     document.getElementById('currentSweepRadius').innerText = `R: ${r.toFixed(2)}`;
     
     vineyardRadius = r;
-    document.getElementById('vineyardRadius').value = Math.min(r, 10);
-    document.getElementById('radiusVal').innerText = r.toFixed(1);
+    document.getElementById('vineyardRadius').value = r.toFixed(2);
     
     vineyardCenters = currentVineyard.centers;
     
     vineyardData = {
         h0: currentVineyard.h0,
         h1: currentVineyard.h1,
+        ord0: currentVineyard.ord0,
+        rel0: currentVineyard.rel0,
+        ext0: currentVineyard.ext0,
+        ord1: currentVineyard.ord1,
+        rel1: currentVineyard.rel1,
+        ext1: currentVineyard.ext1,
         infinityY: currentVineyard.infinityY
     };
     vineyardMaxVal = currentVineyard.infinityY;
@@ -2233,27 +2692,72 @@ function updateRadiusSweepVineyardPlot() {
     const r = currentVineyard.radius;
     const maxVal = currentVineyard.infinityY;
     
-    const h0 = currentVineyard.h0;
-    const h1 = currentVineyard.h1;
+    const ord0 = currentVineyard.ord0 || [];
+    const rel0 = currentVineyard.rel0 || [];
+    const ext0 = currentVineyard.ext0 || [];
+    const ord1 = currentVineyard.ord1 || [];
+    const rel1 = currentVineyard.rel1 || [];
+    const ext1 = currentVineyard.ext1 || [];
     
-    const traceH0 = {
-        x: h0.map(d => d.birth),
-        y: h0.map(d => d.death),
-        z: h0.map(d => d.centerIdx),
+    // Six traces for extended persistence types
+    const traceOrd0 = {
+        x: ord0.map(d => d.birth),
+        y: ord0.map(d => d.death),
+        z: ord0.map(d => d.centerIdx),
         mode: 'markers',
         type: 'scatter3d',
-        name: 'H₀',
+        name: 'Ord H₀',
         marker: { size: 3, color: '#ef4444', opacity: 0.7 }
     };
     
-    const traceH1 = {
-        x: h1.map(d => d.birth),
-        y: h1.map(d => d.death),
-        z: h1.map(d => d.centerIdx),
+    const traceRel0 = {
+        x: rel0.map(d => d.birth),
+        y: rel0.map(d => d.death),
+        z: rel0.map(d => d.centerIdx),
         mode: 'markers',
         type: 'scatter3d',
-        name: 'H₁',
-        marker: { size: 3, color: '#3b82f6', opacity: 0.7, symbol: 'diamond' }
+        name: 'Rel H₀',
+        marker: { size: 2.1, color: '#f97316', opacity: 0.7, symbol: 'square' }
+    };
+    
+    const traceExt0 = {
+        x: ext0.map(d => d.birth),
+        y: ext0.map(d => d.death),
+        z: ext0.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ext H₀',
+        marker: { size: 2.1, color: '#eab308', opacity: 0.7, symbol: 'diamond' }
+    };
+    
+    const traceOrd1 = {
+        x: ord1.map(d => d.birth),
+        y: ord1.map(d => d.death),
+        z: ord1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ord H₁',
+        marker: { size: 3, color: '#3b82f6', opacity: 0.7 }
+    };
+    
+    const traceRel1 = {
+        x: rel1.map(d => d.birth),
+        y: rel1.map(d => d.death),
+        z: rel1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Rel H₁',
+        marker: { size: 2.1, color: '#06b6d4', opacity: 0.7, symbol: 'square' }
+    };
+    
+    const traceExt1 = {
+        x: ext1.map(d => d.birth),
+        y: ext1.map(d => d.death),
+        z: ext1.map(d => d.centerIdx),
+        mode: 'markers',
+        type: 'scatter3d',
+        name: 'Ext H₁',
+        marker: { size: 2.1, color: '#a855f7', opacity: 0.7, symbol: 'diamond' }
     };
     
     const diagPoints = {
@@ -2277,8 +2781,7 @@ function updateRadiusSweepVineyardPlot() {
             zaxis: { title: { text: 'Time', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, vineyardSamples - 1], showspikes: false },
             bgcolor: 'rgba(0,0,0,0)',
             camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
-            aspectmode: 'manual',
-            aspectratio: { x: 1, y: 1, z: 0.8 }
+            aspectmode: 'cube'
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
@@ -2287,7 +2790,7 @@ function updateRadiusSweepVineyardPlot() {
         title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
     };
     
-    Plotly.newPlot('vineyardPlot', [diagPoints, traceH0, traceH1], layout, { displayModeBar: false, responsive: true });
+    Plotly.newPlot('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
 }
 
 function updateRadiusSweepPersistenceDiagram() {
@@ -2374,13 +2877,31 @@ function radiusSweepAnimLoop() {
 }
 
 document.getElementById('radiusStart').addEventListener('input', e => {
-    radiusStart = parseFloat(e.target.value);
-    document.getElementById('radiusStartVal').innerText = radiusStart.toFixed(1);
+    radiusStart = parseFloat(e.target.value) || 0.5;
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('radiusStart').addEventListener('change', e => {
+    radiusStart = parseFloat(e.target.value) || 0.5;
+    if (radiusStart <= 0) {
+        radiusStart = 0.1;
+        e.target.value = 0.1;
+    }
+    if (vineyardCenter) draw();
 });
 
 document.getElementById('radiusEnd').addEventListener('input', e => {
-    radiusEnd = parseFloat(e.target.value);
-    document.getElementById('radiusEndVal').innerText = radiusEnd.toFixed(1);
+    radiusEnd = parseFloat(e.target.value) || 5;
+    if (vineyardCenter) draw();
+});
+
+document.getElementById('radiusEnd').addEventListener('change', e => {
+    radiusEnd = parseFloat(e.target.value) || 5;
+    if (radiusEnd <= 0) {
+        radiusEnd = 0.1;
+        e.target.value = 0.1;
+    }
+    if (vineyardCenter) draw();
 });
 
 document.getElementById('radiusSteps').addEventListener('input', e => {
@@ -2571,38 +3092,128 @@ function draw() {
     }
 
     if (document.getElementById('showVineyardCircle').checked) {
-        if (vineyardCenter) {
+        // Draw custom loop if exists
+        if (customLoopPoints.length > 0) {
+            // Draw spline curve through control points (auto-closed when 3+ points)
+            if (customLoopPoints.length >= 3) {
+                const loopSamples = sampleCustomLoop(200);
+                if (loopSamples.length > 0) {
+                    ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+                    ctx.lineWidth = 2 / view.scale;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(loopSamples[0].x, loopSamples[0].y);
+                    for (let i = 1; i < loopSamples.length; i++) {
+                        ctx.lineTo(loopSamples[i].x, loopSamples[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            } else if (customLoopPoints.length === 2) {
+                // Draw line between 2 points
+                ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
+                ctx.lineWidth = 1.5 / view.scale;
+                ctx.setLineDash([5 / view.scale, 5 / view.scale]);
+                ctx.beginPath();
+                ctx.moveTo(customLoopPoints[0].x, customLoopPoints[0].y);
+                ctx.lineTo(customLoopPoints[1].x, customLoopPoints[1].y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // Draw control points
+            for (let i = 0; i < customLoopPoints.length; i++) {
+                const pt = customLoopPoints[i];
+                const isHover = (i === customLoopHoverIdx);
+                const size = (isHover ? 8 : 6) / view.scale;
+                
+                ctx.fillStyle = isHover ? '#fbbf24' : vineyardColor;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Label showing loop status
+            if (customLoopPoints.length > 0) {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const firstPt = customLoopPoints[0];
+                const statusX = firstPt.x * view.scale + view.x + canvas.width / 2;
+                const statusY = canvas.height / 2 - firstPt.y * view.scale + view.y - 15;
+                ctx.font = '10px JetBrains Mono, monospace';
+                const isReady = customLoopPoints.length >= 3;
+                ctx.fillStyle = isReady ? '#22c55e' : '#f59e0b';
+                ctx.fillText(isReady ? `Loop (${customLoopPoints.length} pts)` : `${customLoopPoints.length}/3 pts`, statusX, statusY);
+                ctx.restore();
+            }
+        }
+        
+        // Draw circular vineyard (only when in circular mode)
+        if (vineyardLoopType === 'circular' && vineyardCenter) {
             ctx.fillStyle = vineyardColor;
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
-            ctx.lineWidth = 1.5 / view.scale;
+            // Main vineyard radius - purple dashed
+            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+            ctx.lineWidth = 2 / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
             
+            // Label for main radius
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            const rLabelX = (vineyardCenter.x + vineyardRadius) * view.scale + view.x + canvas.width / 2;
+            const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale + view.y;
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.9)' : 'rgba(124, 58, 237, 1)';
+            ctx.fillText(`R=${vineyardRadius.toFixed(2)}`, rLabelX + 5, rLabelY);
+            ctx.restore();
+            
             // Radius sweep preview circles (start and end radii)
-            const startR = parseFloat(document.getElementById('radiusStart').value);
-            const endR = parseFloat(document.getElementById('radiusEnd').value);
-            
-            // Start radius - cyan/teal dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.4)' : 'rgba(6, 182, 212, 0.5)';
-            ctx.lineWidth = 1 / view.scale;
-            ctx.setLineDash([3 / view.scale, 3 / view.scale]);
-            ctx.beginPath();
-            ctx.arc(vineyardCenter.x, vineyardCenter.y, startR, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // End radius - orange dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.4)' : 'rgba(234, 88, 12, 0.5)';
-            ctx.beginPath();
-            ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            if (document.getElementById('showSweepPreview').checked) {
+                const startR = parseFloat(document.getElementById('radiusStart').value) || 0.5;
+                const endR = parseFloat(document.getElementById('radiusEnd').value) || 5;
+                
+                // Start radius - cyan/teal dashed
+                ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.6)' : 'rgba(6, 182, 212, 0.7)';
+                ctx.lineWidth = 1.5 / view.scale;
+                ctx.setLineDash([3 / view.scale, 3 / view.scale]);
+                ctx.beginPath();
+                ctx.arc(vineyardCenter.x, vineyardCenter.y, startR, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Label for start radius
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const startLabelX = (vineyardCenter.x + startR * 0.707) * view.scale + view.x + canvas.width / 2;
+                const startLabelY = canvas.height / 2 - (vineyardCenter.y + startR * 0.707) * view.scale + view.y;
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.fillStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.9)' : 'rgba(6, 182, 212, 1)';
+                ctx.fillText(`Start=${startR.toFixed(2)}`, startLabelX + 3, startLabelY - 3);
+                ctx.restore();
+                
+                // End radius - orange dashed
+                ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.6)' : 'rgba(234, 88, 12, 0.7)';
+                ctx.beginPath();
+                ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Label for end radius
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                const endLabelX = (vineyardCenter.x + endR * 0.707) * view.scale + view.x + canvas.width / 2;
+                const endLabelY = canvas.height / 2 - (vineyardCenter.y + endR * 0.707) * view.scale + view.y;
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.fillStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.9)' : 'rgba(234, 88, 12, 1)';
+                ctx.fillText(`End=${endR.toFixed(2)}`, endLabelX + 3, endLabelY - 3);
+                ctx.restore();
+            }
         }
         
         if (vineyardCenters.length > 0) {
@@ -2620,7 +3231,72 @@ function draw() {
                 ctx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
                 ctx.fill();
                 
-                if (cachedCurveData && cachedCurveData.length > 0) {
+                // Draw birth/death circles if enabled
+                if (document.getElementById('showBirthDeathCircles').checked && vineyardData) {
+                    const ord0 = (vineyardData.ord0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const rel0 = (vineyardData.rel0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ext0 = (vineyardData.ext0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ord1 = (vineyardData.ord1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const rel1 = (vineyardData.rel1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    const ext1 = (vineyardData.ext1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
+                    
+                    // Helper function to draw birth/death circles
+                    const drawBDCircle = (pt, birthColor, deathColor, lineWidth, prefix) => {
+                        const birthR = Math.sqrt(pt.birth);
+                        const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
+                        
+                        // Birth circle
+                        ctx.strokeStyle = birthColor;
+                        ctx.lineWidth = lineWidth / view.scale;
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        // Death circle
+                        if (deathR !== null) {
+                            ctx.strokeStyle = deathColor;
+                            ctx.lineWidth = (lineWidth * 0.75) / view.scale;
+                            ctx.setLineDash([4 / view.scale, 4 / view.scale]);
+                            ctx.beginPath();
+                            ctx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+                    };
+                    
+                    // Draw Ordinary H0 (red, thin)
+                    for (const pt of ord0) {
+                        drawBDCircle(pt, 'rgba(239, 68, 68, 0.8)', 'rgba(239, 68, 68, 0.5)', 2, '');
+                    }
+                    
+                    // Draw Relative H0 (orange, medium)
+                    for (const pt of rel0) {
+                        drawBDCircle(pt, 'rgba(249, 115, 22, 0.9)', 'rgba(249, 115, 22, 0.6)', 2.5, 'R');
+                    }
+                    
+                    // Draw Extended H0 (yellow, thick)
+                    for (const pt of ext0) {
+                        drawBDCircle(pt, 'rgba(234, 179, 8, 0.9)', 'rgba(234, 179, 8, 0.6)', 3, 'E');
+                    }
+                    
+                    // Draw Ordinary H1 (blue, thin)
+                    for (const pt of ord1) {
+                        drawBDCircle(pt, 'rgba(59, 130, 246, 0.8)', 'rgba(59, 130, 246, 0.5)', 2, '');
+                    }
+                    
+                    // Draw Relative H1 (cyan, medium)
+                    for (const pt of rel1) {
+                        drawBDCircle(pt, 'rgba(6, 182, 212, 0.9)', 'rgba(6, 182, 212, 0.6)', 2.5, 'R');
+                    }
+                    
+                    // Draw Extended H1 (purple, thick)
+                    for (const pt of ext1) {
+                        drawBDCircle(pt, 'rgba(168, 85, 247, 0.9)', 'rgba(168, 85, 247, 0.6)', 3, 'E');
+                    }
+                }
+                
+                if (cachedCurveData && cachedCurveData.length > 0 && !document.getElementById('showBirthDeathCircles').checked) {
                     ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
                     ctx.lineWidth = 0.5 / view.scale;
                     const step = Math.max(1, Math.floor(cachedCurveData.length / 50));
@@ -3235,6 +3911,141 @@ function exportPlotlyAsPDF(plotId, filename) {
     });
 }
 
+function exportVineyardAsOBJ() {
+    if (!vineyardData) {
+        alert('No vineyard data to export');
+        return;
+    }
+    
+    const h0 = vineyardData.h0;
+    const h1 = vineyardData.h1;
+    const maxVal = vineyardMaxVal;
+    
+    // Normalize coordinates for better 3D software compatibility
+    const scale = 1.0 / Math.max(maxVal, vineyardSamples);
+    
+    let obj = '# Vineyard 3D Export\n';
+    obj += '# Generated by Symmetry Set Visualizer\n';
+    obj += `# H0 points: ${h0.length}, H1 points: ${h1.length}\n`;
+    obj += `# Axes: X=Birth, Y=Death, Z=Time\n\n`;
+    
+    // Material file reference
+    obj += 'mtllib vineyard.mtl\n\n';
+    
+    // H0 points (red)
+    obj += '# H0 points (red)\n';
+    obj += 'g H0\n';
+    obj += 'usemtl H0_material\n';
+    for (const pt of h0) {
+        const x = pt.birth * scale;
+        const y = pt.death * scale;
+        const z = pt.centerIdx * scale;
+        obj += `v ${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)}\n`;
+    }
+    
+    // H1 points (blue)
+    obj += '\n# H1 points (blue)\n';
+    obj += 'g H1\n';
+    obj += 'usemtl H1_material\n';
+    for (const pt of h1) {
+        const x = pt.birth * scale;
+        const y = pt.death * scale;
+        const z = pt.centerIdx * scale;
+        obj += `v ${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)}\n`;
+    }
+    
+    // Add point elements (some software needs explicit point definitions)
+    obj += '\n# Point elements\n';
+    const totalPoints = h0.length + h1.length;
+    for (let i = 1; i <= totalPoints; i++) {
+        obj += `p ${i}\n`;
+    }
+    
+    // Create MTL file content
+    let mtl = '# Vineyard Materials\n\n';
+    mtl += 'newmtl H0_material\n';
+    mtl += 'Kd 0.937 0.267 0.267\n';  // Red (#ef4444)
+    mtl += 'Ka 0.1 0.1 0.1\n';
+    mtl += 'd 1.0\n\n';
+    
+    mtl += 'newmtl H1_material\n';
+    mtl += 'Kd 0.231 0.510 0.965\n';  // Blue (#3b82f6)
+    mtl += 'Ka 0.1 0.1 0.1\n';
+    mtl += 'd 1.0\n';
+    
+    // Download OBJ file
+    const objBlob = new Blob([obj], { type: 'text/plain' });
+    const objUrl = URL.createObjectURL(objBlob);
+    downloadDataURL(objUrl, 'vineyard.obj');
+    URL.revokeObjectURL(objUrl);
+    
+    // Download MTL file
+    setTimeout(() => {
+        const mtlBlob = new Blob([mtl], { type: 'text/plain' });
+        const mtlUrl = URL.createObjectURL(mtlBlob);
+        downloadDataURL(mtlUrl, 'vineyard.mtl');
+        URL.revokeObjectURL(mtlUrl);
+    }, 100);
+    
+    exportMenu.classList.remove('active');
+}
+
+function exportVineyardAsPLY() {
+    if (!vineyardData) {
+        alert('No vineyard data to export');
+        return;
+    }
+    
+    const h0 = vineyardData.h0;
+    const h1 = vineyardData.h1;
+    const maxVal = vineyardMaxVal;
+    
+    // Normalize coordinates
+    const scale = 1.0 / Math.max(maxVal, vineyardSamples);
+    
+    const totalPoints = h0.length + h1.length;
+    
+    // PLY header
+    let ply = 'ply\n';
+    ply += 'format ascii 1.0\n';
+    ply += 'comment Vineyard 3D Export\n';
+    ply += 'comment Generated by Symmetry Set Visualizer\n';
+    ply += 'comment Axes: X=Birth, Y=Death, Z=Time\n';
+    ply += `element vertex ${totalPoints}\n`;
+    ply += 'property float x\n';
+    ply += 'property float y\n';
+    ply += 'property float z\n';
+    ply += 'property uchar red\n';
+    ply += 'property uchar green\n';
+    ply += 'property uchar blue\n';
+    ply += 'property uchar alpha\n';
+    ply += 'end_header\n';
+    
+    // H0 points (red: #ef4444 = 239, 68, 68)
+    for (const pt of h0) {
+        const x = pt.birth * scale;
+        const y = pt.death * scale;
+        const z = pt.centerIdx * scale;
+        ply += `${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)} 239 68 68 255\n`;
+    }
+    
+    // H1 points (blue: #3b82f6 = 59, 130, 246)
+    for (const pt of h1) {
+        const x = pt.birth * scale;
+        const y = pt.death * scale;
+        const z = pt.centerIdx * scale;
+        ply += `${x.toFixed(6)} ${y.toFixed(6)} ${z.toFixed(6)} 59 130 246 255\n`;
+    }
+    
+    // Download PLY file
+    const blob = new Blob([ply], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    downloadDataURL(url, 'vineyard.ply');
+    URL.revokeObjectURL(url);
+    
+    exportMenu.classList.remove('active');
+}
+
 function exportAllAsPNG() {
     exportCanvasAsPNG();
     
@@ -3388,6 +4199,8 @@ document.getElementById('exportVineyardPDF').addEventListener('click', () => {
     if (!vineyardData) { alert('No vineyard data to export'); return; }
     exportPlotlyAsPDF('vineyardPlot', 'vineyard_3d.pdf');
 });
+document.getElementById('exportVineyardOBJ').addEventListener('click', exportVineyardAsOBJ);
+document.getElementById('exportVineyardPLY').addEventListener('click', exportVineyardAsPLY);
 document.getElementById('exportPD').addEventListener('click', () => {
     if (!vineyardData) { alert('No persistence data to export'); return; }
     exportPlotlyAsPNG('persistencePlot', 'persistence_diagram.png');

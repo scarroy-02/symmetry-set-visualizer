@@ -213,6 +213,7 @@
         .btn-secondary:hover { background: rgba(128,128,128,0.25); }
         
         .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .btn-red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
         .btn-purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); color: white; }
         .btn-purple.active { background: linear-gradient(135deg, #dc2626, #ef4444); }
         
@@ -500,6 +501,24 @@
             </div>
         </div>
         
+        <!-- Symmetry Set Animation -->
+        <div class="section" id="ssAnimSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: var(--accent-red);"></span>
+                    SS Animation
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div class="anim-row">
+                    <button class="btn btn-red" id="ssPlayBtn" style="width: 44px; background: linear-gradient(135deg, #ef4444, #dc2626);">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="ssStopBtn">◼</button>
+                    <input type="range" id="ssAnimSlider" min="0" max="1000" value="0" style="accent-color: #ef4444;">
+                </div>
+            </div>
+        </div>
+
         <!-- Vineyard -->
         <div class="section" id="vineyardSection">
             <div class="section-header">
@@ -747,6 +766,9 @@ let customLoopHoverIdx = -1;
 
 let focalAnimPlaying = false;
 let focalAnimIdx = 0;
+
+let ssAnimPlaying = false;
+let ssAnimIdx = 0;
 
 let radiusSweepData = null;
 let radiusSweepPlaying = false;
@@ -1026,7 +1048,7 @@ function computeSymmetrySet(data, resolutionLimit) {
                             const cx = px + nx*lam, cy = py + ny*lam;
                             const r1 = Math.abs(lam);
                             const r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
-                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy});
+                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy, i1: activeIndices[i], i2: activeIndices[j], r: (r1+r2)/2});
                         }
                     }
                 }
@@ -1044,7 +1066,7 @@ function computeSymmetrySet(data, resolutionLimit) {
                             const cx = px + nx*lam, cy = py + ny*lam;
                             const r1 = Math.abs(lam);
                             const r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
-                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy});
+                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy, i1: activeIndices[i], i2: activeIndices[j], r: (r1+r2)/2});
                         }
                     }
                 }
@@ -1538,7 +1560,7 @@ function loadPreset(type) {
         fixedCurveMode = true;
         cachedCurveData = generateOffsetSpiralCurveData();
         curves = [[]];
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
         view.scale = 40;
         view.x = 50;
         view.y = 50;
@@ -2112,7 +2134,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     activeCurveIdx = 0;
     selectedInfo = null;
     cachedCurveData = null;
-    cachedSSData = null;
+    cachedSSData = null; sortedSSIndices = null;
     vineyardCenter = null;
     vineyardData = null;
     vineyardCenters = [];
@@ -2250,7 +2272,7 @@ function loadCSVCurve(points) {
     }
     
     // Compute symmetry set
-    cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+    cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
     
     // Auto-fit view to data
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -2546,6 +2568,81 @@ document.getElementById('focalAnimSlider').addEventListener('input', e => {
     if (!cachedCurveData || cachedCurveData.length === 0) return;
     const pct = parseFloat(e.target.value) / 1000;
     focalAnimIdx = Math.floor(pct * (cachedCurveData.length - 1));
+    draw();
+});
+
+// ========== Symmetry Set Animation ==========
+function stopSSAnim() {
+    ssAnimPlaying = false;
+    ssAnimIdx = 0;
+    document.getElementById('ssPlayBtn').innerText = '▶';
+    document.getElementById('ssPlayBtn').style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+    document.getElementById('ssAnimSlider').value = 0;
+    draw();
+}
+
+let sortedSSIndices = null;
+
+function buildSortedSSIndices() {
+    if (!cachedSSData || cachedSSData.length === 0) { sortedSSIndices = null; return; }
+    // Nearest-neighbor traversal for smooth path through branches/intersections
+    const n = cachedSSData.length;
+    const used = new Uint8Array(n);
+    const order = new Array(n);
+    // Start from index 0
+    order[0] = 0;
+    used[0] = 1;
+    for (let k = 1; k < n; k++) {
+        const prev = order[k - 1];
+        const px = cachedSSData[prev].x, py = cachedSSData[prev].y;
+        let bestDist = Infinity, bestIdx = 0;
+        for (let j = 0; j < n; j++) {
+            if (used[j]) continue;
+            const dx = cachedSSData[j].x - px, dy = cachedSSData[j].y - py;
+            const d = dx * dx + dy * dy;
+            if (d < bestDist) { bestDist = d; bestIdx = j; }
+        }
+        order[k] = bestIdx;
+        used[bestIdx] = 1;
+    }
+    sortedSSIndices = order;
+}
+
+function ssAnimLoop() {
+    if (!ssAnimPlaying || !cachedSSData || cachedSSData.length === 0) return;
+    if (!sortedSSIndices || sortedSSIndices.length !== cachedSSData.length) buildSortedSSIndices();
+
+    ssAnimIdx = (ssAnimIdx + 5) % sortedSSIndices.length;
+    const pct = ssAnimIdx / sortedSSIndices.length;
+    document.getElementById('ssAnimSlider').value = Math.floor(pct * 1000);
+
+    draw();
+    requestAnimationFrame(ssAnimLoop);
+}
+
+document.getElementById('ssPlayBtn').addEventListener('click', () => {
+    if (!cachedSSData || cachedSSData.length === 0) return;
+
+    ssAnimPlaying = !ssAnimPlaying;
+    const btn = document.getElementById('ssPlayBtn');
+
+    if (ssAnimPlaying) {
+        btn.innerText = '⏸';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        ssAnimLoop();
+    } else {
+        btn.innerText = '▶';
+        btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+    }
+});
+
+document.getElementById('ssStopBtn').addEventListener('click', stopSSAnim);
+
+document.getElementById('ssAnimSlider').addEventListener('input', e => {
+    if (!cachedSSData || cachedSSData.length === 0) return;
+    if (!sortedSSIndices) buildSortedSSIndices();
+    const pct = parseFloat(e.target.value) / 1000;
+    ssAnimIdx = Math.floor(pct * (sortedSSIndices.length - 1));
     draw();
 });
 
@@ -2958,7 +3055,7 @@ function triggerComputation(fullCompute = true) {
     
     if (!fullCompute) {
         cachedCurveData = computeSplineData();
-        cachedSSData = null;
+        cachedSSData = null; sortedSSIndices = null;
         draw();
         return;
     }
@@ -2967,7 +3064,7 @@ function triggerComputation(fullCompute = true) {
     
     computeTimer = setTimeout(() => {
         cachedCurveData = computeSplineData();
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution);
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
         updateStatus(`SS: ${cachedSSData.length} pts`);
         draw();
     }, 10);
@@ -3055,8 +3152,8 @@ function draw() {
             const pt = cachedCurveData[focalAnimIdx];
             
             ctx.save();
-            ctx.strokeStyle = '#fcd34d';
-            ctx.fillStyle = '#fcd34d';
+            ctx.strokeStyle = '#046908';
+            ctx.fillStyle = '#046908';
             ctx.lineWidth = 2 / view.scale;
             
             const s = 10 / view.scale;
@@ -3080,13 +3177,65 @@ function draw() {
                     ctx.lineTo(ex, ey);
                     ctx.stroke();
                     
-                    ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
+                    ctx.strokeStyle = 'rgba(4, 105, 8, 0.4)';
                     ctx.lineWidth = 1.5 / view.scale;
                     ctx.beginPath();
                     ctx.arc(ex, ey, Math.abs(R), 0, Math.PI * 2);
                     ctx.stroke();
                 }
             }
+            ctx.restore();
+        }
+
+        // Symmetry Set animation
+        if ((ssAnimPlaying || ssAnimIdx > 0) && cachedSSData && sortedSSIndices && ssAnimIdx < sortedSSIndices.length && cachedCurveData) {
+            const sp = cachedSSData[sortedSSIndices[ssAnimIdx]];
+
+            ctx.save();
+            ctx.fillStyle = '#b91c1c';
+            ctx.strokeStyle = '#b91c1c';
+            ctx.lineWidth = 2 / view.scale;
+
+            const s = 10 / view.scale;
+
+            // Draw SS center point
+            ctx.beginPath();
+            ctx.arc(sp.x, sp.y, s/2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw the two generating curve points and connecting lines
+            if (sp.i1 != null && sp.i2 != null && sp.i1 < cachedCurveData.length && sp.i2 < cachedCurveData.length) {
+                const p1 = cachedCurveData[sp.i1];
+                const p2 = cachedCurveData[sp.i2];
+
+                // Curve contact points
+                ctx.beginPath();
+                ctx.arc(p1.p.x, p1.p.y, s/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(p2.p.x, p2.p.y, s/2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Lines from SS center to curve points
+                ctx.beginPath();
+                ctx.moveTo(sp.x, sp.y);
+                ctx.lineTo(p1.p.x, p1.p.y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(sp.x, sp.y);
+                ctx.lineTo(p2.p.x, p2.p.y);
+                ctx.stroke();
+
+                // Bitangent circle
+                if (sp.r != null && sp.r < R_MAX) {
+                    ctx.strokeStyle = 'rgba(185, 28, 28, 0.4)';
+                    ctx.lineWidth = 1.5 / view.scale;
+                    ctx.beginPath();
+                    ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
             ctx.restore();
         }
     }

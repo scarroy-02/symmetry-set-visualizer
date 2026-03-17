@@ -3154,31 +3154,31 @@ function draw() {
             ctx.save();
             ctx.strokeStyle = '#046908';
             ctx.fillStyle = '#046908';
-            ctx.lineWidth = 2 / view.scale;
-            
-            const s = 10 / view.scale;
+            ctx.lineWidth = 4 / view.scale;
+
+            const s = 18 / view.scale;
             ctx.beginPath();
             ctx.arc(pt.p.x, pt.p.y, s/2, 0, Math.PI * 2);
             ctx.fill();
-            
+
             const k = pt.curvature;
             if (Math.abs(k) > 1e-8) {
                 const R = 1.0 / k;
                 if (Math.abs(R) < R_MAX) {
                     const ex = pt.p.x + pt.N.x * R;
                     const ey = pt.p.y + pt.N.y * R;
-                    
+
                     ctx.beginPath();
                     ctx.arc(ex, ey, s/2, 0, Math.PI * 2);
                     ctx.fill();
-                    
+
                     ctx.beginPath();
                     ctx.moveTo(pt.p.x, pt.p.y);
                     ctx.lineTo(ex, ey);
                     ctx.stroke();
-                    
+
                     ctx.strokeStyle = 'rgba(4, 105, 8, 0.4)';
-                    ctx.lineWidth = 1.5 / view.scale;
+                    ctx.lineWidth = 3 / view.scale;
                     ctx.beginPath();
                     ctx.arc(ex, ey, Math.abs(R), 0, Math.PI * 2);
                     ctx.stroke();
@@ -3194,9 +3194,9 @@ function draw() {
             ctx.save();
             ctx.fillStyle = '#b91c1c';
             ctx.strokeStyle = '#b91c1c';
-            ctx.lineWidth = 2 / view.scale;
+            ctx.lineWidth = 4 / view.scale;
 
-            const s = 10 / view.scale;
+            const s = 18 / view.scale;
 
             // Draw SS center point
             ctx.beginPath();
@@ -3229,7 +3229,7 @@ function draw() {
                 // Bitangent circle
                 if (sp.r != null && sp.r < R_MAX) {
                     ctx.strokeStyle = 'rgba(185, 28, 28, 0.4)';
-                    ctx.lineWidth = 1.5 / view.scale;
+                    ctx.lineWidth = 3 / view.scale;
                     ctx.beginPath();
                     ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
                     ctx.stroke();

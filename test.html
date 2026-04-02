@@ -437,6 +437,7 @@
                 <option value="bean">Kidney Bean</option>
                 <option value="cardioid">Cardioid</option>
                 <option value="offsetSpiral">Offset Spiral</option>
+                <option value="deformedEllipse">Deformed Ellipse</option>
             </select>
         </div>
         
@@ -462,9 +463,9 @@
         
         <div class="toolbar-section">
             <button class="btn btn-primary" id="computeBtn">Compute SS</button>
-            <span class="toolbar-label">Res</span>
-            <input type="range" id="resolution" min="500" max="60000" step="500" value="5000" style="width: 50px; height: 3px;">
-            <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
+            <span class="toolbar-label" style="font-size: 8px; color: #888;">Low</span>
+            <input type="range" id="resolution" min="1" max="5" step="1" value="1" style="width: 50px; height: 3px;">
+            <span class="toolbar-label" style="font-size: 8px; color: #888;">High</span>
         </div>
         
         <div class="toolbar-section" style="position: relative;">
@@ -730,7 +731,7 @@ let activeCurveIdx = 0;
 
 let cachedCurveData = null;
 let cachedSSData = null;
-let ssResolution = 5000;
+let ssStepSize = 5;
 
 let dragInfo = null;
 let hoverInfo = null;
@@ -975,11 +976,11 @@ function computeSplineData() {
 }
 
 // ========== Symmetry Set ==========
-function computeSymmetrySet(data, resolutionLimit) {
+function computeSymmetrySet(data, stepSize) {
     if (!data || data.length === 0) return [];
-    
+
     const centers = [];
-    const step = Math.max(1, Math.floor(data.length / resolutionLimit));
+    const step = Math.max(1, stepSize);
     const activeIndices = [];
     for (let i = 0; i < data.length; i += step) activeIndices.push(i);
     
@@ -1560,7 +1561,7 @@ function loadPreset(type) {
         fixedCurveMode = true;
         cachedCurveData = generateOffsetSpiralCurveData();
         curves = [[]];
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
         view.scale = 40;
         view.x = 50;
         view.y = 50;
@@ -1569,6 +1570,22 @@ function loadPreset(type) {
         draw();
         document.getElementById('presetSelect').value = "";
         return;
+    } else if (type === 'deformedEllipse') {
+        const da = -0.55, db = 0.6, yS = 1.8, sc = 3.0;
+        function defEllPt(t) {
+            const sf = 1 + da * Math.exp(-20 * (t - 2) * (t - 2)) + db * Math.exp(-70 * (t - 2.4) * (t - 2.4));
+            return new Point(sc * Math.cos(t) * sf, sc * yS * Math.sin(t) * sf);
+        }
+        const tVals = [];
+        // Sparse outside deformation
+        for (let t = -Math.PI; t < 1.3; t += 0.45) tVals.push(t);
+        // Dense in deformation region
+        for (let t = 1.54; t <= 2.9; t += 0.08) tVals.push(t);
+        // Sparse after deformation
+        for (let t = 3.0; t < Math.PI; t += 0.45) tVals.push(t);
+        for (let i = 0; i < tVals.length; i++) {
+            curves[0].push(defEllPt(tVals[i]));
+        }
     }
     
     updateUI();
@@ -2272,7 +2289,7 @@ function loadCSVCurve(points) {
     }
     
     // Compute symmetry set
-    cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
+    cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
     
     // Auto-fit view to data
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -2300,8 +2317,7 @@ function loadCSVCurve(points) {
 }
 
 document.getElementById('resolution').addEventListener('input', e => {
-    ssResolution = parseInt(e.target.value);
-    document.getElementById('resVal').innerText = ssResolution;
+    ssStepSize = 6 - parseInt(e.target.value);
 });
 
 document.getElementById('vineyardModeBtn').addEventListener('click', () => {
@@ -3064,7 +3080,7 @@ function triggerComputation(fullCompute = true) {
     
     computeTimer = setTimeout(() => {
         cachedCurveData = computeSplineData();
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
         updateStatus(`SS: ${cachedSSData.length} pts`);
         draw();
     }, 10);

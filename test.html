@@ -13,10 +13,10 @@
         :root {
             --bg-dark: #0a0a0f;
             --panel-bg: rgba(15, 15, 25, 0.98);
-            --accent-blue: #4f8cff;
-            --accent-green: #22c55e;
-            --accent-red: #ef4444;
-            --accent-purple: #a855f7;
+            --accent-curve: #e0e0e0;
+            --accent-focal: #a855f7;
+            --accent-ss: #60a5fa;
+            --accent-vineyard: #991b1b;
             --accent-amber: #f59e0b;
             --text-primary: #e0e0e0;
             --text-secondary: rgba(255,255,255,0.7);
@@ -200,7 +200,7 @@
         }
         
         .btn-primary { 
-            background: linear-gradient(135deg, var(--accent-blue), #3b7aeb);
+            background: linear-gradient(135deg, var(--accent-curve), #b0b0b0);
             color: white;
         }
         .btn-primary:hover { filter: brightness(1.1); }
@@ -212,10 +212,10 @@
         }
         .btn-secondary:hover { background: rgba(128,128,128,0.25); }
         
-        .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
-        .btn-red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
-        .btn-purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); color: white; }
-        .btn-purple.active { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .btn-green { background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; }
+        .btn-red { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; }
+        .btn-purple { background: linear-gradient(135deg, #991b1b, #881337); color: white; }
+        .btn-purple.active { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
         
         .btn-group { display: flex; gap: 3px; }
         .btn-group .btn { flex: 1; }
@@ -239,7 +239,7 @@
             cursor: pointer;
             font-family: inherit;
         }
-        select:focus { outline: none; border-color: var(--accent-blue); }
+        select:focus { outline: none; border-color: var(--accent-curve); }
         
         .slider-row {
             display: flex;
@@ -258,12 +258,12 @@
             min-width: 60px;
             height: 3px;
             cursor: pointer;
-            accent-color: var(--accent-blue);
+            accent-color: var(--accent-curve);
         }
         .slider-row .val {
             font-family: 'JetBrains Mono', monospace;
             font-size: 9px;
-            color: var(--accent-blue);
+            color: var(--accent-curve);
             min-width: 26px;
             flex-shrink: 0;
             text-align: right;
@@ -282,7 +282,7 @@
             width: 12px;
             height: 12px;
             cursor: pointer;
-            accent-color: var(--accent-blue);
+            accent-color: var(--accent-curve);
         }
         
         /* Mode Badge */
@@ -296,8 +296,8 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .mode-draw { background: var(--accent-blue); }
-        .mode-vineyard { background: var(--accent-purple); }
+        .mode-draw { background: var(--accent-curve); }
+        .mode-vineyard { background: var(--accent-vineyard); }
         
         /* Floating Plot Panels */
         .float-panel {
@@ -488,7 +488,7 @@
         <div class="section" id="focalSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: var(--accent-green);"></span>
+                    <span class="section-icon" style="background: var(--accent-focal);"></span>
                     Focal Animation
                 </span>
                 <span class="section-toggle">▼</span>
@@ -497,7 +497,7 @@
                 <div class="anim-row">
                     <button class="btn btn-green" id="focalPlayBtn" style="width: 44px;">▶</button>
                     <button class="btn btn-secondary btn-icon" id="focalStopBtn">◼</button>
-                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
+                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
                 </div>
             </div>
         </div>
@@ -506,16 +506,16 @@
         <div class="section" id="ssAnimSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: var(--accent-red);"></span>
+                    <span class="section-icon" style="background: var(--accent-ss);"></span>
                     SS Animation
                 </span>
                 <span class="section-toggle">▼</span>
             </div>
             <div class="section-content">
                 <div class="anim-row">
-                    <button class="btn btn-red" id="ssPlayBtn" style="width: 44px; background: linear-gradient(135deg, #ef4444, #dc2626);">▶</button>
+                    <button class="btn btn-red" id="ssPlayBtn" style="width: 44px; background: linear-gradient(135deg, #60a5fa, #3b82f6);">▶</button>
                     <button class="btn btn-secondary btn-icon" id="ssStopBtn">◼</button>
-                    <input type="range" id="ssAnimSlider" min="0" max="1000" value="0" style="accent-color: #ef4444;">
+                    <input type="range" id="ssAnimSlider" min="0" max="1000" value="0" style="accent-color: #60a5fa;">
                 </div>
             </div>
         </div>
@@ -524,7 +524,7 @@
         <div class="section" id="vineyardSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: var(--accent-purple);"></span>
+                    <span class="section-icon" style="background: var(--accent-vineyard);"></span>
                     Vineyard
                 </span>
                 <span class="section-toggle">▼</span>
@@ -551,14 +551,14 @@
                 </div>
                 <div class="slider-row">
                     <label>Samples</label>
-                    <input type="range" id="vineyardSamples" min="8" max="600" step="4" value="64" style="accent-color: #a855f7;">
+                    <input type="range" id="vineyardSamples" min="8" max="600" step="4" value="64" style="accent-color: #991b1b;">
                     <span class="val" id="samplesVal">64</span>
                 </div>
                 <button class="btn btn-primary" id="computeVineyardBtn" style="width: 100%; margin: 5px 0;">Compute Vineyard</button>
                 <div class="anim-row">
                     <button class="btn btn-secondary" id="playVineyardBtn" style="width: 44px;">▶</button>
                     <button class="btn btn-secondary btn-icon" id="stopVineyardBtn">◼</button>
-                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
+                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #991b1b;">
                 </div>
             </div>
         </div>
@@ -567,7 +567,7 @@
         <div class="section" id="sweepSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: #c084fc;"></span>
+                    <span class="section-icon" style="background: #9f1239;"></span>
                     Radius Sweep
                 </span>
                 <span class="section-toggle">▼</span>
@@ -587,16 +587,16 @@
                 </div>
                 <div class="slider-row">
                     <label>Steps</label>
-                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #c084fc;">
+                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #9f1239;">
                     <span class="val" id="radiusStepsVal">30</span>
                 </div>
-                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #c084fc, #a855f7); color: white;">Compute Sweep</button>
+                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #9f1239, #991b1b); color: white;">Compute Sweep</button>
                 <div class="anim-row">
                     <button class="btn btn-secondary" id="playRadiusSweepBtn" style="width: 44px;">▶</button>
                     <button class="btn btn-secondary btn-icon" id="stopRadiusSweepBtn">◼</button>
-                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
+                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #9f1239;">
                 </div>
-                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #c084fc; margin-top: 2px;" id="currentSweepRadius">R: --</div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #9f1239; margin-top: 2px;" id="currentSweepRadius">R: --</div>
             </div>
         </div>
         
@@ -614,7 +614,7 @@
         <!-- Floating Vineyard Plot -->
         <div class="float-panel" id="vineyardPanel">
             <div class="float-panel-header">
-                <span class="float-panel-title" style="color: var(--accent-purple);">Vineyard 3D</span>
+                <span class="float-panel-title" style="color: var(--accent-vineyard);">Vineyard 3D</span>
                 <div style="display: flex; gap: 3px;">
                     <button class="btn btn-secondary" id="expandVineyardBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
                     <button class="btn btn-secondary" id="closeVineyardBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
@@ -628,7 +628,7 @@
         <!-- Floating Persistence Diagram -->
         <div class="float-panel" id="persistencePanel">
             <div class="float-panel-header">
-                <span class="float-panel-title" style="color: var(--accent-red);">Persistence Diagram</span>
+                <span class="float-panel-title" style="color: var(--accent-ss);">Persistence Diagram</span>
                 <div style="display: flex; gap: 3px;">
                     <button class="btn btn-secondary" id="expandPDBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
                     <button class="btn btn-secondary" id="closePDBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
@@ -675,10 +675,10 @@
     <div class="statusbar">
         <span id="status">Click to add points or load a preset</span>
         <div class="legend">
-            <div class="legend-item"><span class="dot" style="background: var(--accent-blue);"></span> Curve</div>
-            <div class="legend-item"><span class="dot" style="background: var(--accent-green);"></span> Focal</div>
-            <div class="legend-item"><span class="dot" style="background: var(--accent-red);"></span> SS</div>
-            <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-curve);"></span> Curve</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-focal);"></span> Focal</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-ss);"></span> SS</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-vineyard);"></span> Vineyard</div>
         </div>
     </div>
 </div>
@@ -1225,7 +1225,7 @@ function updateVineyardPlot() {
             opacity: 0.7
         }
     };
-    
+
     // Relative H0 - orange squares
     const traceRel0 = {
         x: rel0.map(d => d.birth),
@@ -1241,7 +1241,7 @@ function updateVineyardPlot() {
             symbol: 'square'
         }
     };
-    
+
     // Extended H0 - yellow diamonds
     const traceExt0 = {
         x: ext0.map(d => d.birth),
@@ -1257,7 +1257,7 @@ function updateVineyardPlot() {
             symbol: 'diamond'
         }
     };
-    
+
     // Ordinary H1 - solid blue
     const traceOrd1 = {
         x: ord1.map(d => d.birth),
@@ -1272,7 +1272,7 @@ function updateVineyardPlot() {
             opacity: 0.7
         }
     };
-    
+
     // Relative H1 - cyan squares
     const traceRel1 = {
         x: rel1.map(d => d.birth),
@@ -1288,7 +1288,7 @@ function updateVineyardPlot() {
             symbol: 'square'
         }
     };
-    
+
     // Extended H1 - purple diamonds
     const traceExt1 = {
         x: ext1.map(d => d.birth),
@@ -1304,7 +1304,7 @@ function updateVineyardPlot() {
             symbol: 'diamond'
         }
     };
-    
+
     const currentZ = vineyardAnimIdx;
     const currentH0 = h0.filter(d => d.centerIdx === currentZ);
     const currentH1 = h1.filter(d => d.centerIdx === currentZ);
@@ -1404,7 +1404,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Ord H₀',
         marker: { size: 8, color: '#ef4444', symbol: 'circle' }
     };
-    
+
     // Relative H0 - orange squares
     const traceRel0 = {
         x: rel0.map(d => d.birth),
@@ -1414,7 +1414,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Rel H₀',
         marker: { size: 10, color: '#f97316', symbol: 'square' }
     };
-    
+
     // Extended H0 - yellow diamonds
     const traceExt0 = {
         x: ext0.map(d => d.birth),
@@ -1424,7 +1424,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Ext H₀',
         marker: { size: 12, color: '#eab308', symbol: 'diamond' }
     };
-    
+
     // Ordinary H1 - blue triangles
     const traceOrd1 = {
         x: ord1.map(d => d.birth),
@@ -1434,7 +1434,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Ord H₁',
         marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
     };
-    
+
     // Relative H1 - cyan squares
     const traceRel1 = {
         x: rel1.map(d => d.birth),
@@ -1444,7 +1444,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Rel H₁',
         marker: { size: 10, color: '#06b6d4', symbol: 'square' }
     };
-    
+
     // Extended H1 - purple diamonds
     const traceExt1 = {
         x: ext1.map(d => d.birth),
@@ -2509,7 +2509,7 @@ function updateLoopStatus() {
         status.style.color = '#f59e0b';
     } else {
         status.innerText = `${customLoopPoints.length} points ✓`;
-        status.style.color = '#22c55e';
+        status.style.color = '#a855f7';
     }
 }
 
@@ -2629,7 +2629,7 @@ function stopFocalAnim() {
     focalAnimPlaying = false;
     focalAnimIdx = 0;
     document.getElementById('focalPlayBtn').innerText = '▶';
-    document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+    document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #a855f7, #7c3aed)';
     document.getElementById('focalAnimSlider').value = 0;
     draw();
 }
@@ -2653,11 +2653,11 @@ document.getElementById('focalPlayBtn').addEventListener('click', () => {
     
     if (focalAnimPlaying) {
         btn.innerText = '⏸';
-        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        btn.style.background = 'linear-gradient(135deg, #3b82f6, #60a5fa)';
         focalAnimLoop();
     } else {
         btn.innerText = '▶';
-        btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+        btn.style.background = 'linear-gradient(135deg, #a855f7, #7c3aed)';
     }
 });
 
@@ -2675,7 +2675,7 @@ function stopSSAnim() {
     ssAnimPlaying = false;
     ssAnimIdx = 0;
     document.getElementById('ssPlayBtn').innerText = '▶';
-    document.getElementById('ssPlayBtn').style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+    document.getElementById('ssPlayBtn').style.background = 'linear-gradient(135deg, #60a5fa, #3b82f6)';
     document.getElementById('ssAnimSlider').value = 0;
     draw();
 }
@@ -2727,11 +2727,11 @@ document.getElementById('ssPlayBtn').addEventListener('click', () => {
 
     if (ssAnimPlaying) {
         btn.innerText = '⏸';
-        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        btn.style.background = 'linear-gradient(135deg, #3b82f6, #60a5fa)';
         ssAnimLoop();
     } else {
         btn.innerText = '▶';
-        btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        btn.style.background = 'linear-gradient(135deg, #60a5fa, #3b82f6)';
     }
 });
 
@@ -2905,7 +2905,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ord H₀',
         marker: { size: 3, color: '#ef4444', opacity: 0.7 }
     };
-    
+
     const traceRel0 = {
         x: rel0.map(d => d.birth),
         y: rel0.map(d => d.death),
@@ -2915,7 +2915,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Rel H₀',
         marker: { size: 2.1, color: '#f97316', opacity: 0.7, symbol: 'square' }
     };
-    
+
     const traceExt0 = {
         x: ext0.map(d => d.birth),
         y: ext0.map(d => d.death),
@@ -2925,7 +2925,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ext H₀',
         marker: { size: 2.1, color: '#eab308', opacity: 0.7, symbol: 'diamond' }
     };
-    
+
     const traceOrd1 = {
         x: ord1.map(d => d.birth),
         y: ord1.map(d => d.death),
@@ -2935,7 +2935,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ord H₁',
         marker: { size: 3, color: '#3b82f6', opacity: 0.7 }
     };
-    
+
     const traceRel1 = {
         x: rel1.map(d => d.birth),
         y: rel1.map(d => d.death),
@@ -2945,7 +2945,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Rel H₁',
         marker: { size: 2.1, color: '#06b6d4', opacity: 0.7, symbol: 'square' }
     };
-    
+
     const traceExt1 = {
         x: ext1.map(d => d.birth),
         y: ext1.map(d => d.death),
@@ -2955,7 +2955,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ext H₁',
         marker: { size: 2.1, color: '#a855f7', opacity: 0.7, symbol: 'diamond' }
     };
-    
+
     const diagPoints = {
         x: [0, maxVal, maxVal, 0],
         y: [0, maxVal, maxVal, 0],
@@ -2983,7 +2983,7 @@ function updateRadiusSweepVineyardPlot() {
         plot_bgcolor: 'rgba(0,0,0,0)',
         margin: { l: 0, r: 0, t: 20, b: 0 },
         showlegend: false,
-        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
+        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#9f1239', size: 11 }, x: 0.5 }
     };
     
     Plotly.newPlot('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
@@ -3007,7 +3007,7 @@ function updateRadiusSweepPersistenceDiagram() {
         name: 'H₀',
         marker: { size: 6, color: '#ef4444', symbol: 'circle', opacity: 0.6 }
     };
-    
+
     const traceH1 = {
         x: h1.map(d => d.birth),
         y: h1.map(d => d.death),
@@ -3115,7 +3115,7 @@ document.getElementById('playRadiusSweepBtn').addEventListener('click', () => {
     
     if (radiusSweepPlaying) {
         btn.innerText = '⏸';
-        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        btn.style.background = 'linear-gradient(135deg, #3b82f6, #60a5fa)';
         radiusSweepAnimLoop();
     } else {
         btn.innerText = '▶';
@@ -3174,10 +3174,10 @@ function draw() {
     // Theme-aware colors
     const bgColor = isDarkTheme ? '#0a0a0f' : '#f5f5f7';
     const gridColor = isDarkTheme ? '#1a1a2e' : '#e0e0e0';
-    const curveColor = isDarkTheme ? '#4f8cff' : '#2563eb';
-    const focalColor = isDarkTheme ? '#22c55e' : '#16a34a';
-    const ssColor = isDarkTheme ? '#ef4444' : '#dc2626';
-    const vineyardColor = isDarkTheme ? '#a855f7' : '#7c3aed';
+    const curveColor = isDarkTheme ? '#e0e0e0' : '#171717';
+    const focalColor = isDarkTheme ? '#a855f7' : '#7c3aed';
+    const ssColor = isDarkTheme ? '#60a5fa' : '#3b82f6';
+    const vineyardColor = isDarkTheme ? '#991b1b' : '#7f1d1d';
     const controlActive = isDarkTheme ? '#fff' : '#1a1a1a';
     const controlInactive = isDarkTheme ? '#666' : '#888';
     
@@ -3346,7 +3346,7 @@ function draw() {
             if (customLoopPoints.length >= 3) {
                 const loopSamples = sampleCustomLoop(200);
                 if (loopSamples.length > 0) {
-                    ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+                    ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
                     ctx.lineWidth = 2 / view.scale;
                     
                     ctx.beginPath();
@@ -3359,7 +3359,7 @@ function draw() {
                 }
             } else if (customLoopPoints.length === 2) {
                 // Draw line between 2 points
-                ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
+                ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.5)' : 'rgba(127, 29, 29, 0.6)';
                 ctx.lineWidth = 1.5 / view.scale;
                 ctx.setLineDash([5 / view.scale, 5 / view.scale]);
                 ctx.beginPath();
@@ -3390,7 +3390,7 @@ function draw() {
                 const statusY = canvas.height / 2 - firstPt.y * view.scale + view.y - 15;
                 ctx.font = '10px JetBrains Mono, monospace';
                 const isReady = customLoopPoints.length >= 3;
-                ctx.fillStyle = isReady ? '#22c55e' : '#f59e0b';
+                ctx.fillStyle = isReady ? '#a855f7' : '#f59e0b';
                 ctx.fillText(isReady ? `Loop (${customLoopPoints.length} pts)` : `${customLoopPoints.length}/3 pts`, statusX, statusY);
                 ctx.restore();
             }
@@ -3404,7 +3404,7 @@ function draw() {
             ctx.fill();
             
             // Main vineyard radius - purple dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+            ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
             ctx.lineWidth = 2 / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.beginPath();
@@ -3418,7 +3418,7 @@ function draw() {
             const rLabelX = (vineyardCenter.x + vineyardRadius) * view.scale + view.x + canvas.width / 2;
             const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale + view.y;
             ctx.font = '10px JetBrains Mono, monospace';
-            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.9)' : 'rgba(124, 58, 237, 1)';
+            ctx.fillStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.9)' : 'rgba(127, 29, 29, 1)';
             ctx.fillText(`R=${vineyardRadius.toFixed(2)}`, rLabelX + 5, rLabelY);
             ctx.restore();
             
@@ -3465,7 +3465,7 @@ function draw() {
         }
         
         if (vineyardCenters.length > 0) {
-            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.4)' : 'rgba(124, 58, 237, 0.5)';
+            ctx.fillStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.4)' : 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (let i = 0; i < vineyardCenters.length; i++) {
                 const c = vineyardCenters[i];
@@ -3540,7 +3540,7 @@ function draw() {
                     
                     // Draw Extended H1 (purple, thick)
                     for (const pt of ext1) {
-                        drawBDCircle(pt, 'rgba(168, 85, 247, 0.9)', 'rgba(168, 85, 247, 0.6)', 3, 'E');
+                        drawBDCircle(pt, 'rgba(153, 27, 27, 0.9)', 'rgba(153, 27, 27, 0.6)', 3, 'E');
                     }
                 }
                 
@@ -3656,7 +3656,7 @@ function exportCanvasAsPNG() {
     if (cachedCurveData && cachedCurveData.length > 0) {
         // Focal set - darker green for visibility
         if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#16a34a';
+            exportCtx.fillStyle = '#7c3aed';
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -3673,7 +3673,7 @@ function exportCanvasAsPNG() {
 
         // Symmetry set - darker red
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#dc2626';
+            exportCtx.fillStyle = '#3b82f6';
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
@@ -3682,7 +3682,7 @@ function exportCanvasAsPNG() {
 
         // Curve - darker blue
         if (document.getElementById('showCurve').checked) {
-            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.strokeStyle = '#171717';
             exportCtx.lineWidth = 2.5 / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
@@ -3703,12 +3703,12 @@ function exportCanvasAsPNG() {
     // Vineyard circle - darker purple
     if (document.getElementById('showVineyardCircle').checked) {
         if (vineyardCenter) {
-            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.fillStyle = '#7f1d1d';
             exportCtx.beginPath();
             exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             exportCtx.fill();
             
-            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.strokeStyle = 'rgba(127, 29, 29, 0.6)';
             exportCtx.lineWidth = 1.5 / view.scale;
             exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
             exportCtx.beginPath();
@@ -3718,7 +3718,7 @@ function exportCanvasAsPNG() {
         }
         
         if (vineyardCenters.length > 0) {
-            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            exportCtx.fillStyle = 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
@@ -3780,7 +3780,7 @@ function exportCanvasAsSVG() {
                     if (Math.abs(R) < R_MAX) {
                         const ex = pt.p.x + pt.N.x * R;
                         const ey = pt.p.y + pt.N.y * R;
-                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#16a34a"/>`;
+                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#7c3aed"/>`;
                     }
                 }
             }
@@ -3790,7 +3790,7 @@ function exportCanvasAsSVG() {
         if (document.getElementById('showSS').checked && cachedSSData) {
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
-                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#dc2626"/>`;
+                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#3b82f6"/>`;
             }
         }
 
@@ -3802,7 +3802,7 @@ function exportCanvasAsSVG() {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
                     if (pathData) {
-                        svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                        svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5/view.scale}" fill="none"/>`;
                     }
                     pathData = `M ${pt.p.x} ${pt.p.y}`;
                     currentId = pt.curveId;
@@ -3811,21 +3811,21 @@ function exportCanvasAsSVG() {
                 }
             }
             if (pathData) {
-                svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5/view.scale}" fill="none"/>`;
             }
         }
     }
 
     // Vineyard - darker purple
     if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
-        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${6/view.scale}" fill="#7c3aed"/>`;
-        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${vineyardRadius}" stroke="rgba(124,58,237,0.6)" stroke-width="${1.5/view.scale}" fill="none" stroke-dasharray="${5/view.scale} ${5/view.scale}"/>`;
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${6/view.scale}" fill="#7f1d1d"/>`;
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${vineyardRadius}" stroke="rgba(127,29,29,0.6)" stroke-width="${1.5/view.scale}" fill="none" stroke-dasharray="${5/view.scale} ${5/view.scale}"/>`;
         
         // Vineyard center sample points
         if (vineyardCenters.length > 0) {
             const s = 3 / view.scale;
             for (const c of vineyardCenters) {
-                svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(124,58,237,0.5)"/>`;
+                svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(127,29,29,0.5)"/>`;
             }
             
             // Yellow animated center marker
@@ -3995,7 +3995,7 @@ function exportCanvasAsPDF() {
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#16a34a';
+            exportCtx.fillStyle = '#7c3aed';
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -4011,7 +4011,7 @@ function exportCanvasAsPDF() {
         }
 
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#dc2626';
+            exportCtx.fillStyle = '#3b82f6';
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
@@ -4019,7 +4019,7 @@ function exportCanvasAsPDF() {
         }
 
         if (document.getElementById('showCurve').checked) {
-            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.strokeStyle = '#171717';
             exportCtx.lineWidth = 2.5 / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
@@ -4039,12 +4039,12 @@ function exportCanvasAsPDF() {
 
     if (document.getElementById('showVineyardCircle').checked) {
         if (vineyardCenter) {
-            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.fillStyle = '#7f1d1d';
             exportCtx.beginPath();
             exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             exportCtx.fill();
             
-            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.strokeStyle = 'rgba(127, 29, 29, 0.6)';
             exportCtx.lineWidth = 1.5 / view.scale;
             exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
             exportCtx.beginPath();
@@ -4054,7 +4054,7 @@ function exportCanvasAsPDF() {
         }
         
         if (vineyardCenters.length > 0) {
-            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            exportCtx.fillStyle = 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
@@ -4346,7 +4346,7 @@ async function exportAllAsPDF() {
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#22c55e';
+            exportCtx.fillStyle = '#a855f7';
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -4361,14 +4361,14 @@ async function exportAllAsPDF() {
             }
         }
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#ef4444';
+            exportCtx.fillStyle = '#60a5fa';
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
             }
         }
         if (document.getElementById('showCurve').checked) {
-            exportCtx.strokeStyle = '#4f8cff';
+            exportCtx.strokeStyle = '#e0e0e0';
             exportCtx.lineWidth = 2.5 / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
@@ -4386,7 +4386,7 @@ async function exportAllAsPDF() {
         }
     }
     if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
-        exportCtx.fillStyle = '#a855f7';
+        exportCtx.fillStyle = '#991b1b';
         exportCtx.beginPath();
         exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
         exportCtx.fill();

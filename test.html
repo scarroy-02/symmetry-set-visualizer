@@ -1558,18 +1558,13 @@ function loadPreset(type) {
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
     } else if (type === 'offsetSpiral') {
-        fixedCurveMode = true;
-        cachedCurveData = generateOffsetSpiralCurveData();
-        curves = [[]];
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
+        const spiralPts = generateOffsetSpiralControlPoints();
+        for (const pt of spiralPts) {
+            curves[0].push(pt);
+        }
         view.scale = 40;
         view.x = 50;
         view.y = 50;
-        updateUI();
-        updateStatus(`Fixed curve: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
-        draw();
-        document.getElementById('presetSelect').value = "";
-        return;
     } else if (type === 'deformedEllipse') {
         const da = -0.55, db = 0.6, yS = 1.8, sc = 3.0;
         function defEllPt(t) {
@@ -1591,6 +1586,94 @@ function loadPreset(type) {
     updateUI();
     triggerComputation(true);
     document.getElementById('presetSelect').value = "";
+}
+
+function generateOffsetSpiralControlPoints() {
+    const b = 0.2;
+    const tmin = 3.5;
+    const tmax = tmin + 3 * Math.PI;
+
+    const ROuter = 4.5;
+    const thickness = 1.0;
+    const RInner = ROuter - thickness;
+
+    const aOuter = ROuter * Math.exp(b * tmin);
+    const aInner = RInner * Math.exp(b * tmin);
+
+    function spiralPt(t, a) {
+        const r = a * Math.exp(-b * t);
+        return new Point(r * Math.cos(t), r * Math.sin(t));
+    }
+
+    const pts = [];
+
+    // Outer spiral: tmin (large end) -> tmax (small tip)
+    const n_spi = 60;
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmin + (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aOuter));
+    }
+
+    // Small tip cap: elliptical arc from outer end to inner end
+    const outerEnd = spiralPt(tmax, aOuter);
+    const innerEnd = spiralPt(tmax, aInner);
+    const ellipse_ratio = 2.0;
+
+    const capEndCenter = [(outerEnd.x + innerEnd.x) / 2, (outerEnd.y + innerEnd.y) / 2];
+    const gapEnd = [innerEnd.x - outerEnd.x, innerEnd.y - outerEnd.y];
+    const gapEndLen = Math.sqrt(gapEnd[0] ** 2 + gapEnd[1] ** 2);
+    const uEnd = [gapEnd[0] / gapEndLen, gapEnd[1] / gapEndLen];
+    // Tangent direction at the tip (along the spiral)
+    const exp_bt_end = Math.exp(-b * tmax);
+    const dxEnd = aOuter * exp_bt_end * (-b * Math.cos(tmax) - Math.sin(tmax));
+    const dyEnd = aOuter * exp_bt_end * (-b * Math.sin(tmax) + Math.cos(tmax));
+    const magEnd = Math.sqrt(dxEnd * dxEnd + dyEnd * dyEnd);
+    const vEnd = [dxEnd / magEnd, dyEnd / magEnd];
+    const rWEnd = gapEndLen / 2;
+    const rLEnd = rWEnd * ellipse_ratio;
+
+    const n_cap_end = 6;
+    for (let i = 1; i < n_cap_end; i++) {
+        const ang = (i / n_cap_end) * Math.PI;
+        pts.push(new Point(
+            capEndCenter[0] - rWEnd * Math.cos(ang) * uEnd[0] + rLEnd * Math.sin(ang) * vEnd[0],
+            capEndCenter[1] - rWEnd * Math.cos(ang) * uEnd[1] + rLEnd * Math.sin(ang) * vEnd[1]
+        ));
+    }
+
+    // Inner spiral: tmax (small tip) -> tmin (large end), reversed
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmax - (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aInner));
+    }
+
+    // Large end cap: elliptical arc from inner start to outer start
+    const outerStart = spiralPt(tmin, aOuter);
+    const innerStart = spiralPt(tmin, aInner);
+
+    const capStartCenter = [(innerStart.x + outerStart.x) / 2, (innerStart.y + outerStart.y) / 2];
+    const gapStart = [outerStart.x - innerStart.x, outerStart.y - innerStart.y];
+    const gapStartLen = Math.sqrt(gapStart[0] ** 2 + gapStart[1] ** 2);
+    const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
+    // Tangent direction at the large end (reversed, pointing away from spiral)
+    const exp_bt_start = Math.exp(-b * tmin);
+    const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
+    const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
+    const magStart = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
+    const vStart = [-dxStart / magStart, -dyStart / magStart];
+    const rWStart = gapStartLen / 2;
+    const rLStart = rWStart * ellipse_ratio;
+
+    const n_cap_start = 8;
+    for (let i = 1; i < n_cap_start; i++) {
+        const ang = (i / n_cap_start) * Math.PI;
+        pts.push(new Point(
+            capStartCenter[0] - rWStart * Math.cos(ang) * uStart[0] + rLStart * Math.sin(ang) * vStart[0],
+            capStartCenter[1] - rWStart * Math.cos(ang) * uStart[1] + rLStart * Math.sin(ang) * vStart[1]
+        ));
+    }
+
+    return pts;
 }
 
 function generateOffsetSpiralCurveData() {

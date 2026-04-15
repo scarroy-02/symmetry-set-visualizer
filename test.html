@@ -13,10 +13,10 @@
         :root {
             --bg-dark: #0a0a0f;
             --panel-bg: rgba(15, 15, 25, 0.98);
-            --accent-curve: #e0e0e0;
-            --accent-focal: #a855f7;
-            --accent-ss: #60a5fa;
-            --accent-vineyard: #991b1b;
+            --accent-blue: #4f8cff;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-purple: #a855f7;
             --accent-amber: #f59e0b;
             --text-primary: #e0e0e0;
             --text-secondary: rgba(255,255,255,0.7);
@@ -200,7 +200,7 @@
         }
         
         .btn-primary { 
-            background: linear-gradient(135deg, var(--accent-curve), #b0b0b0);
+            background: linear-gradient(135deg, var(--accent-blue), #3b7aeb);
             color: white;
         }
         .btn-primary:hover { filter: brightness(1.1); }
@@ -212,10 +212,10 @@
         }
         .btn-secondary:hover { background: rgba(128,128,128,0.25); }
         
-        .btn-green { background: linear-gradient(135deg, #a855f7, #7c3aed); color: white; }
-        .btn-red { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; }
-        .btn-purple { background: linear-gradient(135deg, #991b1b, #881337); color: white; }
-        .btn-purple.active { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+        .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .btn-red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); color: white; }
+        .btn-purple.active { background: linear-gradient(135deg, #dc2626, #ef4444); }
         
         .btn-group { display: flex; gap: 3px; }
         .btn-group .btn { flex: 1; }
@@ -239,7 +239,7 @@
             cursor: pointer;
             font-family: inherit;
         }
-        select:focus { outline: none; border-color: var(--accent-curve); }
+        select:focus { outline: none; border-color: var(--accent-blue); }
         
         .slider-row {
             display: flex;
@@ -258,12 +258,12 @@
             min-width: 60px;
             height: 3px;
             cursor: pointer;
-            accent-color: var(--accent-curve);
+            accent-color: var(--accent-blue);
         }
         .slider-row .val {
             font-family: 'JetBrains Mono', monospace;
             font-size: 9px;
-            color: var(--accent-curve);
+            color: var(--accent-blue);
             min-width: 26px;
             flex-shrink: 0;
             text-align: right;
@@ -282,7 +282,7 @@
             width: 12px;
             height: 12px;
             cursor: pointer;
-            accent-color: var(--accent-curve);
+            accent-color: var(--accent-blue);
         }
         
         /* Mode Badge */
@@ -296,8 +296,8 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .mode-draw { background: var(--accent-curve); }
-        .mode-vineyard { background: var(--accent-vineyard); }
+        .mode-draw { background: var(--accent-blue); }
+        .mode-vineyard { background: var(--accent-purple); }
         
         /* Floating Plot Panels */
         .float-panel {
@@ -437,6 +437,7 @@
                 <option value="bean">Kidney Bean</option>
                 <option value="cardioid">Cardioid</option>
                 <option value="offsetSpiral">Offset Spiral</option>
+                <option value="bishopStaff">Bishop Staff</option>
                 <option value="deformedEllipse">Deformed Ellipse</option>
             </select>
         </div>
@@ -488,7 +489,7 @@
         <div class="section" id="focalSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: var(--accent-focal);"></span>
+                    <span class="section-icon" style="background: var(--accent-green);"></span>
                     Focal Animation
                 </span>
                 <span class="section-toggle">▼</span>
@@ -497,7 +498,7 @@
                 <div class="anim-row">
                     <button class="btn btn-green" id="focalPlayBtn" style="width: 44px;">▶</button>
                     <button class="btn btn-secondary btn-icon" id="focalStopBtn">◼</button>
-                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
+                    <input type="range" id="focalAnimSlider" min="0" max="1000" value="0" style="accent-color: #22c55e;">
                 </div>
             </div>
         </div>
@@ -506,16 +507,16 @@
         <div class="section" id="ssAnimSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: var(--accent-ss);"></span>
+                    <span class="section-icon" style="background: var(--accent-red);"></span>
                     SS Animation
                 </span>
                 <span class="section-toggle">▼</span>
             </div>
             <div class="section-content">
                 <div class="anim-row">
-                    <button class="btn btn-red" id="ssPlayBtn" style="width: 44px; background: linear-gradient(135deg, #60a5fa, #3b82f6);">▶</button>
+                    <button class="btn btn-red" id="ssPlayBtn" style="width: 44px; background: linear-gradient(135deg, #ef4444, #dc2626);">▶</button>
                     <button class="btn btn-secondary btn-icon" id="ssStopBtn">◼</button>
-                    <input type="range" id="ssAnimSlider" min="0" max="1000" value="0" style="accent-color: #60a5fa;">
+                    <input type="range" id="ssAnimSlider" min="0" max="1000" value="0" style="accent-color: #ef4444;">
                 </div>
             </div>
         </div>
@@ -524,7 +525,7 @@
         <div class="section" id="vineyardSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: var(--accent-vineyard);"></span>
+                    <span class="section-icon" style="background: var(--accent-purple);"></span>
                     Vineyard
                 </span>
                 <span class="section-toggle">▼</span>
@@ -551,14 +552,14 @@
                 </div>
                 <div class="slider-row">
                     <label>Samples</label>
-                    <input type="range" id="vineyardSamples" min="8" max="600" step="4" value="64" style="accent-color: #991b1b;">
+                    <input type="range" id="vineyardSamples" min="8" max="600" step="4" value="64" style="accent-color: #a855f7;">
                     <span class="val" id="samplesVal">64</span>
                 </div>
                 <button class="btn btn-primary" id="computeVineyardBtn" style="width: 100%; margin: 5px 0;">Compute Vineyard</button>
                 <div class="anim-row">
                     <button class="btn btn-secondary" id="playVineyardBtn" style="width: 44px;">▶</button>
                     <button class="btn btn-secondary btn-icon" id="stopVineyardBtn">◼</button>
-                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #991b1b;">
+                    <input type="range" id="vineyardAnimSlider" min="0" max="1000" value="0" style="accent-color: #a855f7;">
                 </div>
             </div>
         </div>
@@ -567,7 +568,7 @@
         <div class="section" id="sweepSection">
             <div class="section-header">
                 <span class="section-title">
-                    <span class="section-icon" style="background: #9f1239;"></span>
+                    <span class="section-icon" style="background: #c084fc;"></span>
                     Radius Sweep
                 </span>
                 <span class="section-toggle">▼</span>
@@ -587,16 +588,16 @@
                 </div>
                 <div class="slider-row">
                     <label>Steps</label>
-                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #9f1239;">
+                    <input type="range" id="radiusSteps" min="5" max="100" step="5" value="30" style="accent-color: #c084fc;">
                     <span class="val" id="radiusStepsVal">30</span>
                 </div>
-                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #9f1239, #991b1b); color: white;">Compute Sweep</button>
+                <button class="btn" id="computeRadiusSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #c084fc, #a855f7); color: white;">Compute Sweep</button>
                 <div class="anim-row">
                     <button class="btn btn-secondary" id="playRadiusSweepBtn" style="width: 44px;">▶</button>
                     <button class="btn btn-secondary btn-icon" id="stopRadiusSweepBtn">◼</button>
-                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #9f1239;">
+                    <input type="range" id="radiusSweepSlider" min="0" max="1000" value="0" style="accent-color: #c084fc;">
                 </div>
-                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #9f1239; margin-top: 2px;" id="currentSweepRadius">R: --</div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #c084fc; margin-top: 2px;" id="currentSweepRadius">R: --</div>
             </div>
         </div>
         
@@ -614,7 +615,7 @@
         <!-- Floating Vineyard Plot -->
         <div class="float-panel" id="vineyardPanel">
             <div class="float-panel-header">
-                <span class="float-panel-title" style="color: var(--accent-vineyard);">Vineyard 3D</span>
+                <span class="float-panel-title" style="color: var(--accent-purple);">Vineyard 3D</span>
                 <div style="display: flex; gap: 3px;">
                     <button class="btn btn-secondary" id="expandVineyardBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
                     <button class="btn btn-secondary" id="closeVineyardBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
@@ -628,7 +629,7 @@
         <!-- Floating Persistence Diagram -->
         <div class="float-panel" id="persistencePanel">
             <div class="float-panel-header">
-                <span class="float-panel-title" style="color: var(--accent-ss);">Persistence Diagram</span>
+                <span class="float-panel-title" style="color: var(--accent-red);">Persistence Diagram</span>
                 <div style="display: flex; gap: 3px;">
                     <button class="btn btn-secondary" id="expandPDBtn" style="padding: 2px 5px; font-size: 9px;">⤢</button>
                     <button class="btn btn-secondary" id="closePDBtn" style="padding: 2px 5px; font-size: 9px;">✕</button>
@@ -675,10 +676,10 @@
     <div class="statusbar">
         <span id="status">Click to add points or load a preset</span>
         <div class="legend">
-            <div class="legend-item"><span class="dot" style="background: var(--accent-curve);"></span> Curve</div>
-            <div class="legend-item"><span class="dot" style="background: var(--accent-focal);"></span> Focal</div>
-            <div class="legend-item"><span class="dot" style="background: var(--accent-ss);"></span> SS</div>
-            <div class="legend-item"><span class="dot" style="background: var(--accent-vineyard);"></span> Vineyard</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-blue);"></span> Curve</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-green);"></span> Focal</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-red);"></span> SS</div>
+            <div class="legend-item"><span class="dot" style="background: var(--accent-purple);"></span> Vineyard</div>
         </div>
     </div>
 </div>
@@ -1565,6 +1566,14 @@ function loadPreset(type) {
         view.scale = 40;
         view.x = 50;
         view.y = 50;
+    } else if (type === 'bishopStaff') {
+        const staffPts = generateBishopStaffControlPoints();
+        for (const pt of staffPts) {
+            curves[0].push(pt);
+        }
+        view.scale = 40;
+        view.x = 50;
+        view.y = 50;
     } else if (type === 'deformedEllipse') {
         const da = -0.55, db = 0.6, yS = 1.8, sc = 3.0;
         function defEllPt(t) {
@@ -1656,6 +1665,93 @@ function generateOffsetSpiralControlPoints() {
     const gapStartLen = Math.sqrt(gapStart[0] ** 2 + gapStart[1] ** 2);
     const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
     // Tangent direction at the large end (reversed, pointing away from spiral)
+    const exp_bt_start = Math.exp(-b * tmin);
+    const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
+    const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
+    const magStart = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
+    const vStart = [-dxStart / magStart, -dyStart / magStart];
+    const rWStart = gapStartLen / 2;
+    const rLStart = rWStart * ellipse_ratio;
+
+    const n_cap_start = 8;
+    for (let i = 1; i < n_cap_start; i++) {
+        const ang = (i / n_cap_start) * Math.PI;
+        pts.push(new Point(
+            capStartCenter[0] - rWStart * Math.cos(ang) * uStart[0] + rLStart * Math.sin(ang) * vStart[0],
+            capStartCenter[1] - rWStart * Math.cos(ang) * uStart[1] + rLStart * Math.sin(ang) * vStart[1]
+        ));
+    }
+
+    return pts;
+}
+
+function generateBishopStaffControlPoints() {
+    const b = 0.2;
+    const tmin = 3.5;
+    const tmax = tmin + 3 * Math.PI;
+
+    const ROuter = 4.5;
+    const thickness = 1.0;
+    const RInner = ROuter - thickness;
+
+    const aOuter = ROuter * Math.exp(b * tmin);
+    const aInner = RInner * Math.exp(b * tmin);
+
+    function spiralPt(t, a) {
+        const r = a * Math.exp(-b * t);
+        return new Point(r * Math.cos(t), r * Math.sin(t));
+    }
+
+    function norm(v) { return Math.sqrt(v[0] * v[0] + v[1] * v[1]); }
+    function normalize(v) { const n = norm(v); return [v[0] / n, v[1] / n]; }
+
+    const pts = [];
+
+    // Outer spiral
+    const n_spi = 60;
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmin + (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aOuter));
+    }
+
+    // Small tip cap: elliptical arc whose long axis points toward the origin
+    // (inward bend, like a bishop's crozier)
+    const outerEnd = spiralPt(tmax, aOuter);
+    const innerEnd = spiralPt(tmax, aInner);
+    const ellipse_ratio = 2.0;
+
+    const capEndCenter = [(outerEnd.x + innerEnd.x) / 2, (outerEnd.y + innerEnd.y) / 2];
+    const gapEnd = [innerEnd.x - outerEnd.x, innerEnd.y - outerEnd.y];
+    const gapEndLen = norm(gapEnd);
+    const uEnd = [gapEnd[0] / gapEndLen, gapEnd[1] / gapEndLen];
+    // v axis points from cap center toward origin (inward)
+    const vEnd = normalize([-capEndCenter[0], -capEndCenter[1]]);
+    const rWEnd = gapEndLen / 2;
+    const rLEnd = rWEnd * ellipse_ratio;
+
+    const n_cap_end = 6;
+    for (let i = 1; i < n_cap_end; i++) {
+        const ang = (i / n_cap_end) * Math.PI;
+        pts.push(new Point(
+            capEndCenter[0] - rWEnd * Math.cos(ang) * uEnd[0] + rLEnd * Math.sin(ang) * vEnd[0],
+            capEndCenter[1] - rWEnd * Math.cos(ang) * uEnd[1] + rLEnd * Math.sin(ang) * vEnd[1]
+        ));
+    }
+
+    // Inner spiral (reversed)
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmax - (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aInner));
+    }
+
+    // Large end cap: same as offset spiral (elliptical along outward tangent)
+    const outerStart = spiralPt(tmin, aOuter);
+    const innerStart = spiralPt(tmin, aInner);
+
+    const capStartCenter = [(innerStart.x + outerStart.x) / 2, (innerStart.y + outerStart.y) / 2];
+    const gapStart = [outerStart.x - innerStart.x, outerStart.y - innerStart.y];
+    const gapStartLen = norm(gapStart);
+    const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
     const exp_bt_start = Math.exp(-b * tmin);
     const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
     const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
@@ -2509,7 +2605,7 @@ function updateLoopStatus() {
         status.style.color = '#f59e0b';
     } else {
         status.innerText = `${customLoopPoints.length} points ✓`;
-        status.style.color = '#a855f7';
+        status.style.color = '#22c55e';
     }
 }
 
@@ -2629,7 +2725,7 @@ function stopFocalAnim() {
     focalAnimPlaying = false;
     focalAnimIdx = 0;
     document.getElementById('focalPlayBtn').innerText = '▶';
-    document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #a855f7, #7c3aed)';
+    document.getElementById('focalPlayBtn').style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
     document.getElementById('focalAnimSlider').value = 0;
     draw();
 }
@@ -2653,11 +2749,11 @@ document.getElementById('focalPlayBtn').addEventListener('click', () => {
     
     if (focalAnimPlaying) {
         btn.innerText = '⏸';
-        btn.style.background = 'linear-gradient(135deg, #3b82f6, #60a5fa)';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
         focalAnimLoop();
     } else {
         btn.innerText = '▶';
-        btn.style.background = 'linear-gradient(135deg, #a855f7, #7c3aed)';
+        btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
     }
 });
 
@@ -2675,7 +2771,7 @@ function stopSSAnim() {
     ssAnimPlaying = false;
     ssAnimIdx = 0;
     document.getElementById('ssPlayBtn').innerText = '▶';
-    document.getElementById('ssPlayBtn').style.background = 'linear-gradient(135deg, #60a5fa, #3b82f6)';
+    document.getElementById('ssPlayBtn').style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
     document.getElementById('ssAnimSlider').value = 0;
     draw();
 }
@@ -2727,11 +2823,11 @@ document.getElementById('ssPlayBtn').addEventListener('click', () => {
 
     if (ssAnimPlaying) {
         btn.innerText = '⏸';
-        btn.style.background = 'linear-gradient(135deg, #3b82f6, #60a5fa)';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
         ssAnimLoop();
     } else {
         btn.innerText = '▶';
-        btn.style.background = 'linear-gradient(135deg, #60a5fa, #3b82f6)';
+        btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
     }
 });
 
@@ -2983,7 +3079,7 @@ function updateRadiusSweepVineyardPlot() {
         plot_bgcolor: 'rgba(0,0,0,0)',
         margin: { l: 0, r: 0, t: 20, b: 0 },
         showlegend: false,
-        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#9f1239', size: 11 }, x: 0.5 }
+        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
     };
     
     Plotly.newPlot('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
@@ -3115,7 +3211,7 @@ document.getElementById('playRadiusSweepBtn').addEventListener('click', () => {
     
     if (radiusSweepPlaying) {
         btn.innerText = '⏸';
-        btn.style.background = 'linear-gradient(135deg, #3b82f6, #60a5fa)';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
         radiusSweepAnimLoop();
     } else {
         btn.innerText = '▶';
@@ -3390,7 +3486,7 @@ function draw() {
                 const statusY = canvas.height / 2 - firstPt.y * view.scale + view.y - 15;
                 ctx.font = '10px JetBrains Mono, monospace';
                 const isReady = customLoopPoints.length >= 3;
-                ctx.fillStyle = isReady ? '#a855f7' : '#f59e0b';
+                ctx.fillStyle = isReady ? '#22c55e' : '#f59e0b';
                 ctx.fillText(isReady ? `Loop (${customLoopPoints.length} pts)` : `${customLoopPoints.length}/3 pts`, statusX, statusY);
                 ctx.restore();
             }

@@ -474,6 +474,12 @@
                 Export ▾
             </button>
         </div>
+
+        <div class="toolbar-section">
+            <button class="btn btn-secondary" id="saveFigBtn" title="Save spline configuration (.sspl)">Save</button>
+            <button class="btn btn-secondary" id="loadFigBtn" title="Load spline configuration (.sspl)">Load</button>
+            <input type="file" id="loadFigInput" accept=".sspl,application/json" style="display: none;">
+        </div>
         
         <div class="toolbar-section" style="border-right: none;">
             <button class="btn btn-secondary" id="themeToggleBtn" title="Toggle Light/Dark Theme">
@@ -2360,6 +2366,70 @@ document.getElementById('computeBtn').addEventListener('click', () => triggerCom
 
 document.getElementById('presetSelect').addEventListener('change', e => {
     if (e.target.value) loadPreset(e.target.value);
+});
+
+// ========== Save / Load Spline Configuration ==========
+document.getElementById('saveFigBtn').addEventListener('click', () => {
+    const data = {
+        format: 'symmetry-set-spline',
+        version: 1,
+        curves: curves.map(c => c.map(p => ({ x: p.x, y: p.y }))),
+        activeCurveIdx: activeCurveIdx,
+        view: { x: view.x, y: view.y, scale: view.scale }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = `figure-${ts}.sspl`;
+    a.click();
+    URL.revokeObjectURL(url);
+    updateStatus('Saved figure');
+});
+
+document.getElementById('loadFigBtn').addEventListener('click', () => {
+    document.getElementById('loadFigInput').click();
+});
+
+document.getElementById('loadFigInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            const data = JSON.parse(ev.target.result);
+            if (data.format !== 'symmetry-set-spline' || !Array.isArray(data.curves)) {
+                updateStatus('Invalid figure file');
+                return;
+            }
+            saveState();
+            curves = data.curves.map(c => c.map(p => new Point(p.x, p.y)));
+            if (curves.length === 0) curves = [[]];
+            activeCurveIdx = Math.min(data.activeCurveIdx ?? 0, curves.length - 1);
+            if (data.view) {
+                view.x = data.view.x;
+                view.y = data.view.y;
+                view.scale = data.view.scale;
+            }
+            fixedCurveMode = false;
+            cachedCurveData = null;
+            cachedSSData = null; sortedSSIndices = null;
+            selectedInfo = null;
+            vineyardCenter = null;
+            vineyardData = null;
+            vineyardCenters = [];
+            customLoopPoints = [];
+            updateLoopStatus();
+            updateUI();
+            triggerComputation(true);
+            updateStatus(`Loaded ${curves.reduce((s, c) => s + c.length, 0)} points`);
+        } catch (err) {
+            updateStatus('Failed to parse file');
+        }
+        e.target.value = '';
+    };
+    reader.readAsText(file);
 });
 
 // ========== CSV Upload ==========

@@ -729,8 +729,8 @@ class Point {
 const PERSISTENCE_API_URL = 'https://scarroy.eu.pythonanywhere.com/';
 
 // ========== Global State ==========
-const SAMPLING_DENSITY = 20000;
-const LAMBDA_MAX = 5000.0;
+const SAMPLING_DENSITY = 25000;
+const LAMBDA_MAX = 10000.0;
 const R_MAX = 100000.0;
 
 let curves = [[]];
@@ -1016,7 +1016,7 @@ function computeSymmetrySet(data, stepSize) {
     }
 
     // Minimum arc-length fraction to consider (5% of curve length)
-    const minArcLengthFraction = 0.05;
+    const minArcLengthFraction = 0.02;
     const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {

@@ -4893,7 +4893,7 @@ updateStatus('Click to add points or load a preset');
     const el = document.getElementById('visitsCount');
     if (!el) return;
     const fmt = n => Number(n).toLocaleString();
-    fetch('https://api.counterapi.dev/v1/scarroy-02/symmetry-set-visualizer/up')
+    fetch('https://api.counterapi.dev/v2/bouquet2d-test/up')
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .then(data => {
             const n = data && (data.count ?? data.value);

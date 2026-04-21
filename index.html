@@ -4906,7 +4906,7 @@ updateStatus('Click to add points or load a preset');
     };
 
     const COUNTER_TOKEN = 'ut_zrRF6IIKIlmFLK5PaYBroSHeVQOP5mWStgltxfs5';
-    fetch('https://api.counterapi.dev/v2/rohit-roys-team-3837/bouquet2d/up', {
+    fetch('https://api.counterapi.dev/v2/rohit-roys-team-3837/bouquet2d', {
         headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
     })
         .then(r => r.ok ? r.json() : Promise.reject(r.status))

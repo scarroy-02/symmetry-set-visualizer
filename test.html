@@ -144,25 +144,6 @@
         }
         .sidebar-copyright a:hover { color: var(--accent-blue); text-decoration: underline; }
 
-        .sidebar-visits {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 10px;
-            border-top: 1px solid var(--border-color);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            color: var(--text-muted);
-        }
-        .sidebar-visits .visits-label {
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-        .sidebar-visits .visits-count {
-            color: var(--text-secondary);
-            font-weight: 700;
-        }
-
         /* Bottom action buttons (in right sidebar) */
         .sidebar-bottom-actions {
             margin-top: auto;
@@ -813,11 +794,6 @@
 
         <div class="sidebar-copyright">
             &copy; 2026 <a href="https://rohitroy.me" target="_blank" rel="noopener noreferrer">Rohit Roy</a>
-        </div>
-
-        <div class="sidebar-visits" title="Total page visits">
-            <span class="visits-label">Visits</span>
-            <span class="visits-count" id="visitsCount">…</span>
         </div>
 
         <div class="sidebar-bottom-actions">
@@ -4887,39 +4863,6 @@ window.addEventListener('resize', resize);
 resize();
 
 updateStatus('Click to add points or load a preset');
-
-// ========== Visit Counter ==========
-(function initVisitCounter() {
-    const el = document.getElementById('visitsCount');
-    if (!el) return;
-    const fmt = n => Number(n).toLocaleString();
-
-    const extractCount = (body) => {
-        if (!body || typeof body !== 'object') return null;
-        const payload = body.data && typeof body.data === 'object' ? body.data : body;
-        const candidates = [payload.up_count, payload.count, payload.value, payload.total_hits];
-        for (const c of candidates) {
-            if (typeof c === 'number') return c;
-            if (typeof c === 'string' && !isNaN(Number(c))) return Number(c);
-        }
-        return null;
-    };
-
-    const COUNTER_TOKEN = 'ut_zrRF6IIKIlmFLK5PaYBroSHeVQOP5mWStgltxfs5';
-    fetch('https://api.counterapi.dev/v2/rohit-roys-team-3837/bouquet2d-test', {
-        headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
-    })
-        .then(r => r.ok ? r.json() : Promise.reject(r.status))
-        .then(data => {
-            console.log('[visit counter] response:', data);
-            const n = extractCount(data);
-            el.textContent = (n !== null) ? fmt(n) : '—';
-        })
-        .catch(err => {
-            console.warn('[visit counter] failed:', err);
-            el.textContent = '—';
-        });
-})();
 </script>
 </body>
 </html>

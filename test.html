@@ -129,6 +129,108 @@
             flex-direction: column;
             overflow: hidden;
         }
+
+        .sidebar-copyright {
+            padding: 8px 10px;
+            border-top: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .sidebar-copyright a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .sidebar-copyright a:hover { color: var(--accent-blue); text-decoration: underline; }
+
+        .sidebar-visits {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            border-top: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+        .sidebar-visits .visits-label {
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .sidebar-visits .visits-count {
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        /* Bottom action buttons (in right sidebar) */
+        .sidebar-bottom-actions {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .cite-btn,
+        .report-bug-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .cite-btn span,
+        .report-bug-btn span { font-size: 11px; }
+
+        .cite-btn {
+            background: rgba(79, 140, 255, 0.12);
+            color: #93b8ff;
+            border: 1px solid rgba(79, 140, 255, 0.3);
+        }
+        .cite-btn:hover {
+            background: rgba(79, 140, 255, 0.22);
+            color: #bcd2ff;
+            border-color: rgba(79, 140, 255, 0.5);
+        }
+
+        .report-bug-btn {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+        .report-bug-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.55);
+        }
+
+        body.light-theme .cite-btn {
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            border-color: rgba(37, 99, 235, 0.3);
+        }
+        body.light-theme .cite-btn:hover {
+            background: rgba(37, 99, 235, 0.16);
+            color: #1e40af;
+            border-color: rgba(37, 99, 235, 0.5);
+        }
+        body.light-theme .report-bug-btn {
+            background: rgba(220, 38, 38, 0.1);
+            color: #b91c1c;
+            border-color: rgba(220, 38, 38, 0.3);
+        }
+        body.light-theme .report-bug-btn:hover {
+            background: rgba(220, 38, 38, 0.18);
+            color: #991b1b;
+            border-color: rgba(220, 38, 38, 0.5);
+        }
         
         /* Canvas Container */
         .canvas-container {
@@ -348,6 +450,22 @@
         #persistencePanel.expanded { width: 480px; height: 460px; }
         
         #vineyardPlot, #persistencePlot { width: 100%; height: 100%; }
+
+        /* Float panel resize handles */
+        .resize-handle {
+            position: absolute;
+            z-index: 10;
+            background: transparent;
+        }
+        .resize-handle.n { top: -3px; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+        .resize-handle.s { bottom: -3px; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+        .resize-handle.e { top: 10px; bottom: 10px; right: -3px; width: 6px; cursor: ew-resize; }
+        .resize-handle.w { top: 10px; bottom: 10px; left: -3px; width: 6px; cursor: ew-resize; }
+        .resize-handle.ne { top: -4px; right: -4px; width: 12px; height: 12px; cursor: nesw-resize; }
+        .resize-handle.nw { top: -4px; left: -4px; width: 12px; height: 12px; cursor: nwse-resize; }
+        .resize-handle.se { bottom: -4px; right: -4px; width: 12px; height: 12px; cursor: nwse-resize; }
+        .resize-handle.sw { bottom: -4px; left: -4px; width: 12px; height: 12px; cursor: nesw-resize; }
+        .float-panel.resizing { user-select: none; }
         
         /* Animation Row */
         .anim-row {
@@ -630,8 +748,16 @@
             <div class="float-panel-content">
                 <div id="vineyardPlot"></div>
             </div>
+            <div class="resize-handle n" data-dir="n"></div>
+            <div class="resize-handle s" data-dir="s"></div>
+            <div class="resize-handle e" data-dir="e"></div>
+            <div class="resize-handle w" data-dir="w"></div>
+            <div class="resize-handle ne" data-dir="ne"></div>
+            <div class="resize-handle nw" data-dir="nw"></div>
+            <div class="resize-handle se" data-dir="se"></div>
+            <div class="resize-handle sw" data-dir="sw"></div>
         </div>
-        
+
         <!-- Floating Persistence Diagram -->
         <div class="float-panel" id="persistencePanel">
             <div class="float-panel-header">
@@ -644,6 +770,14 @@
             <div class="float-panel-content">
                 <div id="persistencePlot"></div>
             </div>
+            <div class="resize-handle n" data-dir="n"></div>
+            <div class="resize-handle s" data-dir="s"></div>
+            <div class="resize-handle e" data-dir="e"></div>
+            <div class="resize-handle w" data-dir="w"></div>
+            <div class="resize-handle ne" data-dir="ne"></div>
+            <div class="resize-handle nw" data-dir="nw"></div>
+            <div class="resize-handle se" data-dir="se"></div>
+            <div class="resize-handle sw" data-dir="sw"></div>
         </div>
     </div>
     
@@ -675,6 +809,24 @@
                 <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
                 <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
             </div>
+        </div>
+
+        <div class="sidebar-copyright">
+            &copy; 2026 <a href="https://rohitroy.me" target="_blank" rel="noopener noreferrer">Rohit Roy</a>
+        </div>
+
+        <div class="sidebar-visits" title="Total page visits">
+            <span class="visits-label">Visits</span>
+            <span class="visits-count" id="visitsCount">…</span>
+        </div>
+
+        <div class="sidebar-bottom-actions">
+            <a href="https://cnrs.hal.science/LM-ORSAY/hal-05546179v1" target="_blank" rel="noopener noreferrer" class="cite-btn" title="Cite this work">
+                <span>❝</span> Cite This Work
+            </a>
+            <a href="https://tally.so/r/pbPY7J" target="_blank" rel="noopener noreferrer" class="report-bug-btn" title="Report a bug">
+                <span>⚠</span> Report Bug
+            </a>
         </div>
     </div>
     
@@ -860,6 +1012,88 @@ function makePanelDraggable(panelId) {
 
 makePanelDraggable('vineyardPanel');
 makePanelDraggable('persistencePanel');
+
+// ========== Panel Resizing ==========
+function makePanelResizable(panelId, plotId) {
+    const panel = document.getElementById(panelId);
+    const MIN_W = 220, MIN_H = 180;
+
+    panel.querySelectorAll('.resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dir = handle.dataset.dir;
+            const rect = panel.getBoundingClientRect();
+            const startX = e.clientX, startY = e.clientY;
+            const startW = rect.width, startH = rect.height;
+            const startLeft = rect.left, startTop = rect.top;
+
+            panel.style.position = 'fixed';
+            panel.style.left = startLeft + 'px';
+            panel.style.top = startTop + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+            panel.classList.add('resizing');
+
+            let rafId = null;
+            const resizePlot = () => {
+                if (typeof Plotly === 'undefined') return;
+                const plotEl = document.getElementById(plotId);
+                if (plotEl && plotEl.data) {
+                    try { Plotly.Plots.resize(plotEl); } catch (_) {}
+                }
+            };
+
+            const onMove = (ev) => {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+
+                let newW = startW, newH = startH;
+                let newLeft = startLeft, newTop = startTop;
+
+                if (dir.includes('e')) newW = Math.max(MIN_W, startW + dx);
+                if (dir.includes('s')) newH = Math.max(MIN_H, startH + dy);
+                if (dir.includes('w')) {
+                    newW = Math.max(MIN_W, startW - dx);
+                    newLeft = startLeft + (startW - newW);
+                }
+                if (dir.includes('n')) {
+                    newH = Math.max(MIN_H, startH - dy);
+                    newTop = startTop + (startH - newH);
+                }
+
+                newLeft = Math.max(0, Math.min(window.innerWidth - newW, newLeft));
+                newTop = Math.max(0, Math.min(window.innerHeight - newH, newTop));
+
+                panel.style.width = newW + 'px';
+                panel.style.height = newH + 'px';
+                panel.style.left = newLeft + 'px';
+                panel.style.top = newTop + 'px';
+
+                if (rafId === null) {
+                    rafId = requestAnimationFrame(() => {
+                        rafId = null;
+                        resizePlot();
+                    });
+                }
+            };
+
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                panel.classList.remove('resizing');
+                resizePlot();
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    });
+}
+
+makePanelResizable('vineyardPanel', 'vineyardPlot');
+makePanelResizable('persistencePanel', 'persistencePlot');
 
 // ========== History ==========
 function saveState() {
@@ -2723,11 +2957,22 @@ document.getElementById('showPD').addEventListener('change', e => {
 });
 
 let vineyardExpanded = false;
+function clearPanelInlineSize(panel) {
+    panel.style.width = '';
+    panel.style.height = '';
+    panel.style.left = '';
+    panel.style.top = '';
+    panel.style.right = '';
+    panel.style.bottom = '';
+    panel.style.position = '';
+}
+
 document.getElementById('expandVineyardBtn').addEventListener('click', () => {
     vineyardExpanded = !vineyardExpanded;
     const panel = document.getElementById('vineyardPanel');
     const btn = document.getElementById('expandVineyardBtn');
-    
+
+    clearPanelInlineSize(panel);
     if (vineyardExpanded) {
         panel.classList.add('expanded');
         btn.innerText = '⤡';
@@ -2735,7 +2980,7 @@ document.getElementById('expandVineyardBtn').addEventListener('click', () => {
         panel.classList.remove('expanded');
         btn.innerText = '⤢';
     }
-    
+
     setTimeout(() => {
         if (vineyardData) {
             Plotly.relayout('vineyardPlot', { autosize: true });
@@ -2748,7 +2993,8 @@ document.getElementById('expandPDBtn').addEventListener('click', () => {
     pdExpanded = !pdExpanded;
     const panel = document.getElementById('persistencePanel');
     const btn = document.getElementById('expandPDBtn');
-    
+
+    clearPanelInlineSize(panel);
     if (pdExpanded) {
         panel.classList.add('expanded');
         btn.innerText = '⤡';
@@ -2756,7 +3002,7 @@ document.getElementById('expandPDBtn').addEventListener('click', () => {
         panel.classList.remove('expanded');
         btn.innerText = '⤢';
     }
-    
+
     setTimeout(() => {
         if (vineyardData) {
             Plotly.relayout('persistencePlot', { autosize: true });
@@ -4641,6 +4887,20 @@ window.addEventListener('resize', resize);
 resize();
 
 updateStatus('Click to add points or load a preset');
+
+// ========== Visit Counter ==========
+(function initVisitCounter() {
+    const el = document.getElementById('visitsCount');
+    if (!el) return;
+    const fmt = n => Number(n).toLocaleString();
+    fetch('https://api.counterapi.dev/v1/scarroy-02/symmetry-set-visualizer/up')
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(data => {
+            const n = data && (data.count ?? data.value);
+            el.textContent = (typeof n === 'number') ? fmt(n) : '—';
+        })
+        .catch(() => { el.textContent = '—'; });
+})();
 </script>
 </body>
 </html>

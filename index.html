@@ -129,6 +129,108 @@
             flex-direction: column;
             overflow: hidden;
         }
+
+        .sidebar-copyright {
+            padding: 8px 10px;
+            border-top: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .sidebar-copyright a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .sidebar-copyright a:hover { color: var(--accent-blue); text-decoration: underline; }
+
+        .sidebar-visits {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            border-top: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+        .sidebar-visits .visits-label {
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .sidebar-visits .visits-count {
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        /* Bottom action buttons (in right sidebar) */
+        .sidebar-bottom-actions {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .cite-btn,
+        .report-bug-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 6px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .cite-btn span,
+        .report-bug-btn span { font-size: 11px; }
+
+        .cite-btn {
+            background: rgba(79, 140, 255, 0.12);
+            color: #93b8ff;
+            border: 1px solid rgba(79, 140, 255, 0.3);
+        }
+        .cite-btn:hover {
+            background: rgba(79, 140, 255, 0.22);
+            color: #bcd2ff;
+            border-color: rgba(79, 140, 255, 0.5);
+        }
+
+        .report-bug-btn {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+        .report-bug-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.55);
+        }
+
+        body.light-theme .cite-btn {
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            border-color: rgba(37, 99, 235, 0.3);
+        }
+        body.light-theme .cite-btn:hover {
+            background: rgba(37, 99, 235, 0.16);
+            color: #1e40af;
+            border-color: rgba(37, 99, 235, 0.5);
+        }
+        body.light-theme .report-bug-btn {
+            background: rgba(220, 38, 38, 0.1);
+            color: #b91c1c;
+            border-color: rgba(220, 38, 38, 0.3);
+        }
+        body.light-theme .report-bug-btn:hover {
+            background: rgba(220, 38, 38, 0.18);
+            color: #991b1b;
+            border-color: rgba(220, 38, 38, 0.5);
+        }
         
         /* Canvas Container */
         .canvas-container {
@@ -348,6 +450,22 @@
         #persistencePanel.expanded { width: 480px; height: 460px; }
         
         #vineyardPlot, #persistencePlot { width: 100%; height: 100%; }
+
+        /* Float panel resize handles */
+        .resize-handle {
+            position: absolute;
+            z-index: 10;
+            background: transparent;
+        }
+        .resize-handle.n { top: -3px; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+        .resize-handle.s { bottom: -3px; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+        .resize-handle.e { top: 10px; bottom: 10px; right: -3px; width: 6px; cursor: ew-resize; }
+        .resize-handle.w { top: 10px; bottom: 10px; left: -3px; width: 6px; cursor: ew-resize; }
+        .resize-handle.ne { top: -4px; right: -4px; width: 12px; height: 12px; cursor: nesw-resize; }
+        .resize-handle.nw { top: -4px; left: -4px; width: 12px; height: 12px; cursor: nwse-resize; }
+        .resize-handle.se { bottom: -4px; right: -4px; width: 12px; height: 12px; cursor: nwse-resize; }
+        .resize-handle.sw { bottom: -4px; left: -4px; width: 12px; height: 12px; cursor: nesw-resize; }
+        .float-panel.resizing { user-select: none; }
         
         /* Animation Row */
         .anim-row {
@@ -437,6 +555,8 @@
                 <option value="bean">Kidney Bean</option>
                 <option value="cardioid">Cardioid</option>
                 <option value="offsetSpiral">Offset Spiral</option>
+                <option value="bishopStaff">Bishop Staff</option>
+                <option value="deformedEllipse">Deformed Ellipse</option>
             </select>
         </div>
         
@@ -462,15 +582,21 @@
         
         <div class="toolbar-section">
             <button class="btn btn-primary" id="computeBtn">Compute SS</button>
-            <span class="toolbar-label">Res</span>
-            <input type="range" id="resolution" min="500" max="60000" step="500" value="5000" style="width: 50px; height: 3px;">
-            <span id="resVal" style="font-family: 'JetBrains Mono'; font-size: 9px; color: var(--accent-blue); min-width: 30px;">5000</span>
+            <span class="toolbar-label" style="font-size: 8px; color: #888;">Low</span>
+            <input type="range" id="resolution" min="1" max="5" step="1" value="1" style="width: 50px; height: 3px;">
+            <span class="toolbar-label" style="font-size: 8px; color: #888;">High</span>
         </div>
         
         <div class="toolbar-section" style="position: relative;">
             <button class="btn btn-secondary" id="exportBtn">
                 Export ▾
             </button>
+        </div>
+
+        <div class="toolbar-section">
+            <button class="btn btn-secondary" id="saveFigBtn" title="Save spline configuration (.sspl)">Save</button>
+            <button class="btn btn-secondary" id="loadFigBtn" title="Load spline configuration (.sspl)">Load</button>
+            <input type="file" id="loadFigInput" accept=".sspl,application/json" style="display: none;">
         </div>
         
         <div class="toolbar-section" style="border-right: none;">
@@ -622,8 +748,16 @@
             <div class="float-panel-content">
                 <div id="vineyardPlot"></div>
             </div>
+            <div class="resize-handle n" data-dir="n"></div>
+            <div class="resize-handle s" data-dir="s"></div>
+            <div class="resize-handle e" data-dir="e"></div>
+            <div class="resize-handle w" data-dir="w"></div>
+            <div class="resize-handle ne" data-dir="ne"></div>
+            <div class="resize-handle nw" data-dir="nw"></div>
+            <div class="resize-handle se" data-dir="se"></div>
+            <div class="resize-handle sw" data-dir="sw"></div>
         </div>
-        
+
         <!-- Floating Persistence Diagram -->
         <div class="float-panel" id="persistencePanel">
             <div class="float-panel-header">
@@ -636,6 +770,14 @@
             <div class="float-panel-content">
                 <div id="persistencePlot"></div>
             </div>
+            <div class="resize-handle n" data-dir="n"></div>
+            <div class="resize-handle s" data-dir="s"></div>
+            <div class="resize-handle e" data-dir="e"></div>
+            <div class="resize-handle w" data-dir="w"></div>
+            <div class="resize-handle ne" data-dir="ne"></div>
+            <div class="resize-handle nw" data-dir="nw"></div>
+            <div class="resize-handle se" data-dir="se"></div>
+            <div class="resize-handle sw" data-dir="sw"></div>
         </div>
     </div>
     
@@ -667,6 +809,24 @@
                 <div class="toggle-row"><span>Vineyard 3D</span><input type="checkbox" id="showVineyardPlot" checked></div>
                 <div class="toggle-row"><span>Persistence Diagram</span><input type="checkbox" id="showPD" checked></div>
             </div>
+        </div>
+
+        <div class="sidebar-copyright">
+            &copy; 2026 <a href="https://rohitroy.me" target="_blank" rel="noopener noreferrer">Rohit Roy</a>
+        </div>
+
+        <div class="sidebar-visits" title="Total page visits">
+            <span class="visits-label">Visits</span>
+            <span class="visits-count" id="visitsCount">…</span>
+        </div>
+
+        <div class="sidebar-bottom-actions">
+            <a href="https://cnrs.hal.science/LM-ORSAY/hal-05546179v1" target="_blank" rel="noopener noreferrer" class="cite-btn" title="Cite this work">
+                <span>❝</span> Cite This Work
+            </a>
+            <a href="https://tally.so/r/pbPY7J" target="_blank" rel="noopener noreferrer" class="report-bug-btn" title="Report a bug">
+                <span>⚠</span> Report Bug
+            </a>
         </div>
     </div>
     
@@ -721,8 +881,8 @@ class Point {
 const PERSISTENCE_API_URL = 'https://scarroy.eu.pythonanywhere.com/';
 
 // ========== Global State ==========
-const SAMPLING_DENSITY = 20000;
-const LAMBDA_MAX = 5000.0;
+const SAMPLING_DENSITY = 25000;
+const LAMBDA_MAX = 10000.0;
 const R_MAX = 100000.0;
 
 let curves = [[]];
@@ -730,7 +890,7 @@ let activeCurveIdx = 0;
 
 let cachedCurveData = null;
 let cachedSSData = null;
-let ssResolution = 5000;
+let ssStepSize = 5;
 
 let dragInfo = null;
 let hoverInfo = null;
@@ -852,6 +1012,88 @@ function makePanelDraggable(panelId) {
 
 makePanelDraggable('vineyardPanel');
 makePanelDraggable('persistencePanel');
+
+// ========== Panel Resizing ==========
+function makePanelResizable(panelId, plotId) {
+    const panel = document.getElementById(panelId);
+    const MIN_W = 220, MIN_H = 180;
+
+    panel.querySelectorAll('.resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dir = handle.dataset.dir;
+            const rect = panel.getBoundingClientRect();
+            const startX = e.clientX, startY = e.clientY;
+            const startW = rect.width, startH = rect.height;
+            const startLeft = rect.left, startTop = rect.top;
+
+            panel.style.position = 'fixed';
+            panel.style.left = startLeft + 'px';
+            panel.style.top = startTop + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+            panel.classList.add('resizing');
+
+            let rafId = null;
+            const resizePlot = () => {
+                if (typeof Plotly === 'undefined') return;
+                const plotEl = document.getElementById(plotId);
+                if (plotEl && plotEl.data) {
+                    try { Plotly.Plots.resize(plotEl); } catch (_) {}
+                }
+            };
+
+            const onMove = (ev) => {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+
+                let newW = startW, newH = startH;
+                let newLeft = startLeft, newTop = startTop;
+
+                if (dir.includes('e')) newW = Math.max(MIN_W, startW + dx);
+                if (dir.includes('s')) newH = Math.max(MIN_H, startH + dy);
+                if (dir.includes('w')) {
+                    newW = Math.max(MIN_W, startW - dx);
+                    newLeft = startLeft + (startW - newW);
+                }
+                if (dir.includes('n')) {
+                    newH = Math.max(MIN_H, startH - dy);
+                    newTop = startTop + (startH - newH);
+                }
+
+                newLeft = Math.max(0, Math.min(window.innerWidth - newW, newLeft));
+                newTop = Math.max(0, Math.min(window.innerHeight - newH, newTop));
+
+                panel.style.width = newW + 'px';
+                panel.style.height = newH + 'px';
+                panel.style.left = newLeft + 'px';
+                panel.style.top = newTop + 'px';
+
+                if (rafId === null) {
+                    rafId = requestAnimationFrame(() => {
+                        rafId = null;
+                        resizePlot();
+                    });
+                }
+            };
+
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                panel.classList.remove('resizing');
+                resizePlot();
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    });
+}
+
+makePanelResizable('vineyardPanel', 'vineyardPlot');
+makePanelResizable('persistencePanel', 'persistencePlot');
 
 // ========== History ==========
 function saveState() {
@@ -975,11 +1217,11 @@ function computeSplineData() {
 }
 
 // ========== Symmetry Set ==========
-function computeSymmetrySet(data, resolutionLimit) {
+function computeSymmetrySet(data, stepSize) {
     if (!data || data.length === 0) return [];
-    
+
     const centers = [];
-    const step = Math.max(1, Math.floor(data.length / resolutionLimit));
+    const step = Math.max(1, stepSize);
     const activeIndices = [];
     for (let i = 0; i < data.length; i += step) activeIndices.push(i);
     
@@ -1008,7 +1250,7 @@ function computeSymmetrySet(data, resolutionLimit) {
     }
 
     // Minimum arc-length fraction to consider (5% of curve length)
-    const minArcLengthFraction = 0.05;
+    const minArcLengthFraction = 0.02;
     const radiusTol = 0.15;
 
     for (let i = 0; i < n; i++) {
@@ -1224,7 +1466,7 @@ function updateVineyardPlot() {
             opacity: 0.7
         }
     };
-    
+
     // Relative H0 - orange squares
     const traceRel0 = {
         x: rel0.map(d => d.birth),
@@ -1240,7 +1482,7 @@ function updateVineyardPlot() {
             symbol: 'square'
         }
     };
-    
+
     // Extended H0 - yellow diamonds
     const traceExt0 = {
         x: ext0.map(d => d.birth),
@@ -1256,7 +1498,7 @@ function updateVineyardPlot() {
             symbol: 'diamond'
         }
     };
-    
+
     // Ordinary H1 - solid blue
     const traceOrd1 = {
         x: ord1.map(d => d.birth),
@@ -1271,7 +1513,7 @@ function updateVineyardPlot() {
             opacity: 0.7
         }
     };
-    
+
     // Relative H1 - cyan squares
     const traceRel1 = {
         x: rel1.map(d => d.birth),
@@ -1287,7 +1529,7 @@ function updateVineyardPlot() {
             symbol: 'square'
         }
     };
-    
+
     // Extended H1 - purple diamonds
     const traceExt1 = {
         x: ext1.map(d => d.birth),
@@ -1303,7 +1545,7 @@ function updateVineyardPlot() {
             symbol: 'diamond'
         }
     };
-    
+
     const currentZ = vineyardAnimIdx;
     const currentH0 = h0.filter(d => d.centerIdx === currentZ);
     const currentH1 = h1.filter(d => d.centerIdx === currentZ);
@@ -1403,7 +1645,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Ord H₀',
         marker: { size: 8, color: '#ef4444', symbol: 'circle' }
     };
-    
+
     // Relative H0 - orange squares
     const traceRel0 = {
         x: rel0.map(d => d.birth),
@@ -1413,7 +1655,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Rel H₀',
         marker: { size: 10, color: '#f97316', symbol: 'square' }
     };
-    
+
     // Extended H0 - yellow diamonds
     const traceExt0 = {
         x: ext0.map(d => d.birth),
@@ -1423,7 +1665,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Ext H₀',
         marker: { size: 12, color: '#eab308', symbol: 'diamond' }
     };
-    
+
     // Ordinary H1 - blue triangles
     const traceOrd1 = {
         x: ord1.map(d => d.birth),
@@ -1433,7 +1675,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Ord H₁',
         marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
     };
-    
+
     // Relative H1 - cyan squares
     const traceRel1 = {
         x: rel1.map(d => d.birth),
@@ -1443,7 +1685,7 @@ function updatePersistenceDiagram(centerIdx) {
         name: 'Rel H₁',
         marker: { size: 10, color: '#06b6d4', symbol: 'square' }
     };
-    
+
     // Extended H1 - purple diamonds
     const traceExt1 = {
         x: ext1.map(d => d.birth),
@@ -1557,23 +1799,217 @@ function loadPreset(type) {
             curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
         }
     } else if (type === 'offsetSpiral') {
-        fixedCurveMode = true;
-        cachedCurveData = generateOffsetSpiralCurveData();
-        curves = [[]];
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
+        const spiralPts = generateOffsetSpiralControlPoints();
+        for (const pt of spiralPts) {
+            curves[0].push(pt);
+        }
         view.scale = 40;
         view.x = 50;
         view.y = 50;
-        updateUI();
-        updateStatus(`Fixed curve: ${cachedCurveData.length} pts, SS: ${cachedSSData.length}`);
-        draw();
-        document.getElementById('presetSelect').value = "";
-        return;
+    } else if (type === 'bishopStaff') {
+        const staffPts = generateBishopStaffControlPoints();
+        for (const pt of staffPts) {
+            curves[0].push(pt);
+        }
+        view.scale = 40;
+        view.x = 50;
+        view.y = 50;
+    } else if (type === 'deformedEllipse') {
+        const da = -0.55, db = 0.6, yS = 1.8, sc = 3.0;
+        function defEllPt(t) {
+            const sf = 1 + da * Math.exp(-20 * (t - 2) * (t - 2)) + db * Math.exp(-70 * (t - 2.4) * (t - 2.4));
+            return new Point(sc * Math.cos(t) * sf, sc * yS * Math.sin(t) * sf);
+        }
+        const tVals = [];
+        // Sparse outside deformation
+        for (let t = -Math.PI; t < 1.3; t += 0.45) tVals.push(t);
+        // Dense in deformation region
+        for (let t = 1.54; t <= 2.9; t += 0.08) tVals.push(t);
+        // Sparse after deformation
+        for (let t = 3.0; t < Math.PI; t += 0.45) tVals.push(t);
+        for (let i = 0; i < tVals.length; i++) {
+            curves[0].push(defEllPt(tVals[i]));
+        }
     }
     
     updateUI();
     triggerComputation(true);
     document.getElementById('presetSelect').value = "";
+}
+
+function generateOffsetSpiralControlPoints() {
+    const b = 0.2;
+    const tmin = 3.5;
+    const tmax = tmin + 3 * Math.PI;
+
+    const ROuter = 4.5;
+    const thickness = 1.0;
+    const RInner = ROuter - thickness;
+
+    const aOuter = ROuter * Math.exp(b * tmin);
+    const aInner = RInner * Math.exp(b * tmin);
+
+    function spiralPt(t, a) {
+        const r = a * Math.exp(-b * t);
+        return new Point(r * Math.cos(t), r * Math.sin(t));
+    }
+
+    const pts = [];
+
+    // Outer spiral: tmin (large end) -> tmax (small tip)
+    const n_spi = 60;
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmin + (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aOuter));
+    }
+
+    // Small tip cap: elliptical arc from outer end to inner end
+    const outerEnd = spiralPt(tmax, aOuter);
+    const innerEnd = spiralPt(tmax, aInner);
+    const ellipse_ratio = 2.0;
+
+    const capEndCenter = [(outerEnd.x + innerEnd.x) / 2, (outerEnd.y + innerEnd.y) / 2];
+    const gapEnd = [innerEnd.x - outerEnd.x, innerEnd.y - outerEnd.y];
+    const gapEndLen = Math.sqrt(gapEnd[0] ** 2 + gapEnd[1] ** 2);
+    const uEnd = [gapEnd[0] / gapEndLen, gapEnd[1] / gapEndLen];
+    // Tangent direction at the tip (along the spiral)
+    const exp_bt_end = Math.exp(-b * tmax);
+    const dxEnd = aOuter * exp_bt_end * (-b * Math.cos(tmax) - Math.sin(tmax));
+    const dyEnd = aOuter * exp_bt_end * (-b * Math.sin(tmax) + Math.cos(tmax));
+    const magEnd = Math.sqrt(dxEnd * dxEnd + dyEnd * dyEnd);
+    const vEnd = [dxEnd / magEnd, dyEnd / magEnd];
+    const rWEnd = gapEndLen / 2;
+    const rLEnd = rWEnd * ellipse_ratio;
+
+    const n_cap_end = 6;
+    for (let i = 1; i < n_cap_end; i++) {
+        const ang = (i / n_cap_end) * Math.PI;
+        pts.push(new Point(
+            capEndCenter[0] - rWEnd * Math.cos(ang) * uEnd[0] + rLEnd * Math.sin(ang) * vEnd[0],
+            capEndCenter[1] - rWEnd * Math.cos(ang) * uEnd[1] + rLEnd * Math.sin(ang) * vEnd[1]
+        ));
+    }
+
+    // Inner spiral: tmax (small tip) -> tmin (large end), reversed
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmax - (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aInner));
+    }
+
+    // Large end cap: elliptical arc from inner start to outer start
+    const outerStart = spiralPt(tmin, aOuter);
+    const innerStart = spiralPt(tmin, aInner);
+
+    const capStartCenter = [(innerStart.x + outerStart.x) / 2, (innerStart.y + outerStart.y) / 2];
+    const gapStart = [outerStart.x - innerStart.x, outerStart.y - innerStart.y];
+    const gapStartLen = Math.sqrt(gapStart[0] ** 2 + gapStart[1] ** 2);
+    const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
+    // Tangent direction at the large end (reversed, pointing away from spiral)
+    const exp_bt_start = Math.exp(-b * tmin);
+    const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
+    const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
+    const magStart = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
+    const vStart = [-dxStart / magStart, -dyStart / magStart];
+    const rWStart = gapStartLen / 2;
+    const rLStart = rWStart * ellipse_ratio;
+
+    const n_cap_start = 8;
+    for (let i = 1; i < n_cap_start; i++) {
+        const ang = (i / n_cap_start) * Math.PI;
+        pts.push(new Point(
+            capStartCenter[0] - rWStart * Math.cos(ang) * uStart[0] + rLStart * Math.sin(ang) * vStart[0],
+            capStartCenter[1] - rWStart * Math.cos(ang) * uStart[1] + rLStart * Math.sin(ang) * vStart[1]
+        ));
+    }
+
+    return pts;
+}
+
+function generateBishopStaffControlPoints() {
+    const b = 0.2;
+    const tmin = 3.5;
+    const tmax = tmin + 3 * Math.PI;
+
+    const ROuter = 4.5;
+    const thickness = 1.0;
+    const RInner = ROuter - thickness;
+
+    const aOuter = ROuter * Math.exp(b * tmin);
+    const aInner = RInner * Math.exp(b * tmin);
+
+    function spiralPt(t, a) {
+        const r = a * Math.exp(-b * t);
+        return new Point(r * Math.cos(t), r * Math.sin(t));
+    }
+
+    function norm(v) { return Math.sqrt(v[0] * v[0] + v[1] * v[1]); }
+    function normalize(v) { const n = norm(v); return [v[0] / n, v[1] / n]; }
+
+    const pts = [];
+
+    // Outer spiral
+    const n_spi = 60;
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmin + (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aOuter));
+    }
+
+    // Small tip cap: elliptical arc whose long axis points toward the origin
+    // (inward bend, like a bishop's crozier)
+    const outerEnd = spiralPt(tmax, aOuter);
+    const innerEnd = spiralPt(tmax, aInner);
+    const ellipse_ratio = 2.0;
+
+    const capEndCenter = [(outerEnd.x + innerEnd.x) / 2, (outerEnd.y + innerEnd.y) / 2];
+    const gapEnd = [innerEnd.x - outerEnd.x, innerEnd.y - outerEnd.y];
+    const gapEndLen = norm(gapEnd);
+    const uEnd = [gapEnd[0] / gapEndLen, gapEnd[1] / gapEndLen];
+    // v axis points from cap center toward origin (inward)
+    const vEnd = normalize([-capEndCenter[0], -capEndCenter[1]]);
+    const rWEnd = gapEndLen / 2;
+    const rLEnd = rWEnd * ellipse_ratio;
+
+    const n_cap_end = 6;
+    for (let i = 1; i < n_cap_end; i++) {
+        const ang = (i / n_cap_end) * Math.PI;
+        pts.push(new Point(
+            capEndCenter[0] - rWEnd * Math.cos(ang) * uEnd[0] + rLEnd * Math.sin(ang) * vEnd[0],
+            capEndCenter[1] - rWEnd * Math.cos(ang) * uEnd[1] + rLEnd * Math.sin(ang) * vEnd[1]
+        ));
+    }
+
+    // Inner spiral (reversed)
+    for (let i = 0; i <= n_spi; i++) {
+        const t = tmax - (tmax - tmin) * (i / n_spi);
+        pts.push(spiralPt(t, aInner));
+    }
+
+    // Large end cap: same as offset spiral (elliptical along outward tangent)
+    const outerStart = spiralPt(tmin, aOuter);
+    const innerStart = spiralPt(tmin, aInner);
+
+    const capStartCenter = [(innerStart.x + outerStart.x) / 2, (innerStart.y + outerStart.y) / 2];
+    const gapStart = [outerStart.x - innerStart.x, outerStart.y - innerStart.y];
+    const gapStartLen = norm(gapStart);
+    const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
+    const exp_bt_start = Math.exp(-b * tmin);
+    const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
+    const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
+    const magStart = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
+    const vStart = [-dxStart / magStart, -dyStart / magStart];
+    const rWStart = gapStartLen / 2;
+    const rLStart = rWStart * ellipse_ratio;
+
+    const n_cap_start = 8;
+    for (let i = 1; i < n_cap_start; i++) {
+        const ang = (i / n_cap_start) * Math.PI;
+        pts.push(new Point(
+            capStartCenter[0] - rWStart * Math.cos(ang) * uStart[0] + rLStart * Math.sin(ang) * vStart[0],
+            capStartCenter[1] - rWStart * Math.cos(ang) * uStart[1] + rLStart * Math.sin(ang) * vStart[1]
+        ));
+    }
+
+    return pts;
 }
 
 function generateOffsetSpiralCurveData() {
@@ -2166,6 +2602,70 @@ document.getElementById('presetSelect').addEventListener('change', e => {
     if (e.target.value) loadPreset(e.target.value);
 });
 
+// ========== Save / Load Spline Configuration ==========
+document.getElementById('saveFigBtn').addEventListener('click', () => {
+    const data = {
+        format: 'symmetry-set-spline',
+        version: 1,
+        curves: curves.map(c => c.map(p => ({ x: p.x, y: p.y }))),
+        activeCurveIdx: activeCurveIdx,
+        view: { x: view.x, y: view.y, scale: view.scale }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = `figure-${ts}.sspl`;
+    a.click();
+    URL.revokeObjectURL(url);
+    updateStatus('Saved figure');
+});
+
+document.getElementById('loadFigBtn').addEventListener('click', () => {
+    document.getElementById('loadFigInput').click();
+});
+
+document.getElementById('loadFigInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            const data = JSON.parse(ev.target.result);
+            if (data.format !== 'symmetry-set-spline' || !Array.isArray(data.curves)) {
+                updateStatus('Invalid figure file');
+                return;
+            }
+            saveState();
+            curves = data.curves.map(c => c.map(p => new Point(p.x, p.y)));
+            if (curves.length === 0) curves = [[]];
+            activeCurveIdx = Math.min(data.activeCurveIdx ?? 0, curves.length - 1);
+            if (data.view) {
+                view.x = data.view.x;
+                view.y = data.view.y;
+                view.scale = data.view.scale;
+            }
+            fixedCurveMode = false;
+            cachedCurveData = null;
+            cachedSSData = null; sortedSSIndices = null;
+            selectedInfo = null;
+            vineyardCenter = null;
+            vineyardData = null;
+            vineyardCenters = [];
+            customLoopPoints = [];
+            updateLoopStatus();
+            updateUI();
+            triggerComputation(true);
+            updateStatus(`Loaded ${curves.reduce((s, c) => s + c.length, 0)} points`);
+        } catch (err) {
+            updateStatus('Failed to parse file');
+        }
+        e.target.value = '';
+    };
+    reader.readAsText(file);
+});
+
 // ========== CSV Upload ==========
 document.getElementById('uploadCSVBtn').addEventListener('click', () => {
     document.getElementById('csvFileInput').click();
@@ -2272,7 +2772,7 @@ function loadCSVCurve(points) {
     }
     
     // Compute symmetry set
-    cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
+    cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
     
     // Auto-fit view to data
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -2300,8 +2800,7 @@ function loadCSVCurve(points) {
 }
 
 document.getElementById('resolution').addEventListener('input', e => {
-    ssResolution = parseInt(e.target.value);
-    document.getElementById('resVal').innerText = ssResolution;
+    ssStepSize = 6 - parseInt(e.target.value);
 });
 
 document.getElementById('vineyardModeBtn').addEventListener('click', () => {
@@ -2458,11 +2957,22 @@ document.getElementById('showPD').addEventListener('change', e => {
 });
 
 let vineyardExpanded = false;
+function clearPanelInlineSize(panel) {
+    panel.style.width = '';
+    panel.style.height = '';
+    panel.style.left = '';
+    panel.style.top = '';
+    panel.style.right = '';
+    panel.style.bottom = '';
+    panel.style.position = '';
+}
+
 document.getElementById('expandVineyardBtn').addEventListener('click', () => {
     vineyardExpanded = !vineyardExpanded;
     const panel = document.getElementById('vineyardPanel');
     const btn = document.getElementById('expandVineyardBtn');
-    
+
+    clearPanelInlineSize(panel);
     if (vineyardExpanded) {
         panel.classList.add('expanded');
         btn.innerText = '⤡';
@@ -2470,7 +2980,7 @@ document.getElementById('expandVineyardBtn').addEventListener('click', () => {
         panel.classList.remove('expanded');
         btn.innerText = '⤢';
     }
-    
+
     setTimeout(() => {
         if (vineyardData) {
             Plotly.relayout('vineyardPlot', { autosize: true });
@@ -2483,7 +2993,8 @@ document.getElementById('expandPDBtn').addEventListener('click', () => {
     pdExpanded = !pdExpanded;
     const panel = document.getElementById('persistencePanel');
     const btn = document.getElementById('expandPDBtn');
-    
+
+    clearPanelInlineSize(panel);
     if (pdExpanded) {
         panel.classList.add('expanded');
         btn.innerText = '⤡';
@@ -2491,7 +3002,7 @@ document.getElementById('expandPDBtn').addEventListener('click', () => {
         panel.classList.remove('expanded');
         btn.innerText = '⤢';
     }
-    
+
     setTimeout(() => {
         if (vineyardData) {
             Plotly.relayout('persistencePlot', { autosize: true });
@@ -2806,7 +3317,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ord H₀',
         marker: { size: 3, color: '#ef4444', opacity: 0.7 }
     };
-    
+
     const traceRel0 = {
         x: rel0.map(d => d.birth),
         y: rel0.map(d => d.death),
@@ -2816,7 +3327,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Rel H₀',
         marker: { size: 2.1, color: '#f97316', opacity: 0.7, symbol: 'square' }
     };
-    
+
     const traceExt0 = {
         x: ext0.map(d => d.birth),
         y: ext0.map(d => d.death),
@@ -2826,7 +3337,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ext H₀',
         marker: { size: 2.1, color: '#eab308', opacity: 0.7, symbol: 'diamond' }
     };
-    
+
     const traceOrd1 = {
         x: ord1.map(d => d.birth),
         y: ord1.map(d => d.death),
@@ -2836,7 +3347,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ord H₁',
         marker: { size: 3, color: '#3b82f6', opacity: 0.7 }
     };
-    
+
     const traceRel1 = {
         x: rel1.map(d => d.birth),
         y: rel1.map(d => d.death),
@@ -2846,7 +3357,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Rel H₁',
         marker: { size: 2.1, color: '#06b6d4', opacity: 0.7, symbol: 'square' }
     };
-    
+
     const traceExt1 = {
         x: ext1.map(d => d.birth),
         y: ext1.map(d => d.death),
@@ -2856,7 +3367,7 @@ function updateRadiusSweepVineyardPlot() {
         name: 'Ext H₁',
         marker: { size: 2.1, color: '#a855f7', opacity: 0.7, symbol: 'diamond' }
     };
-    
+
     const diagPoints = {
         x: [0, maxVal, maxVal, 0],
         y: [0, maxVal, maxVal, 0],
@@ -2908,7 +3419,7 @@ function updateRadiusSweepPersistenceDiagram() {
         name: 'H₀',
         marker: { size: 6, color: '#ef4444', symbol: 'circle', opacity: 0.6 }
     };
-    
+
     const traceH1 = {
         x: h1.map(d => d.birth),
         y: h1.map(d => d.death),
@@ -3064,7 +3575,7 @@ function triggerComputation(fullCompute = true) {
     
     computeTimer = setTimeout(() => {
         cachedCurveData = computeSplineData();
-        cachedSSData = computeSymmetrySet(cachedCurveData, ssResolution); sortedSSIndices = null;
+        cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
         updateStatus(`SS: ${cachedSSData.length} pts`);
         draw();
     }, 10);
@@ -3075,10 +3586,10 @@ function draw() {
     // Theme-aware colors
     const bgColor = isDarkTheme ? '#0a0a0f' : '#f5f5f7';
     const gridColor = isDarkTheme ? '#1a1a2e' : '#e0e0e0';
-    const curveColor = isDarkTheme ? '#4f8cff' : '#2563eb';
-    const focalColor = isDarkTheme ? '#22c55e' : '#16a34a';
-    const ssColor = isDarkTheme ? '#ef4444' : '#dc2626';
-    const vineyardColor = isDarkTheme ? '#a855f7' : '#7c3aed';
+    const curveColor = isDarkTheme ? '#e0e0e0' : '#171717';
+    const focalColor = isDarkTheme ? '#a855f7' : '#7c3aed';
+    const ssColor = isDarkTheme ? '#60a5fa' : '#3b82f6';
+    const vineyardColor = isDarkTheme ? '#991b1b' : '#7f1d1d';
     const controlActive = isDarkTheme ? '#fff' : '#1a1a1a';
     const controlInactive = isDarkTheme ? '#666' : '#888';
     
@@ -3247,7 +3758,7 @@ function draw() {
             if (customLoopPoints.length >= 3) {
                 const loopSamples = sampleCustomLoop(200);
                 if (loopSamples.length > 0) {
-                    ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+                    ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
                     ctx.lineWidth = 2 / view.scale;
                     
                     ctx.beginPath();
@@ -3260,7 +3771,7 @@ function draw() {
                 }
             } else if (customLoopPoints.length === 2) {
                 // Draw line between 2 points
-                ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.5)' : 'rgba(124, 58, 237, 0.6)';
+                ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.5)' : 'rgba(127, 29, 29, 0.6)';
                 ctx.lineWidth = 1.5 / view.scale;
                 ctx.setLineDash([5 / view.scale, 5 / view.scale]);
                 ctx.beginPath();
@@ -3305,7 +3816,7 @@ function draw() {
             ctx.fill();
             
             // Main vineyard radius - purple dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.7)' : 'rgba(124, 58, 237, 0.8)';
+            ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
             ctx.lineWidth = 2 / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.beginPath();
@@ -3319,7 +3830,7 @@ function draw() {
             const rLabelX = (vineyardCenter.x + vineyardRadius) * view.scale + view.x + canvas.width / 2;
             const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale + view.y;
             ctx.font = '10px JetBrains Mono, monospace';
-            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.9)' : 'rgba(124, 58, 237, 1)';
+            ctx.fillStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.9)' : 'rgba(127, 29, 29, 1)';
             ctx.fillText(`R=${vineyardRadius.toFixed(2)}`, rLabelX + 5, rLabelY);
             ctx.restore();
             
@@ -3366,7 +3877,7 @@ function draw() {
         }
         
         if (vineyardCenters.length > 0) {
-            ctx.fillStyle = isDarkTheme ? 'rgba(168, 85, 247, 0.4)' : 'rgba(124, 58, 237, 0.5)';
+            ctx.fillStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.4)' : 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (let i = 0; i < vineyardCenters.length; i++) {
                 const c = vineyardCenters[i];
@@ -3441,7 +3952,7 @@ function draw() {
                     
                     // Draw Extended H1 (purple, thick)
                     for (const pt of ext1) {
-                        drawBDCircle(pt, 'rgba(168, 85, 247, 0.9)', 'rgba(168, 85, 247, 0.6)', 3, 'E');
+                        drawBDCircle(pt, 'rgba(153, 27, 27, 0.9)', 'rgba(153, 27, 27, 0.6)', 3, 'E');
                     }
                 }
                 
@@ -3557,7 +4068,7 @@ function exportCanvasAsPNG() {
     if (cachedCurveData && cachedCurveData.length > 0) {
         // Focal set - darker green for visibility
         if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#16a34a';
+            exportCtx.fillStyle = '#7c3aed';
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -3574,7 +4085,7 @@ function exportCanvasAsPNG() {
 
         // Symmetry set - darker red
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#dc2626';
+            exportCtx.fillStyle = '#3b82f6';
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
@@ -3583,7 +4094,7 @@ function exportCanvasAsPNG() {
 
         // Curve - darker blue
         if (document.getElementById('showCurve').checked) {
-            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.strokeStyle = '#171717';
             exportCtx.lineWidth = 2.5 / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
@@ -3604,12 +4115,12 @@ function exportCanvasAsPNG() {
     // Vineyard circle - darker purple
     if (document.getElementById('showVineyardCircle').checked) {
         if (vineyardCenter) {
-            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.fillStyle = '#7f1d1d';
             exportCtx.beginPath();
             exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             exportCtx.fill();
             
-            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.strokeStyle = 'rgba(127, 29, 29, 0.6)';
             exportCtx.lineWidth = 1.5 / view.scale;
             exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
             exportCtx.beginPath();
@@ -3619,7 +4130,7 @@ function exportCanvasAsPNG() {
         }
         
         if (vineyardCenters.length > 0) {
-            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            exportCtx.fillStyle = 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
@@ -3681,7 +4192,7 @@ function exportCanvasAsSVG() {
                     if (Math.abs(R) < R_MAX) {
                         const ex = pt.p.x + pt.N.x * R;
                         const ey = pt.p.y + pt.N.y * R;
-                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#16a34a"/>`;
+                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#7c3aed"/>`;
                     }
                 }
             }
@@ -3691,7 +4202,7 @@ function exportCanvasAsSVG() {
         if (document.getElementById('showSS').checked && cachedSSData) {
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
-                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#dc2626"/>`;
+                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#3b82f6"/>`;
             }
         }
 
@@ -3703,7 +4214,7 @@ function exportCanvasAsSVG() {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
                     if (pathData) {
-                        svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                        svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5/view.scale}" fill="none"/>`;
                     }
                     pathData = `M ${pt.p.x} ${pt.p.y}`;
                     currentId = pt.curveId;
@@ -3712,21 +4223,21 @@ function exportCanvasAsSVG() {
                 }
             }
             if (pathData) {
-                svg += `<path d="${pathData} Z" stroke="#2563eb" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5/view.scale}" fill="none"/>`;
             }
         }
     }
 
     // Vineyard - darker purple
     if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
-        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${6/view.scale}" fill="#7c3aed"/>`;
-        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${vineyardRadius}" stroke="rgba(124,58,237,0.6)" stroke-width="${1.5/view.scale}" fill="none" stroke-dasharray="${5/view.scale} ${5/view.scale}"/>`;
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${6/view.scale}" fill="#7f1d1d"/>`;
+        svg += `<circle cx="${vineyardCenter.x}" cy="${vineyardCenter.y}" r="${vineyardRadius}" stroke="rgba(127,29,29,0.6)" stroke-width="${1.5/view.scale}" fill="none" stroke-dasharray="${5/view.scale} ${5/view.scale}"/>`;
         
         // Vineyard center sample points
         if (vineyardCenters.length > 0) {
             const s = 3 / view.scale;
             for (const c of vineyardCenters) {
-                svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(124,58,237,0.5)"/>`;
+                svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(127,29,29,0.5)"/>`;
             }
             
             // Yellow animated center marker
@@ -3896,7 +4407,7 @@ function exportCanvasAsPDF() {
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#16a34a';
+            exportCtx.fillStyle = '#7c3aed';
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -3912,7 +4423,7 @@ function exportCanvasAsPDF() {
         }
 
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#dc2626';
+            exportCtx.fillStyle = '#3b82f6';
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
@@ -3920,7 +4431,7 @@ function exportCanvasAsPDF() {
         }
 
         if (document.getElementById('showCurve').checked) {
-            exportCtx.strokeStyle = '#2563eb';
+            exportCtx.strokeStyle = '#171717';
             exportCtx.lineWidth = 2.5 / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
@@ -3940,12 +4451,12 @@ function exportCanvasAsPDF() {
 
     if (document.getElementById('showVineyardCircle').checked) {
         if (vineyardCenter) {
-            exportCtx.fillStyle = '#7c3aed';
+            exportCtx.fillStyle = '#7f1d1d';
             exportCtx.beginPath();
             exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
             exportCtx.fill();
             
-            exportCtx.strokeStyle = 'rgba(124, 58, 237, 0.6)';
+            exportCtx.strokeStyle = 'rgba(127, 29, 29, 0.6)';
             exportCtx.lineWidth = 1.5 / view.scale;
             exportCtx.setLineDash([5 / view.scale, 5 / view.scale]);
             exportCtx.beginPath();
@@ -3955,7 +4466,7 @@ function exportCanvasAsPDF() {
         }
         
         if (vineyardCenters.length > 0) {
-            exportCtx.fillStyle = 'rgba(124, 58, 237, 0.5)';
+            exportCtx.fillStyle = 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
@@ -4247,7 +4758,7 @@ async function exportAllAsPDF() {
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#22c55e';
+            exportCtx.fillStyle = '#a855f7';
             const s = 1.5 / view.scale;
             for (const pt of cachedCurveData) {
                 const k = pt.curvature;
@@ -4262,14 +4773,14 @@ async function exportAllAsPDF() {
             }
         }
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#ef4444';
+            exportCtx.fillStyle = '#60a5fa';
             const s = 1.5 / view.scale;
             for (const p of cachedSSData) {
                 exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
             }
         }
         if (document.getElementById('showCurve').checked) {
-            exportCtx.strokeStyle = '#4f8cff';
+            exportCtx.strokeStyle = '#e0e0e0';
             exportCtx.lineWidth = 2.5 / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
@@ -4287,7 +4798,7 @@ async function exportAllAsPDF() {
         }
     }
     if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
-        exportCtx.fillStyle = '#a855f7';
+        exportCtx.fillStyle = '#991b1b';
         exportCtx.beginPath();
         exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
         exportCtx.fill();
@@ -4376,6 +4887,20 @@ window.addEventListener('resize', resize);
 resize();
 
 updateStatus('Click to add points or load a preset');
+
+// ========== Visit Counter ==========
+(function initVisitCounter() {
+    const el = document.getElementById('visitsCount');
+    if (!el) return;
+    const fmt = n => Number(n).toLocaleString();
+    fetch('https://api.counterapi.dev/v1/scarroy-02/symmetry-set-visualizer/up')
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(data => {
+            const n = data && (data.count ?? data.value);
+            el.textContent = (typeof n === 'number') ? fmt(n) : '—';
+        })
+        .catch(() => { el.textContent = '—'; });
+})();
 </script>
 </body>
 </html>

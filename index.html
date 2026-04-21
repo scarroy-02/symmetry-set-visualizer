@@ -4893,13 +4893,32 @@ updateStatus('Click to add points or load a preset');
     const el = document.getElementById('visitsCount');
     if (!el) return;
     const fmt = n => Number(n).toLocaleString();
-    fetch('https://api.counterapi.dev/v2/rohit-roys-team-3837/bouquet2d/up')
+
+    const extractCount = (body) => {
+        if (!body || typeof body !== 'object') return null;
+        const payload = body.data && typeof body.data === 'object' ? body.data : body;
+        const candidates = [payload.up_count, payload.count, payload.value, payload.total_hits];
+        for (const c of candidates) {
+            if (typeof c === 'number') return c;
+            if (typeof c === 'string' && !isNaN(Number(c))) return Number(c);
+        }
+        return null;
+    };
+
+    const COUNTER_TOKEN = 'ut_zrRF6IIKIlmFLK5PaYBroSHeVQOP5mWStgltxfs5';
+    fetch('https://api.counterapi.dev/v2/rohit-roys-team-3837/bouquet2d/up', {
+        headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
+    })
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .then(data => {
-            const n = data && (data.count ?? data.value);
-            el.textContent = (typeof n === 'number') ? fmt(n) : '—';
+            console.log('[visit counter] response:', data);
+            const n = extractCount(data);
+            el.textContent = (n !== null) ? fmt(n) : '—';
         })
-        .catch(() => { el.textContent = '—'; });
+        .catch(err => {
+            console.warn('[visit counter] failed:', err);
+            el.textContent = '—';
+        });
 })();
 </script>
 </body>

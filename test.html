@@ -2015,445 +2015,54 @@ function updatePersistenceDiagram(centerIdx) {
 }
 
 // ========== Presets ==========
-function loadPreset(type) {
-    saveState();
-    curves = [[]];
-    activeCurveIdx = 0;
-    view.x = 0; view.y = 0; view.scale = 50;
-    fixedCurveMode = false;
-    
-    let count = 8;
-    
-    if (type === 'ellipse') {
-        const a = 4.0, b = 2.5;
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            curves[0].push(new Point(a*Math.cos(t), b*Math.sin(t)));
-        }
-    } else if (type === 'astroid') {
-        count = 12;
-        const r = 3.5;
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            curves[0].push(new Point(r * Math.pow(Math.cos(t), 3), r * Math.pow(Math.sin(t), 3)));
-        }
-    } else if (type === 'bean') {
-        count = 10;
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            const r = 2.0 + Math.cos(t) + Math.pow(Math.sin(t), 2);
-            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
-        }
-    } else if (type === 'cardioid') {
-        count = 10;
-        const a = 1.5;
-        for(let i=0; i<count; i++) {
-            const t = (i/count) * Math.PI * 2;
-            const r = 2*a*(1 + Math.cos(t));
-            curves[0].push(new Point(r*Math.cos(t), r*Math.sin(t)));
-        }
-    } else if (type === 'offsetSpiral') {
-        const spiralPts = generateOffsetSpiralControlPoints();
-        for (const pt of spiralPts) {
-            curves[0].push(pt);
-        }
-        view.scale = 40;
-        view.x = 50;
-        view.y = 50;
-    } else if (type === 'bishopStaff') {
-        const staffPts = generateBishopStaffControlPoints();
-        for (const pt of staffPts) {
-            curves[0].push(pt);
-        }
-        view.scale = 40;
-        view.x = 50;
-        view.y = 50;
-    } else if (type === 'deformedEllipse') {
-        const da = -0.55, db = 0.6, yS = 1.8, sc = 3.0;
-        function defEllPt(t) {
-            const sf = 1 + da * Math.exp(-20 * (t - 2) * (t - 2)) + db * Math.exp(-70 * (t - 2.4) * (t - 2.4));
-            return new Point(sc * Math.cos(t) * sf, sc * yS * Math.sin(t) * sf);
-        }
-        const tVals = [];
-        // Sparse outside deformation
-        for (let t = -Math.PI; t < 1.3; t += 0.45) tVals.push(t);
-        // Dense in deformation region
-        for (let t = 1.54; t <= 2.9; t += 0.08) tVals.push(t);
-        // Sparse after deformation
-        for (let t = 3.0; t < Math.PI; t += 0.45) tVals.push(t);
-        for (let i = 0; i < tVals.length; i++) {
-            curves[0].push(defEllPt(tVals[i]));
-        }
+const PRESET_FILES = {
+    ellipse: 'assets/ellipse.sspl',
+    astroid: 'assets/astroid.sspl',
+    bean: 'assets/kidney_bean.sspl',
+    cardioid: 'assets/cardoid.sspl',
+    offsetSpiral: 'assets/offset_spiral_scaled.sspl',
+    bishopStaff: 'assets/bishop_staff_scaled.sspl',
+    deformedEllipse: 'assets/deformed_ellipse.sspl'
+};
+
+async function loadPreset(type) {
+    const url = PRESET_FILES[type];
+    if (!url) return;
+    try {
+        const res = await fetch(url);
+        applyFigureData(await res.json());
+    } catch (err) {
+        updateStatus('Failed to load preset');
     }
-    
-    updateUI();
-    triggerComputation(true);
     document.getElementById('presetSelect').value = "";
 }
 
-function generateOffsetSpiralControlPoints() {
-    const b = 0.2;
-    const tmin = 3.5;
-    const tmax = tmin + 3 * Math.PI;
-
-    const ROuter = 4.5;
-    const thickness = 1.0;
-    const RInner = ROuter - thickness;
-
-    const aOuter = ROuter * Math.exp(b * tmin);
-    const aInner = RInner * Math.exp(b * tmin);
-
-    function spiralPt(t, a) {
-        const r = a * Math.exp(-b * t);
-        return new Point(r * Math.cos(t), r * Math.sin(t));
+function applyFigureData(data) {
+    if (data.format !== 'symmetry-set-spline' || !Array.isArray(data.curves)) {
+        updateStatus('Invalid figure file');
+        return;
     }
-
-    const pts = [];
-
-    // Outer spiral: tmin (large end) -> tmax (small tip)
-    const n_spi = 60;
-    for (let i = 0; i <= n_spi; i++) {
-        const t = tmin + (tmax - tmin) * (i / n_spi);
-        pts.push(spiralPt(t, aOuter));
+    saveState();
+    curves = data.curves.map(c => c.map(p => new Point(p.x, p.y)));
+    if (curves.length === 0) curves = [[]];
+    activeCurveIdx = Math.min(data.activeCurveIdx ?? 0, curves.length - 1);
+    if (data.view) {
+        view.x = data.view.x;
+        view.y = data.view.y;
+        view.scale = data.view.scale;
     }
-
-    // Small tip cap: elliptical arc from outer end to inner end
-    const outerEnd = spiralPt(tmax, aOuter);
-    const innerEnd = spiralPt(tmax, aInner);
-    const ellipse_ratio = 2.0;
-
-    const capEndCenter = [(outerEnd.x + innerEnd.x) / 2, (outerEnd.y + innerEnd.y) / 2];
-    const gapEnd = [innerEnd.x - outerEnd.x, innerEnd.y - outerEnd.y];
-    const gapEndLen = Math.sqrt(gapEnd[0] ** 2 + gapEnd[1] ** 2);
-    const uEnd = [gapEnd[0] / gapEndLen, gapEnd[1] / gapEndLen];
-    // Tangent direction at the tip (along the spiral)
-    const exp_bt_end = Math.exp(-b * tmax);
-    const dxEnd = aOuter * exp_bt_end * (-b * Math.cos(tmax) - Math.sin(tmax));
-    const dyEnd = aOuter * exp_bt_end * (-b * Math.sin(tmax) + Math.cos(tmax));
-    const magEnd = Math.sqrt(dxEnd * dxEnd + dyEnd * dyEnd);
-    const vEnd = [dxEnd / magEnd, dyEnd / magEnd];
-    const rWEnd = gapEndLen / 2;
-    const rLEnd = rWEnd * ellipse_ratio;
-
-    const n_cap_end = 6;
-    for (let i = 1; i < n_cap_end; i++) {
-        const ang = (i / n_cap_end) * Math.PI;
-        pts.push(new Point(
-            capEndCenter[0] - rWEnd * Math.cos(ang) * uEnd[0] + rLEnd * Math.sin(ang) * vEnd[0],
-            capEndCenter[1] - rWEnd * Math.cos(ang) * uEnd[1] + rLEnd * Math.sin(ang) * vEnd[1]
-        ));
-    }
-
-    // Inner spiral: tmax (small tip) -> tmin (large end), reversed
-    for (let i = 0; i <= n_spi; i++) {
-        const t = tmax - (tmax - tmin) * (i / n_spi);
-        pts.push(spiralPt(t, aInner));
-    }
-
-    // Large end cap: elliptical arc from inner start to outer start
-    const outerStart = spiralPt(tmin, aOuter);
-    const innerStart = spiralPt(tmin, aInner);
-
-    const capStartCenter = [(innerStart.x + outerStart.x) / 2, (innerStart.y + outerStart.y) / 2];
-    const gapStart = [outerStart.x - innerStart.x, outerStart.y - innerStart.y];
-    const gapStartLen = Math.sqrt(gapStart[0] ** 2 + gapStart[1] ** 2);
-    const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
-    // Tangent direction at the large end (reversed, pointing away from spiral)
-    const exp_bt_start = Math.exp(-b * tmin);
-    const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
-    const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
-    const magStart = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
-    const vStart = [-dxStart / magStart, -dyStart / magStart];
-    const rWStart = gapStartLen / 2;
-    const rLStart = rWStart * ellipse_ratio;
-
-    const n_cap_start = 8;
-    for (let i = 1; i < n_cap_start; i++) {
-        const ang = (i / n_cap_start) * Math.PI;
-        pts.push(new Point(
-            capStartCenter[0] - rWStart * Math.cos(ang) * uStart[0] + rLStart * Math.sin(ang) * vStart[0],
-            capStartCenter[1] - rWStart * Math.cos(ang) * uStart[1] + rLStart * Math.sin(ang) * vStart[1]
-        ));
-    }
-
-    return pts;
-}
-
-function generateBishopStaffControlPoints() {
-    const b = 0.2;
-    const tmin = 3.5;
-    const tmax = tmin + 3 * Math.PI;
-
-    const ROuter = 4.5;
-    const thickness = 1.0;
-    const RInner = ROuter - thickness;
-
-    const aOuter = ROuter * Math.exp(b * tmin);
-    const aInner = RInner * Math.exp(b * tmin);
-
-    function spiralPt(t, a) {
-        const r = a * Math.exp(-b * t);
-        return new Point(r * Math.cos(t), r * Math.sin(t));
-    }
-
-    function norm(v) { return Math.sqrt(v[0] * v[0] + v[1] * v[1]); }
-    function normalize(v) { const n = norm(v); return [v[0] / n, v[1] / n]; }
-
-    const pts = [];
-
-    // Outer spiral
-    const n_spi = 60;
-    for (let i = 0; i <= n_spi; i++) {
-        const t = tmin + (tmax - tmin) * (i / n_spi);
-        pts.push(spiralPt(t, aOuter));
-    }
-
-    // Small tip cap: elliptical arc whose long axis points toward the origin
-    // (inward bend, like a bishop's crozier)
-    const outerEnd = spiralPt(tmax, aOuter);
-    const innerEnd = spiralPt(tmax, aInner);
-    const ellipse_ratio = 2.0;
-
-    const capEndCenter = [(outerEnd.x + innerEnd.x) / 2, (outerEnd.y + innerEnd.y) / 2];
-    const gapEnd = [innerEnd.x - outerEnd.x, innerEnd.y - outerEnd.y];
-    const gapEndLen = norm(gapEnd);
-    const uEnd = [gapEnd[0] / gapEndLen, gapEnd[1] / gapEndLen];
-    // v axis points from cap center toward origin (inward)
-    const vEnd = normalize([-capEndCenter[0], -capEndCenter[1]]);
-    const rWEnd = gapEndLen / 2;
-    const rLEnd = rWEnd * ellipse_ratio;
-
-    const n_cap_end = 6;
-    for (let i = 1; i < n_cap_end; i++) {
-        const ang = (i / n_cap_end) * Math.PI;
-        pts.push(new Point(
-            capEndCenter[0] - rWEnd * Math.cos(ang) * uEnd[0] + rLEnd * Math.sin(ang) * vEnd[0],
-            capEndCenter[1] - rWEnd * Math.cos(ang) * uEnd[1] + rLEnd * Math.sin(ang) * vEnd[1]
-        ));
-    }
-
-    // Inner spiral (reversed)
-    for (let i = 0; i <= n_spi; i++) {
-        const t = tmax - (tmax - tmin) * (i / n_spi);
-        pts.push(spiralPt(t, aInner));
-    }
-
-    // Large end cap: same as offset spiral (elliptical along outward tangent)
-    const outerStart = spiralPt(tmin, aOuter);
-    const innerStart = spiralPt(tmin, aInner);
-
-    const capStartCenter = [(innerStart.x + outerStart.x) / 2, (innerStart.y + outerStart.y) / 2];
-    const gapStart = [outerStart.x - innerStart.x, outerStart.y - innerStart.y];
-    const gapStartLen = norm(gapStart);
-    const uStart = [gapStart[0] / gapStartLen, gapStart[1] / gapStartLen];
-    const exp_bt_start = Math.exp(-b * tmin);
-    const dxStart = aOuter * exp_bt_start * (-b * Math.cos(tmin) - Math.sin(tmin));
-    const dyStart = aOuter * exp_bt_start * (-b * Math.sin(tmin) + Math.cos(tmin));
-    const magStart = Math.sqrt(dxStart * dxStart + dyStart * dyStart);
-    const vStart = [-dxStart / magStart, -dyStart / magStart];
-    const rWStart = gapStartLen / 2;
-    const rLStart = rWStart * ellipse_ratio;
-
-    const n_cap_start = 8;
-    for (let i = 1; i < n_cap_start; i++) {
-        const ang = (i / n_cap_start) * Math.PI;
-        pts.push(new Point(
-            capStartCenter[0] - rWStart * Math.cos(ang) * uStart[0] + rLStart * Math.sin(ang) * vStart[0],
-            capStartCenter[1] - rWStart * Math.cos(ang) * uStart[1] + rLStart * Math.sin(ang) * vStart[1]
-        ));
-    }
-
-    return pts;
-}
-
-function generateOffsetSpiralCurveData() {
-    const b = 0.2;
-    const tmin = 3.5;
-    const tmax = tmin + 3 * Math.PI;
-    
-    const ROuter = 4.5;
-    const thickness = 1.0;
-    const RInner = ROuter - thickness;
-    
-    const ellipse_ratio = 2.0;
-    const extension_len_factor = 0.2;
-    
-    const aOuter = ROuter * Math.exp(b * tmin);
-    const aInner = RInner * Math.exp(b * tmin);
-    
-    function getSpiralData(t, a) {
-        const exp_bt = Math.exp(-b * t);
-        const r = a * exp_bt;
-        const x = r * Math.cos(t);
-        const y = r * Math.sin(t);
-        
-        const dx = a * exp_bt * (-b * Math.cos(t) - Math.sin(t));
-        const dy = a * exp_bt * (-b * Math.sin(t) + Math.cos(t));
-        
-        const mag = Math.sqrt(dx*dx + dy*dy);
-        return {
-            pos: [x, y],
-            tan: [dx/mag, dy/mag]
-        };
-    }
-    
-    function getSpiralCurvePoints(tStart, tEnd, numPoints, a) {
-        const pts = [];
-        for (let i = 0; i < numPoints; i++) {
-            const t = tStart + (tEnd - tStart) * (i / (numPoints - 1));
-            const exp_bt = Math.exp(-b * t);
-            const r = a * exp_bt;
-            pts.push({x: r * Math.cos(t), y: r * Math.sin(t)});
-        }
-        return pts;
-    }
-    
-    function linspacePoints(start, end, num) {
-        const pts = [];
-        for (let i = 0; i < num; i++) {
-            const t = i / (num - 1);
-            pts.push({
-                x: start[0] + t * (end[0] - start[0]),
-                y: start[1] + t * (end[1] - start[1])
-            });
-        }
-        return pts;
-    }
-    
-    function norm(v) {
-        return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
-    }
-    
-    function normalize(v) {
-        const n = norm(v);
-        return [v[0]/n, v[1]/n];
-    }
-    
-    const outerStart = getSpiralData(tmin, aOuter);
-    const innerStart = getSpiralData(tmin, aInner);
-    const ext_dir_start = [-outerStart.tan[0], -outerStart.tan[1]];
-    
-    const outerEnd = getSpiralData(tmax, aOuter);
-    const innerEnd = getSpiralData(tmax, aInner);
-    const ext_dir_end = outerEnd.tan;
-    
-    const gap_start = norm([outerStart.pos[0] - innerStart.pos[0], outerStart.pos[1] - innerStart.pos[1]]);
-    const gap_end = norm([outerEnd.pos[0] - innerEnd.pos[0], outerEnd.pos[1] - innerEnd.pos[1]]);
-    
-    const L_ext_start = gap_start * extension_len_factor;
-    const L_ext_end = gap_end * extension_len_factor;
-    
-    const n_spi = 2000;
-    const n_ext = 100;
-    const n_cap_inner = 200;
-    const n_cap_outer = 400;
-    
-    const allPoints = [];
-    
-    const ext_tip_outer_start = [
-        outerStart.pos[0] + ext_dir_start[0] * L_ext_start,
-        outerStart.pos[1] + ext_dir_start[1] * L_ext_start
-    ];
-    allPoints.push(...linspacePoints(ext_tip_outer_start, outerStart.pos, n_ext));
-    
-    allPoints.push(...getSpiralCurvePoints(tmin, tmax, n_spi, aOuter));
-    
-    const ext_tip_outer_end = [
-        outerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
-        outerEnd.pos[1] + ext_dir_end[1] * L_ext_end
-    ];
-    allPoints.push(...linspacePoints(outerEnd.pos, ext_tip_outer_end, n_ext));
-    
-    const ext_tip_inner_end = [
-        innerEnd.pos[0] + ext_dir_end[0] * L_ext_end,
-        innerEnd.pos[1] + ext_dir_end[1] * L_ext_end
-    ];
-    const center_end = [
-        (ext_tip_outer_end[0] + ext_tip_inner_end[0]) / 2,
-        (ext_tip_outer_end[1] + ext_tip_inner_end[1]) / 2
-    ];
-    const gap_vec_end = [
-        ext_tip_inner_end[0] - ext_tip_outer_end[0],
-        ext_tip_inner_end[1] - ext_tip_outer_end[1]
-    ];
-    const u_end = normalize(gap_vec_end);
-    const v_end = normalize(ext_dir_end);
-    const r_w_end = norm(gap_vec_end) / 2;
-    const r_l_end = r_w_end * ellipse_ratio;
-    
-    for (let i = 0; i < n_cap_inner; i++) {
-        const ang = (i / (n_cap_inner - 1)) * Math.PI;
-        allPoints.push({
-            x: center_end[0] - r_w_end * Math.cos(ang) * u_end[0] + r_l_end * Math.sin(ang) * v_end[0],
-            y: center_end[1] - r_w_end * Math.cos(ang) * u_end[1] + r_l_end * Math.sin(ang) * v_end[1]
-        });
-    }
-    
-    allPoints.push(...linspacePoints(ext_tip_inner_end, innerEnd.pos, n_ext));
-    
-    allPoints.push(...getSpiralCurvePoints(tmax, tmin, n_spi, aInner));
-    
-    const ext_tip_inner_start = [
-        innerStart.pos[0] + ext_dir_start[0] * L_ext_start,
-        innerStart.pos[1] + ext_dir_start[1] * L_ext_start
-    ];
-    allPoints.push(...linspacePoints(innerStart.pos, ext_tip_inner_start, n_ext));
-    
-    const center_start = [
-        (ext_tip_inner_start[0] + ext_tip_outer_start[0]) / 2,
-        (ext_tip_inner_start[1] + ext_tip_outer_start[1]) / 2
-    ];
-    const gap_vec_start = [
-        ext_tip_outer_start[0] - ext_tip_inner_start[0],
-        ext_tip_outer_start[1] - ext_tip_inner_start[1]
-    ];
-    const u_start = normalize(gap_vec_start);
-    const v_start = normalize(ext_dir_start);
-    const r_w_start = norm(gap_vec_start) / 2;
-    const r_l_start = r_w_start * ellipse_ratio;
-    
-    for (let i = 0; i < n_cap_outer; i++) {
-        const ang = (i / (n_cap_outer - 1)) * Math.PI;
-        allPoints.push({
-            x: center_start[0] - r_w_start * Math.cos(ang) * u_start[0] + r_l_start * Math.sin(ang) * v_start[0],
-            y: center_start[1] - r_w_start * Math.cos(ang) * u_start[1] + r_l_start * Math.sin(ang) * v_start[1]
-        });
-    }
-    
-    const n = allPoints.length;
-    const curveData = [];
-    
-    for (let i = 0; i < n; i++) {
-        const prev = allPoints[(i - 1 + n) % n];
-        const curr = allPoints[i];
-        const next = allPoints[(i + 1) % n];
-        
-        const dx = (next.x - prev.x) / 2;
-        const dy = (next.y - prev.y) / 2;
-        const vel = Math.sqrt(dx*dx + dy*dy);
-        
-        if (vel < 1e-10) continue;
-        
-        const Tx = dx / vel;
-        const Ty = dy / vel;
-        const Nx = -Ty;
-        const Ny = Tx;
-        
-        const ddx = next.x - 2*curr.x + prev.x;
-        const ddy = next.y - 2*curr.y + prev.y;
-        
-        const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
-        
-        curveData.push({
-            p: new Point(curr.x, curr.y),
-            T: new Point(Tx, Ty),
-            N: new Point(Nx, Ny),
-            curvature: curvature,
-            curveId: 0
-        });
-    }
-    
-    return curveData;
+    fixedCurveMode = false;
+    cachedCurveData = null;
+    cachedSSData = null; sortedSSIndices = null;
+    selectedInfo = null;
+    vineyardCenter = null;
+    vineyardData = null;
+    vineyardCenters = [];
+    customLoopPoints = [];
+    updateLoopStatus();
+    updateUI();
+    triggerComputation(true);
+    updateStatus(`Loaded ${curves.reduce((s, c) => s + c.length, 0)} points`);
 }
 
 // ========== UI Helpers ==========
@@ -2887,32 +2496,7 @@ document.getElementById('loadFigInput').addEventListener('change', e => {
     const reader = new FileReader();
     reader.onload = ev => {
         try {
-            const data = JSON.parse(ev.target.result);
-            if (data.format !== 'symmetry-set-spline' || !Array.isArray(data.curves)) {
-                updateStatus('Invalid figure file');
-                return;
-            }
-            saveState();
-            curves = data.curves.map(c => c.map(p => new Point(p.x, p.y)));
-            if (curves.length === 0) curves = [[]];
-            activeCurveIdx = Math.min(data.activeCurveIdx ?? 0, curves.length - 1);
-            if (data.view) {
-                view.x = data.view.x;
-                view.y = data.view.y;
-                view.scale = data.view.scale;
-            }
-            fixedCurveMode = false;
-            cachedCurveData = null;
-            cachedSSData = null; sortedSSIndices = null;
-            selectedInfo = null;
-            vineyardCenter = null;
-            vineyardData = null;
-            vineyardCenters = [];
-            customLoopPoints = [];
-            updateLoopStatus();
-            updateUI();
-            triggerComputation(true);
-            updateStatus(`Loaded ${curves.reduce((s, c) => s + c.length, 0)} points`);
+            applyFigureData(JSON.parse(ev.target.result));
         } catch (err) {
             updateStatus('Failed to parse file');
         }

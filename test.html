@@ -866,6 +866,7 @@ let activeCurveIdx = 0;
 
 let cachedCurveData = null;
 let cachedSSData = null;
+let cachedFocalData = null;
 let ssStepSize = 5;
 
 let dragInfo = null;
@@ -1465,6 +1466,111 @@ function _ssTraceCross(data, idxA, idxB) {
         }
     }
     return [..._ssStitch(segsP), ..._ssStitch(segsM)];
+}
+
+// ========== Focal Set ==========
+// The evolute (focal set) of a plane curve gamma is the map
+//   gamma(t) → gamma(t) + N(t)/kappa(t).
+// Since it is parametrised by t alone, we do not need marching squares — we
+// just walk curve samples, split at inflections (kappa sign change) and at
+// near-flat regions (|kappa| tiny), and stitch the rest into polylines.
+//
+// Return shape is identical to computeSymmetrySet: a flat array of
+// {x, y, i, r, k} with a `.branches` property (array of polylines). Each
+// polyline that fully closes carries `.closed = true`.
+function computeFocalSet(data) {
+    const out = [];
+    out.branches = [];
+    if (!data || data.length === 0) return out;
+
+    // Bucket by curveId, preserving sample order
+    const groups = new Map();
+    for (let i = 0; i < data.length; i++) {
+        const cId = data[i].curveId || 0;
+        if (!groups.has(cId)) groups.set(cId, []);
+        groups.get(cId).push(i);
+    }
+
+    // Reference scale: any focal-point jump larger than the curve bounding-box
+    // diagonal is almost certainly a near-inflection artefact and should cut
+    // the branch.
+    let minX =  Infinity, maxX = -Infinity, minY =  Infinity, maxY = -Infinity;
+    for (const d of data) {
+        if (d.p.x < minX) minX = d.p.x;
+        if (d.p.x > maxX) maxX = d.p.x;
+        if (d.p.y < minY) minY = d.p.y;
+        if (d.p.y > maxY) maxY = d.p.y;
+    }
+    const diag = Math.max(1e-6, Math.hypot(maxX - minX, maxY - minY));
+    const MAX_JUMP_SQ = diag * diag;
+    const MIN_K = 1.0 / R_MAX;
+
+    for (const indices of groups.values()) {
+        const n = indices.length;
+        if (n < 3) continue;
+
+        // Per-sample focal point (or null if ill-defined)
+        const foc = new Array(n);
+        for (let k = 0; k < n; k++) {
+            const pt = data[indices[k]];
+            const kv = pt.curvature;
+            if (!isFinite(kv) || Math.abs(kv) < MIN_K) { foc[k] = null; continue; }
+            const R = 1.0 / kv;
+            foc[k] = {
+                x: pt.p.x + pt.N.x * R,
+                y: pt.p.y + pt.N.y * R,
+                i: indices[k],
+                r: Math.abs(R),
+                k: kv
+            };
+        }
+
+        // Mark breaks between k and k+1 (cyclic): null, sign change, or large jump
+        const brk = new Array(n).fill(false);
+        for (let k = 0; k < n; k++) {
+            const kn = (k + 1) % n;
+            const a = foc[k], b = foc[kn];
+            if (!a || !b)        { brk[k] = true; continue; }
+            if (a.k * b.k < 0)   { brk[k] = true; continue; }  // inflection
+            const dx = b.x - a.x, dy = b.y - a.y;
+            if (dx*dx + dy*dy > MAX_JUMP_SQ) { brk[k] = true; }
+        }
+
+        const closed = !brk.some(b => b);
+
+        // Start just after some break, or 0 if fully closed
+        let start = 0;
+        if (!closed) {
+            for (let k = 0; k < n; k++) if (brk[k]) { start = (k + 1) % n; break; }
+        }
+
+        // Walk cyclically from start, cutting at each break
+        let current = null;
+        const flush = () => {
+            if (current && current.length >= 2) {
+                out.branches.push(current);
+                for (const p of current) out.push(p);
+            } else if (current && current.length === 1) {
+                out.push(current[0]);
+            }
+            current = null;
+        };
+
+        for (let step = 0; step < n; step++) {
+            const k = (start + step) % n;
+            if (foc[k]) {
+                if (!current) current = [];
+                current.push(foc[k]);
+            } else {
+                flush();
+            }
+            if (brk[k]) flush();
+        }
+        if (current && closed) current.closed = true;
+        flush();
+    }
+
+    return out;
 }
 
 // ========== Persistence Computation via Python API ==========
@@ -2719,6 +2825,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     selectedInfo = null;
     cachedCurveData = null;
     cachedSSData = null; sortedSSIndices = null;
+    cachedFocalData = null;
     vineyardCenter = null;
     vineyardData = null;
     vineyardCenters = [];
@@ -2921,6 +3028,7 @@ function loadCSVCurve(points) {
     
     // Compute symmetry set
     cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
+    cachedFocalData = computeFocalSet(cachedCurveData);
     
     // Auto-fit view to data
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -3728,15 +3836,17 @@ function triggerComputation(fullCompute = true) {
     if (!fullCompute) {
         cachedCurveData = computeSplineData();
         cachedSSData = null; sortedSSIndices = null;
+        cachedFocalData = computeFocalSet(cachedCurveData);
         draw();
         return;
     }
 
     if (computeTimer) clearTimeout(computeTimer);
-    
+
     computeTimer = setTimeout(() => {
         cachedCurveData = computeSplineData();
         cachedSSData = computeSymmetrySet(cachedCurveData, ssStepSize); sortedSSIndices = null;
+        cachedFocalData = computeFocalSet(cachedCurveData);
         updateStatus(`SS: ${cachedSSData.length} pts`);
         draw();
     }, 10);
@@ -3769,19 +3879,18 @@ function draw() {
     ctx.stroke();
 
     if (cachedCurveData && cachedCurveData.length > 0) {
-        if (document.getElementById('showFocal').checked) {
-            ctx.fillStyle = focalColor;
-            const s = 1.5 / view.scale;
-            for (const pt of cachedCurveData) {
-                const k = pt.curvature;
-                if (Math.abs(k) > 1e-8) {
-                    const R = 1.0 / k;
-                    if (Math.abs(R) < R_MAX) {
-                        const ex = pt.p.x + pt.N.x * R;
-                        const ey = pt.p.y + pt.N.y * R;
-                        ctx.fillRect(ex - s/2, ey - s/2, s, s);
-                    }
-                }
+        if (document.getElementById('showFocal').checked && cachedFocalData) {
+            ctx.strokeStyle = focalColor;
+            ctx.lineWidth = 1.5 / view.scale;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            for (const branch of cachedFocalData.branches) {
+                if (branch.length < 2) continue;
+                ctx.beginPath();
+                ctx.moveTo(branch[0].x, branch[0].y);
+                for (let k = 1; k < branch.length; k++) ctx.lineTo(branch[k].x, branch[k].y);
+                if (branch.closed) ctx.closePath();
+                ctx.stroke();
             }
         }
 
@@ -4240,19 +4349,18 @@ function exportCanvasAsPNG() {
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         // Focal set - darker green for visibility
-        if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#7c3aed';
-            const s = 1.5 / view.scale;
-            for (const pt of cachedCurveData) {
-                const k = pt.curvature;
-                if (Math.abs(k) > 1e-8) {
-                    const R = 1.0 / k;
-                    if (Math.abs(R) < R_MAX) {
-                        const ex = pt.p.x + pt.N.x * R;
-                        const ey = pt.p.y + pt.N.y * R;
-                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
-                    }
-                }
+        if (document.getElementById('showFocal').checked && cachedFocalData) {
+            exportCtx.strokeStyle = '#7c3aed';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.lineJoin = 'round';
+            exportCtx.lineCap = 'round';
+            for (const branch of cachedFocalData.branches) {
+                if (branch.length < 2) continue;
+                exportCtx.beginPath();
+                exportCtx.moveTo(branch[0].x, branch[0].y);
+                for (let k = 1; k < branch.length; k++) exportCtx.lineTo(branch[k].x, branch[k].y);
+                if (branch.closed) exportCtx.closePath();
+                exportCtx.stroke();
             }
         }
 
@@ -4367,18 +4475,13 @@ function exportCanvasAsSVG() {
     
     if (cachedCurveData && cachedCurveData.length > 0) {
         // Focal set - darker green
-        if (document.getElementById('showFocal').checked) {
-            const s = 1.5 / view.scale;
-            for (const pt of cachedCurveData) {
-                const k = pt.curvature;
-                if (Math.abs(k) > 1e-8) {
-                    const R = 1.0 / k;
-                    if (Math.abs(R) < R_MAX) {
-                        const ex = pt.p.x + pt.N.x * R;
-                        const ey = pt.p.y + pt.N.y * R;
-                        svg += `<rect x="${ex - s/2}" y="${ey - s/2}" width="${s}" height="${s}" fill="#7c3aed"/>`;
-                    }
-                }
+        if (document.getElementById('showFocal').checked && cachedFocalData) {
+            for (const branch of cachedFocalData.branches) {
+                if (branch.length < 2) continue;
+                let d = `M ${branch[0].x} ${branch[0].y}`;
+                for (let k = 1; k < branch.length; k++) d += ` L ${branch[k].x} ${branch[k].y}`;
+                if (branch.closed) d += ' Z';
+                svg += `<path d="${d}" stroke="#7c3aed" stroke-width="${1.5/view.scale}" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`;
             }
         }
 
@@ -4598,19 +4701,18 @@ function exportCanvasAsPDF() {
     // NO GRID for clean export
 
     if (cachedCurveData && cachedCurveData.length > 0) {
-        if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#7c3aed';
-            const s = 1.5 / view.scale;
-            for (const pt of cachedCurveData) {
-                const k = pt.curvature;
-                if (Math.abs(k) > 1e-8) {
-                    const R = 1.0 / k;
-                    if (Math.abs(R) < R_MAX) {
-                        const ex = pt.p.x + pt.N.x * R;
-                        const ey = pt.p.y + pt.N.y * R;
-                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
-                    }
-                }
+        if (document.getElementById('showFocal').checked && cachedFocalData) {
+            exportCtx.strokeStyle = '#7c3aed';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.lineJoin = 'round';
+            exportCtx.lineCap = 'round';
+            for (const branch of cachedFocalData.branches) {
+                if (branch.length < 2) continue;
+                exportCtx.beginPath();
+                exportCtx.moveTo(branch[0].x, branch[0].y);
+                for (let k = 1; k < branch.length; k++) exportCtx.lineTo(branch[k].x, branch[k].y);
+                if (branch.closed) exportCtx.closePath();
+                exportCtx.stroke();
             }
         }
 
@@ -4961,19 +5063,18 @@ async function exportAllAsPDF() {
     exportCtx.stroke();
 
     if (cachedCurveData && cachedCurveData.length > 0) {
-        if (document.getElementById('showFocal').checked) {
-            exportCtx.fillStyle = '#a855f7';
-            const s = 1.5 / view.scale;
-            for (const pt of cachedCurveData) {
-                const k = pt.curvature;
-                if (Math.abs(k) > 1e-8) {
-                    const R = 1.0 / k;
-                    if (Math.abs(R) < R_MAX) {
-                        const ex = pt.p.x + pt.N.x * R;
-                        const ey = pt.p.y + pt.N.y * R;
-                        exportCtx.fillRect(ex - s/2, ey - s/2, s, s);
-                    }
-                }
+        if (document.getElementById('showFocal').checked && cachedFocalData) {
+            exportCtx.strokeStyle = '#7c3aed';
+            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.lineJoin = 'round';
+            exportCtx.lineCap = 'round';
+            for (const branch of cachedFocalData.branches) {
+                if (branch.length < 2) continue;
+                exportCtx.beginPath();
+                exportCtx.moveTo(branch[0].x, branch[0].y);
+                for (let k = 1; k < branch.length; k++) exportCtx.lineTo(branch[k].x, branch[k].y);
+                if (branch.closed) exportCtx.closePath();
+                exportCtx.stroke();
             }
         }
         if (document.getElementById('showSS').checked && cachedSSData) {

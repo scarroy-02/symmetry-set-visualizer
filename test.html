@@ -1192,107 +1192,279 @@ function computeSplineData() {
     return allData;
 }
 
-// ========== Symmetry Set ==========
+// ========== Symmetry Set ========== (new version)
 function computeSymmetrySet(data, stepSize) {
-    if (!data || data.length === 0) return [];
+    const out = [];
+    out.branches = [];
+    if (!data || data.length === 0) return out;
 
-    const centers = [];
     const step = Math.max(1, stepSize);
-    const activeIndices = [];
-    for (let i = 0; i < data.length; i += step) activeIndices.push(i);
-    
-    const n = activeIndices.length;
-    const Px = new Float64Array(n), Py = new Float64Array(n);
-    const Tx = new Float64Array(n), Ty = new Float64Array(n);
-    const Nx = new Float64Array(n), Ny = new Float64Array(n);
-    const Id = new Int32Array(n);
-    const OrigIdx = new Int32Array(n); // Store original indices for arc-length calculation
-    
-    // Count points per curve for arc-length normalization
-    const curvePointCounts = new Map();
-    for(let k=0; k<n; k++) {
-        const idx = activeIndices[k];
-        const cId = data[idx].curveId || 0;
-        Px[k] = data[idx].p.x; Py[k] = data[idx].p.y;
-        Tx[k] = data[idx].T.x; Ty[k] = data[idx].T.y;
-        Nx[k] = data[idx].N.x; Ny[k] = data[idx].N.y;
-        Id[k] = cId;
-        OrigIdx[k] = idx;
-        
-        if (!curvePointCounts.has(cId)) {
-            curvePointCounts.set(cId, { start: k, count: 0 });
-        }
-        curvePointCounts.get(cId).count++;
+    // Bucket active indices by curveId
+    const groups = new Map();
+    for (let i = 0; i < data.length; i += step) {
+        const cId = data[i].curveId || 0;
+        if (!groups.has(cId)) groups.set(cId, []);
+        groups.get(cId).push(i);
     }
 
-    // Minimum arc-length fraction to consider (5% of curve length)
-    const minArcLengthFraction = 0.02;
-    const radiusTol = 0.15;
+    // Self-symmetry of each closed curve
+    for (const indices of groups.values()) {
+        for (const br of _ssTraceSelf(data, indices)) {
+            out.branches.push(br);
+            for (const p of br) out.push(p);
+        }
+    }
 
-    for (let i = 0; i < n; i++) {
-        const px = Px[i], py = Py[i], tx = Tx[i], ty = Ty[i], nx = Nx[i], ny = Ny[i];
-        const id1 = Id[i];
-        let prev_check1 = NaN, prev_check2 = NaN;
-
-        for (let j = i + 1; j < n; j++) {
-            const dx = px - Px[j], dy = py - Py[j];
-            
-            // Use arc-length distance (index distance) instead of Euclidean distance
-            // for points on the same curve
-            if (id1 === Id[j]) {
-                const curveInfo = curvePointCounts.get(id1);
-                const curveLen = curveInfo.count;
-                
-                // Calculate arc-length distance (accounting for closed curve)
-                const indexDiff = Math.abs(i - j);
-                const arcDist = Math.min(indexDiff, curveLen - indexDiff);
-                const arcFraction = arcDist / curveLen;
-                
-                // Skip if points are too close along the curve (not spatially)
-                if (arcFraction < minArcLengthFraction) continue;
+    // Cross-symmetry between pairs of distinct curves
+    const curveIds = [...groups.keys()];
+    for (let i = 0; i < curveIds.length; i++) {
+        for (let j = i + 1; j < curveIds.length; j++) {
+            for (const br of _ssTraceCross(data, groups.get(curveIds[i]), groups.get(curveIds[j]))) {
+                out.branches.push(br);
+                for (const p of br) out.push(p);
             }
-
-            const t2x = Tx[j], t2y = Ty[j];
-            const dotT = tx*t2x + ty*t2y;
-
-            if (dotT > -0.9999) {
-                const eq1 = dx * (tx + t2x) + dy * (ty + t2y);
-                if (!isNaN(prev_check1) && prev_check1 * eq1 < 0) {
-                    const nsx = nx + Nx[j], nsy = ny + Ny[j];
-                    const den = nsx*nsx + nsy*nsy;
-                    if (den > 1e-10) {
-                        const lam = (-dx*nsx - dy*nsy) / den;
-                        if (Math.abs(lam) < LAMBDA_MAX) {
-                            const cx = px + nx*lam, cy = py + ny*lam;
-                            const r1 = Math.abs(lam);
-                            const r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
-                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy, i1: activeIndices[i], i2: activeIndices[j], r: (r1+r2)/2});
-                        }
-                    }
-                }
-                prev_check1 = eq1;
-            } else prev_check1 = NaN;
-
-            if (dotT < 0.9999) {
-                const eq2 = dx * (tx - t2x) + dy * (ty - t2y);
-                if (!isNaN(prev_check2) && prev_check2 * eq2 < 0) {
-                    const nsx = nx - Nx[j], nsy = ny - Ny[j];
-                    const den = nsx*nsx + nsy*nsy;
-                    if (den > 1e-10) {
-                        const lam = (-dx*nsx - dy*nsy) / den;
-                        if (Math.abs(lam) < LAMBDA_MAX) {
-                            const cx = px + nx*lam, cy = py + ny*lam;
-                            const r1 = Math.abs(lam);
-                            const r2 = Math.sqrt((cx-Px[j])**2 + (cy-Py[j])**2);
-                            if (Math.abs(r1 - r2) < r1*radiusTol + 0.1) centers.push({x:cx, y:cy, i1: activeIndices[i], i2: activeIndices[j], r: (r1+r2)/2});
-                        }
-                    }
-                }
-                prev_check2 = eq2;
-            } else prev_check2 = NaN;
         }
     }
-    return centers;
+    return out;
+}
+
+// --- helpers --------------------------------------------------------------
+
+function _ssEvalF(data, ia, ib) {
+    const pa = data[ia].p, pb = data[ib].p, Ta = data[ia].T, Tb = data[ib].T;
+    const dx = pa.x - pb.x, dy = pa.y - pb.y;
+    return {
+        fp: dx * (Ta.x + Tb.x) + dy * (Ta.y + Tb.y),
+        fm: dx * (Ta.x - Tb.x) + dy * (Ta.y - Tb.y)
+    };
+}
+
+function _ssDotT(data, i, j) {
+    return data[i].T.x * data[j].T.x + data[i].T.y * data[j].T.y;
+}
+
+// Marching-squares 16-case lookup, with saddle-point resolution for cases 5/10.
+// Returns up to two segments, each a pair of {edge, alpha}.
+function _ssMarch(f00, f10, f11, f01) {
+    const b = ((f00 > 0) ? 1 : 0) | ((f10 > 0) ? 2 : 0) | ((f11 > 0) ? 4 : 0) | ((f01 > 0) ? 8 : 0);
+    const ia = (u, v) => u / (u - v);
+    const a0 = () => ia(f00, f10), a1 = () => ia(f10, f11),
+          a2 = () => ia(f11, f01), a3 = () => ia(f01, f00);
+    switch (b) {
+        case 0: case 15: return [];
+        case 1: case 14: return [[{edge:0,alpha:a0()},{edge:3,alpha:a3()}]];
+        case 2: case 13: return [[{edge:0,alpha:a0()},{edge:1,alpha:a1()}]];
+        case 3: case 12: return [[{edge:1,alpha:a1()},{edge:3,alpha:a3()}]];
+        case 4: case 11: return [[{edge:1,alpha:a1()},{edge:2,alpha:a2()}]];
+        case 6: case 9:  return [[{edge:0,alpha:a0()},{edge:2,alpha:a2()}]];
+        case 7: case 8:  return [[{edge:2,alpha:a2()},{edge:3,alpha:a3()}]];
+        case 5: {
+            const c = (f00 + f10 + f11 + f01) * 0.25;
+            return c > 0
+                ? [[{edge:0,alpha:a0()},{edge:1,alpha:a1()}],[{edge:2,alpha:a2()},{edge:3,alpha:a3()}]]
+                : [[{edge:0,alpha:a0()},{edge:3,alpha:a3()}],[{edge:1,alpha:a1()},{edge:2,alpha:a2()}]];
+        }
+        case 10: {
+            const c = (f00 + f10 + f11 + f01) * 0.25;
+            return c > 0
+                ? [[{edge:0,alpha:a0()},{edge:3,alpha:a3()}],[{edge:1,alpha:a1()},{edge:2,alpha:a2()}]]
+                : [[{edge:0,alpha:a0()},{edge:1,alpha:a1()}],[{edge:2,alpha:a2()},{edge:3,alpha:a3()}]];
+        }
+    }
+    return [];
+}
+
+// Lift an edge zero-crossing to a symmetry-set center. Linearly interpolates
+// position, renormalises tangent, derives normal, then solves for lambda via
+//   sigma = +1 (F_+ = 0):  lambda (N_a + N_b) = P_b - P_a   (opposite normals)
+//   sigma = -1 (F_- = 0):  lambda (N_a - N_b) = P_b - P_a   (same-sign normals)
+function _ssLift(data, idxA, idxB, nA, nB, a, b, edge, alpha, sigma) {
+    const a1 = (a + 1) % nA, b1 = (b + 1) % nB;
+    let ia0, ia1, ib0, ib1, ta, tb;
+    switch (edge) {
+        case 0: ia0 = idxA[a];  ib0 = idxB[b];  ia1 = idxA[a1]; ib1 = idxB[b];  ta = alpha; tb = 0;     break;
+        case 1: ia0 = idxA[a1]; ib0 = idxB[b];  ia1 = idxA[a1]; ib1 = idxB[b1]; ta = 0;     tb = alpha; break;
+        case 2: ia0 = idxA[a1]; ib0 = idxB[b1]; ia1 = idxA[a];  ib1 = idxB[b1]; ta = alpha; tb = 0;     break;
+        case 3: ia0 = idxA[a];  ib0 = idxB[b1]; ia1 = idxA[a];  ib1 = idxB[b];  ta = 0;     tb = alpha; break;
+    }
+    const Pa = { x: data[ia0].p.x * (1 - ta) + data[ia1].p.x * ta,
+                 y: data[ia0].p.y * (1 - ta) + data[ia1].p.y * ta };
+    const Pb = { x: data[ib0].p.x * (1 - tb) + data[ib1].p.x * tb,
+                 y: data[ib0].p.y * (1 - tb) + data[ib1].p.y * tb };
+    const Tax = data[ia0].T.x * (1 - ta) + data[ia1].T.x * ta,
+          Tay = data[ia0].T.y * (1 - ta) + data[ia1].T.y * ta;
+    const Tbx = data[ib0].T.x * (1 - tb) + data[ib1].T.x * tb,
+          Tby = data[ib0].T.y * (1 - tb) + data[ib1].T.y * tb;
+    const maN = Math.sqrt(Tax * Tax + Tay * Tay) || 1;
+    const mbN = Math.sqrt(Tbx * Tbx + Tby * Tby) || 1;
+    const Nax = -Tay / maN, Nay = Tax / maN;
+    const Nbx = -Tby / mbN, Nby = Tbx / mbN;
+
+    // A = N_a + sigma * N_b  (note the +: this is the correct correlation)
+    const Ax = Nax + sigma * Nbx, Ay = Nay + sigma * Nby;
+    const denA = Ax * Ax + Ay * Ay;
+    if (denA < 1e-12) return null;
+    const lam = ((Pb.x - Pa.x) * Ax + (Pb.y - Pa.y) * Ay) / denA;
+    if (!isFinite(lam) || Math.abs(lam) > LAMBDA_MAX) return null;
+
+    const cx = Pa.x + lam * Nax, cy = Pa.y + lam * Nay, r = Math.abs(lam);
+
+    // Physical sanity: the bitangent circle must span the chord (2r >= |Pa - Pb|).
+    // Reject the numerical sliver where lambda collapses to zero near the diagonal.
+    const chordSq = (Pa.x - Pb.x) ** 2 + (Pa.y - Pb.y) ** 2;
+    if (4 * r * r < chordSq * 0.98) return null;
+
+    // Canonical key for the shared edge (stitching neighbouring cells).
+    let edgeKey;
+    switch (edge) {
+        case 0: edgeKey = `H${a}_${b}_${sigma}`;  break;
+        case 1: edgeKey = `V${a1}_${b}_${sigma}`; break;
+        case 2: edgeKey = `H${a}_${b1}_${sigma}`; break;
+        case 3: edgeKey = `V${a}_${b}_${sigma}`;  break;
+    }
+    return { x: cx, y: cy, r, i1: ia0, i2: ib0, edgeKey };
+}
+
+// Walk segments sharing edge keys into polylines.
+function _ssStitch(segments) {
+    if (segments.length === 0) return [];
+    const edgeMap = new Map();
+    for (let s = 0; s < segments.length; s++) {
+        for (let e = 0; e < 2; e++) {
+            const k = segments[s][e].edgeKey;
+            if (!edgeMap.has(k)) edgeMap.set(k, []);
+            edgeMap.get(k).push({ seg: s, end: e });
+        }
+    }
+    const visited = new Array(segments.length).fill(false);
+    const branches = [];
+    const neighbour = (s, e) => {
+        const list = edgeMap.get(segments[s][e].edgeKey);
+        for (const n of list) if (n.seg !== s && !visited[n.seg]) return n;
+        return null;
+    };
+    for (let start = 0; start < segments.length; start++) {
+        if (visited[start]) continue;
+        visited[start] = true;
+        const path = [segments[start][0], segments[start][1]];
+        // extend from tail
+        let cur = start, end = 1;
+        while (true) {
+            const n = neighbour(cur, end);
+            if (!n) break;
+            visited[n.seg] = true;
+            const other = 1 - n.end;
+            path.push(segments[n.seg][other]);
+            cur = n.seg; end = other;
+        }
+        // extend from head
+        cur = start; end = 0;
+        while (true) {
+            const n = neighbour(cur, end);
+            if (!n) break;
+            visited[n.seg] = true;
+            const other = 1 - n.end;
+            path.unshift(segments[n.seg][other]);
+            cur = n.seg; end = other;
+        }
+        branches.push(path);
+    }
+    return branches;
+}
+
+function _ssTraceSelf(data, idx) {
+    const n = idx.length;
+    if (n < 10) return [];
+    const MIN_ARC = Math.max(3, Math.floor(n * 0.02));
+    const halfN = Math.floor(n / 2);
+    const DOTT_GUARD = 0.9999;
+    const segsP = [], segsM = [];
+
+    for (let a = 0; a < n; a++) {
+        for (let b = 0; b < n; b++) {
+            const a1 = (a + 1) % n, b1 = (b + 1) % n;
+            // Fundamental domain: MIN_ARC < (a - b) mod n <= n/2 at every corner.
+            // (Antisymmetry F(a,b) = -F(b,a) means each real branch would otherwise
+            //  appear twice; the half-strip picks one copy.)
+            let ok = true;
+            for (const [ca, cb] of [[a,b],[a1,b],[a1,b1],[a,b1]]) {
+                const fwd = ((ca - cb) % n + n) % n;
+                if (fwd <= MIN_ARC || fwd > halfN) { ok = false; break; }
+            }
+            if (!ok) continue;
+
+            // Tangent-parallelism guards (skip cells where F is ill-conditioned):
+            //   F_+ misbehaves when T_a ~ -T_b,  F_- when T_a ~ +T_b.
+            const d00 = _ssDotT(data, idx[a],  idx[b]);
+            const d10 = _ssDotT(data, idx[a1], idx[b]);
+            const d11 = _ssDotT(data, idx[a1], idx[b1]);
+            const d01 = _ssDotT(data, idx[a],  idx[b1]);
+            const safeP = d00 > -DOTT_GUARD && d10 > -DOTT_GUARD && d11 > -DOTT_GUARD && d01 > -DOTT_GUARD;
+            const safeM = d00 <  DOTT_GUARD && d10 <  DOTT_GUARD && d11 <  DOTT_GUARD && d01 <  DOTT_GUARD;
+            if (!safeP && !safeM) continue;
+
+            const e00 = _ssEvalF(data, idx[a],  idx[b]);
+            const e10 = _ssEvalF(data, idx[a1], idx[b]);
+            const e11 = _ssEvalF(data, idx[a1], idx[b1]);
+            const e01 = _ssEvalF(data, idx[a],  idx[b1]);
+
+            if (safeP) {
+                for (const seg of _ssMarch(e00.fp, e10.fp, e11.fp, e01.fp)) {
+                    const p0 = _ssLift(data, idx, idx, n, n, a, b, seg[0].edge, seg[0].alpha, +1);
+                    const p1 = _ssLift(data, idx, idx, n, n, a, b, seg[1].edge, seg[1].alpha, +1);
+                    if (p0 && p1) segsP.push([p0, p1]);
+                }
+            }
+            if (safeM) {
+                for (const seg of _ssMarch(e00.fm, e10.fm, e11.fm, e01.fm)) {
+                    const p0 = _ssLift(data, idx, idx, n, n, a, b, seg[0].edge, seg[0].alpha, -1);
+                    const p1 = _ssLift(data, idx, idx, n, n, a, b, seg[1].edge, seg[1].alpha, -1);
+                    if (p0 && p1) segsM.push([p0, p1]);
+                }
+            }
+        }
+    }
+    return [..._ssStitch(segsP), ..._ssStitch(segsM)];
+}
+
+function _ssTraceCross(data, idxA, idxB) {
+    const nA = idxA.length, nB = idxB.length;
+    if (nA < 4 || nB < 4) return [];
+    const DOTT_GUARD = 0.9999;
+    const segsP = [], segsM = [];
+    for (let a = 0; a < nA; a++) {
+        for (let b = 0; b < nB; b++) {
+            const a1 = (a + 1) % nA, b1 = (b + 1) % nB;
+            const d00 = _ssDotT(data, idxA[a],  idxB[b]);
+            const d10 = _ssDotT(data, idxA[a1], idxB[b]);
+            const d11 = _ssDotT(data, idxA[a1], idxB[b1]);
+            const d01 = _ssDotT(data, idxA[a],  idxB[b1]);
+            const safeP = d00 > -DOTT_GUARD && d10 > -DOTT_GUARD && d11 > -DOTT_GUARD && d01 > -DOTT_GUARD;
+            const safeM = d00 <  DOTT_GUARD && d10 <  DOTT_GUARD && d11 <  DOTT_GUARD && d01 <  DOTT_GUARD;
+            if (!safeP && !safeM) continue;
+
+            const e00 = _ssEvalF(data, idxA[a],  idxB[b]);
+            const e10 = _ssEvalF(data, idxA[a1], idxB[b]);
+            const e11 = _ssEvalF(data, idxA[a1], idxB[b1]);
+            const e01 = _ssEvalF(data, idxA[a],  idxB[b1]);
+
+            if (safeP) {
+                for (const seg of _ssMarch(e00.fp, e10.fp, e11.fp, e01.fp)) {
+                    const p0 = _ssLift(data, idxA, idxB, nA, nB, a, b, seg[0].edge, seg[0].alpha, +1);
+                    const p1 = _ssLift(data, idxA, idxB, nA, nB, a, b, seg[1].edge, seg[1].alpha, +1);
+                    if (p0 && p1) segsP.push([p0, p1]);
+                }
+            }
+            if (safeM) {
+                for (const seg of _ssMarch(e00.fm, e10.fm, e11.fm, e01.fm)) {
+                    const p0 = _ssLift(data, idxA, idxB, nA, nB, a, b, seg[0].edge, seg[0].alpha, -1);
+                    const p1 = _ssLift(data, idxA, idxB, nA, nB, a, b, seg[1].edge, seg[1].alpha, -1);
+                    if (p0 && p1) segsM.push([p0, p1]);
+                }
+            }
+        }
+    }
+    return [..._ssStitch(segsP), ..._ssStitch(segsM)];
 }
 
 // ========== Persistence Computation via Python API ==========
@@ -3072,13 +3244,27 @@ let sortedSSIndices = null;
 
 function buildSortedSSIndices() {
     if (!cachedSSData || cachedSSData.length === 0) { sortedSSIndices = null; return; }
-    // Nearest-neighbor traversal for smooth path through branches/intersections
+
+    // Fast path: walk the already-ordered branches.
+    if (cachedSSData.branches && cachedSSData.branches.length > 0) {
+        const ptToIdx = new Map();
+        for (let i = 0; i < cachedSSData.length; i++) ptToIdx.set(cachedSSData[i], i);
+        const order = [];
+        for (const br of cachedSSData.branches) {
+            for (const p of br) {
+                const i = ptToIdx.get(p);
+                if (i !== undefined) order.push(i);
+            }
+        }
+        sortedSSIndices = order;
+        return;
+    }
+
+    // Fallback: nearest-neighbor (old behaviour)
     const n = cachedSSData.length;
     const used = new Uint8Array(n);
     const order = new Array(n);
-    // Start from index 0
-    order[0] = 0;
-    used[0] = 1;
+    order[0] = 0; used[0] = 1;
     for (let k = 1; k < n; k++) {
         const prev = order[k - 1];
         const px = cachedSSData[prev].x, py = cachedSSData[prev].y;
@@ -3089,8 +3275,7 @@ function buildSortedSSIndices() {
             const d = dx * dx + dy * dy;
             if (d < bestDist) { bestDist = d; bestIdx = j; }
         }
-        order[k] = bestIdx;
-        used[bestIdx] = 1;
+        order[k] = bestIdx; used[bestIdx] = 1;
     }
     sortedSSIndices = order;
 }
@@ -3601,10 +3786,22 @@ function draw() {
         }
 
         if (document.getElementById('showSS').checked && cachedSSData) {
-            ctx.fillStyle = ssColor;
-            const s = 1.5 / view.scale;
-            for (const p of cachedSSData) {
-                ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            if (cachedSSData.branches && cachedSSData.branches.length > 0) {
+                ctx.strokeStyle = ssColor;
+                ctx.lineWidth = 1.5 / view.scale;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                for (const branch of cachedSSData.branches) {
+                    if (branch.length < 2) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(branch[0].x, branch[0].y);
+                    for (let k = 1; k < branch.length; k++) ctx.lineTo(branch[k].x, branch[k].y);
+                    ctx.stroke();
+                }
+            } else {
+                ctx.fillStyle = ssColor;
+                const s = 1.5 / view.scale;
+                for (const p of cachedSSData) ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
             }
         }
 
@@ -4059,12 +4256,23 @@ function exportCanvasAsPNG() {
             }
         }
 
-        // Symmetry set - darker red
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#3b82f6';
-            const s = 1.5 / view.scale;
-            for (const p of cachedSSData) {
-                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            if (cachedSSData.branches && cachedSSData.branches.length > 0) {
+                exportCtx.strokeStyle = '#3b82f6';
+                exportCtx.lineWidth = 1.5 / view.scale;
+                exportCtx.lineJoin = 'round';
+                exportCtx.lineCap = 'round';
+                for (const branch of cachedSSData.branches) {
+                    if (branch.length < 2) continue;
+                    exportCtx.beginPath();
+                    exportCtx.moveTo(branch[0].x, branch[0].y);
+                    for (let k = 1; k < branch.length; k++) exportCtx.lineTo(branch[k].x, branch[k].y);
+                    exportCtx.stroke();
+                }
+            } else {
+                exportCtx.fillStyle = '#3b82f6';
+                const s = 1.5 / view.scale;
+                for (const p of cachedSSData) exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
             }
         }
 
@@ -4174,11 +4382,19 @@ function exportCanvasAsSVG() {
             }
         }
 
-        // Symmetry set - darker red
         if (document.getElementById('showSS').checked && cachedSSData) {
-            const s = 1.5 / view.scale;
-            for (const p of cachedSSData) {
-                svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#3b82f6"/>`;
+            if (cachedSSData.branches && cachedSSData.branches.length > 0) {
+                for (const branch of cachedSSData.branches) {
+                    if (branch.length < 2) continue;
+                    let d = `M ${branch[0].x} ${branch[0].y}`;
+                    for (let k = 1; k < branch.length; k++) d += ` L ${branch[k].x} ${branch[k].y}`;
+                    svg += `<path d="${d}" stroke="#3b82f6" stroke-width="${1.5/view.scale}" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`;
+                }
+            } else {
+                const s = 1.5 / view.scale;
+                for (const p of cachedSSData) {
+                    svg += `<rect x="${p.x - s/2}" y="${p.y - s/2}" width="${s}" height="${s}" fill="#3b82f6"/>`;
+                }
             }
         }
 
@@ -4399,10 +4615,22 @@ function exportCanvasAsPDF() {
         }
 
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#3b82f6';
-            const s = 1.5 / view.scale;
-            for (const p of cachedSSData) {
-                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            if (cachedSSData.branches && cachedSSData.branches.length > 0) {
+                exportCtx.strokeStyle = '#3b82f6';
+                exportCtx.lineWidth = 1.5 / view.scale;
+                exportCtx.lineJoin = 'round';
+                exportCtx.lineCap = 'round';
+                for (const branch of cachedSSData.branches) {
+                    if (branch.length < 2) continue;
+                    exportCtx.beginPath();
+                    exportCtx.moveTo(branch[0].x, branch[0].y);
+                    for (let k = 1; k < branch.length; k++) exportCtx.lineTo(branch[k].x, branch[k].y);
+                    exportCtx.stroke();
+                }
+            } else {
+                exportCtx.fillStyle = '#3b82f6';
+                const s = 1.5 / view.scale;
+                for (const p of cachedSSData) exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
             }
         }
 
@@ -4749,10 +4977,22 @@ async function exportAllAsPDF() {
             }
         }
         if (document.getElementById('showSS').checked && cachedSSData) {
-            exportCtx.fillStyle = '#60a5fa';
-            const s = 1.5 / view.scale;
-            for (const p of cachedSSData) {
-                exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+            if (cachedSSData.branches && cachedSSData.branches.length > 0) {
+                exportCtx.strokeStyle = '#3b82f6';
+                exportCtx.lineWidth = 1.5 / view.scale;
+                exportCtx.lineJoin = 'round';
+                exportCtx.lineCap = 'round';
+                for (const branch of cachedSSData.branches) {
+                    if (branch.length < 2) continue;
+                    exportCtx.beginPath();
+                    exportCtx.moveTo(branch[0].x, branch[0].y);
+                    for (let k = 1; k < branch.length; k++) exportCtx.lineTo(branch[k].x, branch[k].y);
+                    exportCtx.stroke();
+                }
+            } else {
+                exportCtx.fillStyle = '#3b82f6';
+                const s = 1.5 / view.scale;
+                for (const p of cachedSSData) exportCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
             }
         }
         if (document.getElementById('showCurve').checked) {

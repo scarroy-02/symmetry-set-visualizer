@@ -22,11 +22,11 @@ def build_simplex_tree(coords, distances, curve_groups):
     """Build a simplex tree for the curve with given distances."""
     st = gd.SimplexTree()
     n = len(coords)
-    
+
     # Insert vertices
     for i in range(n):
         st.insert([i], filtration=float(distances[i]))
-    
+
     # Insert edges (closed loops for each curve)
     for cid, indices in curve_groups.items():
         m = len(indices)
@@ -35,8 +35,34 @@ def build_simplex_tree(coords, distances, curve_groups):
             v2 = indices[(j + 1) % m]
             f_val = float(max(distances[v1], distances[v2]))
             st.insert([v1, v2], filtration=f_val)
-    
+
     return st
+
+
+def build_skeleton(n, curve_groups):
+    """Build simplex tree topology once with zero filtrations. Returns (tree, edges)."""
+    st = gd.SimplexTree()
+    for i in range(n):
+        st.insert([i], filtration=0.0)
+
+    edges = []
+    for indices in curve_groups.values():
+        m = len(indices)
+        for j in range(m):
+            edges.append((indices[j], indices[(j + 1) % m]))
+
+    for v1, v2 in edges:
+        st.insert([v1, v2], filtration=0.0)
+
+    return st, edges
+
+
+def apply_filtration(st, distances, edges):
+    """Update filtration values on an existing skeleton."""
+    for i in range(len(distances)):
+        st.assign_filtration([i], float(distances[i]))
+    for v1, v2 in edges:
+        st.assign_filtration([v1, v2], float(max(distances[v1], distances[v2])))
 
 
 def process_extended_persistence(st, infinity_cap):
@@ -164,13 +190,16 @@ def compute_vineyard():
         ord0_all, ord1_all = [], []
         rel0_all, rel1_all = [], []
         ext0_all, ext1_all = [], []
-        
+
+        # Build topology once; reuse across centers via copy + filtration reassignment.
+        skeleton, edges = build_skeleton(n, curve_groups)
+
         for ci in range(num_centers):
             distances = all_distances[ci]
-            
-            # Build simplex tree
-            st = build_simplex_tree(coords, distances, curve_groups)
-            
+
+            st = skeleton.copy()
+            apply_filtration(st, distances, edges)
+
             # Compute extended persistence
             st.extend_filtration()
             dgms = st.extended_persistence()

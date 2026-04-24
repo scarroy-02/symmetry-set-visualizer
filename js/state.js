@@ -12,11 +12,12 @@ class Point {
 // ========== API Configuration ==========
 // For GitHub Pages: Set this to your deployed Python server URL
 // For local development: Use 'http://localhost:5000'
-// For hosting: 'https://scarroy.eu.pythonanywhere.com/'
-const PERSISTENCE_API_URL = 'https://scarroy.eu.pythonanywhere.com/';
+// For hosting: 'https://scarroy.eu.pythonanywhere.com/' 'https://scarroy-persistence-endpoint.hf.space/'
+const PERSISTENCE_API_URL = 'https://scarroy-persistence-endpoint.hf.space/';
+// const PERSISTENCE_API_URL = 'http://localhost:5000';
 
 // ========== Global State ==========
-const SAMPLING_DENSITY = 25000;
+const SAMPLING_DENSITY = 20000;
 const LAMBDA_MAX = 10000.0;
 const R_MAX = 100000.0;
 

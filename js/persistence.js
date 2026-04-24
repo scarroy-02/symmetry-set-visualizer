@@ -104,12 +104,26 @@ async function computeVineyard() {
         const extCount = ext0.length + ext1.length;
         updateStatus(`Vineyard: ${totalPts} pts (Ord: ${ordCount}, Rel: ${relCount}, Ext: ${extCount})`);
         
+        // Reset any prior inline position/size from dragging or resizing so the
+        // panels return to their CSS default layout, then activate BEFORE plotting
+        // so Plotly measures the real container size (hidden containers are 0x0).
+        const vPanel = document.getElementById('vineyardPanel');
+        const pPanel = document.getElementById('persistencePanel');
+        [vPanel, pPanel].forEach(panel => {
+            panel.style.position = '';
+            panel.style.left = '';
+            panel.style.top = '';
+            panel.style.right = '';
+            panel.style.bottom = '';
+            panel.style.width = '';
+            panel.style.height = '';
+        });
+        vPanel.classList.add('active');
+        pPanel.classList.add('active');
+
         updateVineyardPlot();
         updatePersistenceDiagram(0);
-        
-        document.getElementById('vineyardPanel').classList.add('active');
-        document.getElementById('persistencePanel').classList.add('active');
-        
+
         draw();
         
     } catch (err) {

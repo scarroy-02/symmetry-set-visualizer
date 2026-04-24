@@ -13,9 +13,48 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 import gudhi as gd
+import os
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+VINEYARD_WORKERS = int(os.environ.get('VINEYARD_WORKERS', '2'))
+_pool = None
+
+
+def get_pool():
+    global _pool
+    if _pool is None:
+        _pool = ProcessPoolExecutor(
+            max_workers=VINEYARD_WORKERS,
+            mp_context=mp.get_context('fork'),
+        )
+    return _pool
+
+
+def _chunks(seq, nchunks):
+    k, m = divmod(len(seq), nchunks)
+    out, i = [], 0
+    for c in range(nchunks):
+        size = k + (1 if c < m else 0)
+        out.append(seq[i:i + size])
+        i += size
+    return [c for c in out if c]
+
+
+def _vineyard_chunk(args):
+    """Worker: build skeleton once, process a chunk of centers' distances."""
+    n, curve_groups, distances_chunk = args
+    skeleton, edges = build_skeleton(n, curve_groups)
+    out = []
+    for distances in distances_chunk:
+        st = skeleton.copy()
+        apply_filtration(st, distances, edges)
+        st.extend_filtration()
+        out.append(st.extended_persistence())
+    return out
 
 
 def build_simplex_tree(coords, distances, curve_groups):
@@ -191,37 +230,38 @@ def compute_vineyard():
         rel0_all, rel1_all = [], []
         ext0_all, ext1_all = [], []
 
-        # Build topology once; reuse across centers via copy + filtration reassignment.
-        skeleton, edges = build_skeleton(n, curve_groups)
+        # Split centers across worker processes; each worker reuses its own skeleton.
+        distances_list = [all_distances[ci] for ci in range(num_centers)]
+        chunked = _chunks(distances_list, VINEYARD_WORKERS)
 
-        for ci in range(num_centers):
-            distances = all_distances[ci]
+        pool = get_pool()
+        chunk_results = list(pool.map(
+            _vineyard_chunk,
+            [(n, curve_groups, ch) for ch in chunked],
+        ))
 
-            st = skeleton.copy()
-            apply_filtration(st, distances, edges)
+        # Flatten back in-order so centerIdx matches the request ordering.
+        ci = 0
+        for chunk in chunk_results:
+            for dgms in chunk:
+                for dgm_idx, dgm in enumerate(dgms):
+                    for dim, (birth, death) in dgm:
+                        is_inf = bool(np.isinf(death))
+                        entry = {
+                            'birth': float(birth),
+                            'death': float(death) if not is_inf else infinityY,
+                            'centerIdx': ci,
+                            'isInfinite': is_inf,
+                            'type': ['ord', 'rel', 'ext', 'ext'][dgm_idx]
+                        }
 
-            # Compute extended persistence
-            st.extend_filtration()
-            dgms = st.extended_persistence()
-            
-            # Process diagrams
-            for dgm_idx, dgm in enumerate(dgms):
-                for dim, (birth, death) in dgm:
-                    is_inf = bool(np.isinf(death))
-                    entry = {
-                        'birth': float(birth),
-                        'death': float(death) if not is_inf else infinityY,
-                        'centerIdx': ci,
-                        'isInfinite': is_inf,
-                        'type': ['ord', 'rel', 'ext', 'ext'][dgm_idx]
-                    }
-                    
-                    if dgm_idx == 0:  # Ordinary
-                        (ord0_all if dim == 0 else ord1_all).append(entry)
-                    elif dgm_idx == 1:  # Relative
-                        (rel0_all if dim == 0 else rel1_all).append(entry)
-                    else:  # Extended
-                        (ext0_all if dim == 0 else ext1_all).append(entry)
+                        if dgm_idx == 0:  # Ordinary
+                            (ord0_all if dim == 0 else ord1_all).append(entry)
+                        elif dgm_idx == 1:  # Relative
+                            (rel0_all if dim == 0 else rel1_all).append(entry)
+                        else:  # Extended
+                            (ext0_all if dim == 0 else ext1_all).append(entry)
+                ci += 1
         
         return jsonify({
             'ord0': ord0_all, 'ord1': ord1_all,

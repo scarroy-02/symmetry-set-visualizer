@@ -506,3 +506,23 @@
             background: var(--border-color);
             margin: 4px 0;
         }
+        .export-menu-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: var(--text-primary);
+        }
+        .export-menu-control input[type="range"] {
+            flex: 1;
+            accent-color: #4f8cff;
+            height: 3px;
+        }
+        .export-menu-control span:last-child {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+            min-width: 28px;
+            text-align: right;
+        }

@@ -38,7 +38,19 @@ function downloadDataURL(dataURL, filename) {
     link.click();
 }
 
+const exportLineThicknessInput = document.getElementById('exportLineThickness');
+const exportLineThicknessVal = document.getElementById('exportLineThicknessVal');
+if (exportLineThicknessInput && exportLineThicknessVal) {
+    exportLineThicknessInput.addEventListener('input', () => {
+        exportLineThicknessVal.textContent = parseFloat(exportLineThicknessInput.value).toFixed(1).replace(/\.0$/, '') + '×';
+    });
+}
+function getExportLineThickness() {
+    return exportLineThicknessInput ? (parseFloat(exportLineThicknessInput.value) || 1) : 1;
+}
+
 function exportCanvasAsPNG() {
+    const t = getExportLineThickness();
     // Create a SQUARE high-res export canvas with LIGHT theme
     const exportSize = Math.min(canvas.width, canvas.height);
     const scale = 2; // 2x resolution for better quality
@@ -46,25 +58,25 @@ function exportCanvasAsPNG() {
     exportCanvas.width = exportSize * scale;
     exportCanvas.height = exportSize * scale;
     const exportCtx = exportCanvas.getContext('2d');
-    
+
     // Scale and redraw
     exportCtx.scale(scale, scale);
-    
+
     // Draw WHITE background for papers
     exportCtx.fillStyle = '#ffffff';
     exportCtx.fillRect(0, 0, exportSize, exportSize);
-    
+
     exportCtx.save();
     exportCtx.translate(exportSize / 2 + view.x, exportSize / 2 + view.y);
     exportCtx.scale(view.scale, -view.scale);
-    
+
     // NO GRID for clean export
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         // Focal set - darker green for visibility
         if (document.getElementById('showFocal').checked && cachedFocalData) {
             exportCtx.strokeStyle = '#7c3aed';
-            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.lineWidth = 1.5 * t / view.scale;
             exportCtx.lineJoin = 'round';
             exportCtx.lineCap = 'round';
             for (const branch of cachedFocalData.branches) {
@@ -80,7 +92,7 @@ function exportCanvasAsPNG() {
         if (document.getElementById('showSS').checked && cachedSSData) {
             if (cachedSSData.branches && cachedSSData.branches.length > 0) {
                 exportCtx.strokeStyle = '#3b82f6';
-                exportCtx.lineWidth = 1.5 / view.scale;
+                exportCtx.lineWidth = 1.5 * t / view.scale;
                 exportCtx.lineJoin = 'round';
                 exportCtx.lineCap = 'round';
                 for (const branch of cachedSSData.branches) {
@@ -100,7 +112,7 @@ function exportCanvasAsPNG() {
         // Curve - darker blue
         if (document.getElementById('showCurve').checked) {
             exportCtx.strokeStyle = '#171717';
-            exportCtx.lineWidth = 2.5 / view.scale;
+            exportCtx.lineWidth = 2.5 * t / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
             for (let i = 0; i < cachedCurveData.length; i++) {
@@ -173,19 +185,20 @@ function exportCanvasAsPNG() {
 }
 
 function exportCanvasAsSVG() {
+    const t = getExportLineThickness();
     // SQUARE export
     const exportSize = Math.min(canvas.width, canvas.height);
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${exportSize}" height="${exportSize}" viewBox="0 0 ${exportSize} ${exportSize}">`;
     // White background for papers
     svg += `<rect width="100%" height="100%" fill="#ffffff"/>`;
-    
+
     const cx = exportSize / 2 + view.x;
     const cy = exportSize / 2 + view.y;
-    
+
     svg += `<g transform="translate(${cx}, ${cy}) scale(${view.scale}, ${-view.scale})">`;
-    
+
     // NO GRID for clean export
-    
+
     if (cachedCurveData && cachedCurveData.length > 0) {
         // Focal set - darker green
         if (document.getElementById('showFocal').checked && cachedFocalData) {
@@ -194,7 +207,7 @@ function exportCanvasAsSVG() {
                 let d = `M ${branch[0].x} ${branch[0].y}`;
                 for (let k = 1; k < branch.length; k++) d += ` L ${branch[k].x} ${branch[k].y}`;
                 if (branch.closed) d += ' Z';
-                svg += `<path d="${d}" stroke="#7c3aed" stroke-width="${1.5/view.scale}" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`;
+                svg += `<path d="${d}" stroke="#7c3aed" stroke-width="${1.5*t/view.scale}" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`;
             }
         }
 
@@ -204,7 +217,7 @@ function exportCanvasAsSVG() {
                     if (branch.length < 2) continue;
                     let d = `M ${branch[0].x} ${branch[0].y}`;
                     for (let k = 1; k < branch.length; k++) d += ` L ${branch[k].x} ${branch[k].y}`;
-                    svg += `<path d="${d}" stroke="#3b82f6" stroke-width="${1.5/view.scale}" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`;
+                    svg += `<path d="${d}" stroke="#3b82f6" stroke-width="${1.5*t/view.scale}" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`;
                 }
             } else {
                 const s = 1.5 / view.scale;
@@ -222,7 +235,7 @@ function exportCanvasAsSVG() {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
                     if (pathData) {
-                        svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                        svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
                     }
                     pathData = `M ${pt.p.x} ${pt.p.y}`;
                     currentId = pt.curveId;
@@ -231,7 +244,7 @@ function exportCanvasAsSVG() {
                 }
             }
             if (pathData) {
-                svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5/view.scale}" fill="none"/>`;
+                svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
             }
         }
     }
@@ -392,7 +405,8 @@ function exportPlotlyAsSVG(plotId, filename) {
 
 function exportCanvasAsPDF() {
     const { jsPDF } = window.jspdf;
-    
+    const t = getExportLineThickness();
+
     // Create a SQUARE export canvas with good quality
     const exportSize = Math.min(canvas.width, canvas.height);
     const scale = 2;
@@ -400,23 +414,23 @@ function exportCanvasAsPDF() {
     exportCanvas.width = exportSize * scale;
     exportCanvas.height = exportSize * scale;
     const exportCtx = exportCanvas.getContext('2d');
-    
+
     exportCtx.scale(scale, scale);
     // White background for papers
     exportCtx.fillStyle = '#ffffff';
     exportCtx.fillRect(0, 0, exportSize, exportSize);
-    
+
     exportCtx.save();
     // Center the view in the square
     exportCtx.translate(exportSize / 2 + view.x, exportSize / 2 + view.y);
     exportCtx.scale(view.scale, -view.scale);
-    
+
     // NO GRID for clean export
 
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked && cachedFocalData) {
             exportCtx.strokeStyle = '#7c3aed';
-            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.lineWidth = 1.5 * t / view.scale;
             exportCtx.lineJoin = 'round';
             exportCtx.lineCap = 'round';
             for (const branch of cachedFocalData.branches) {
@@ -432,7 +446,7 @@ function exportCanvasAsPDF() {
         if (document.getElementById('showSS').checked && cachedSSData) {
             if (cachedSSData.branches && cachedSSData.branches.length > 0) {
                 exportCtx.strokeStyle = '#3b82f6';
-                exportCtx.lineWidth = 1.5 / view.scale;
+                exportCtx.lineWidth = 1.5 * t / view.scale;
                 exportCtx.lineJoin = 'round';
                 exportCtx.lineCap = 'round';
                 for (const branch of cachedSSData.branches) {
@@ -451,7 +465,7 @@ function exportCanvasAsPDF() {
 
         if (document.getElementById('showCurve').checked) {
             exportCtx.strokeStyle = '#171717';
-            exportCtx.lineWidth = 2.5 / view.scale;
+            exportCtx.lineWidth = 2.5 * t / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
             for (let i = 0; i < cachedCurveData.length; i++) {
@@ -747,12 +761,13 @@ function exportAllAsPNG() {
 
 async function exportAllAsPDF() {
     const { jsPDF } = window.jspdf;
+    const t = getExportLineThickness();
     const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'px',
         format: [800, 600]
     });
-    
+
     // Canvas
     const scale = 2;
     const exportCanvas = document.createElement('canvas');
@@ -778,7 +793,7 @@ async function exportAllAsPDF() {
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked && cachedFocalData) {
             exportCtx.strokeStyle = '#7c3aed';
-            exportCtx.lineWidth = 1.5 / view.scale;
+            exportCtx.lineWidth = 1.5 * t / view.scale;
             exportCtx.lineJoin = 'round';
             exportCtx.lineCap = 'round';
             for (const branch of cachedFocalData.branches) {
@@ -793,7 +808,7 @@ async function exportAllAsPDF() {
         if (document.getElementById('showSS').checked && cachedSSData) {
             if (cachedSSData.branches && cachedSSData.branches.length > 0) {
                 exportCtx.strokeStyle = '#3b82f6';
-                exportCtx.lineWidth = 1.5 / view.scale;
+                exportCtx.lineWidth = 1.5 * t / view.scale;
                 exportCtx.lineJoin = 'round';
                 exportCtx.lineCap = 'round';
                 for (const branch of cachedSSData.branches) {
@@ -811,7 +826,7 @@ async function exportAllAsPDF() {
         }
         if (document.getElementById('showCurve').checked) {
             exportCtx.strokeStyle = '#e0e0e0';
-            exportCtx.lineWidth = 2.5 / view.scale;
+            exportCtx.lineWidth = 2.5 * t / view.scale;
             let currentId = -1;
             exportCtx.beginPath();
             for (let i = 0; i < cachedCurveData.length; i++) {

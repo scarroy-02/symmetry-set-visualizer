@@ -43,6 +43,7 @@ const exportLineThicknessVal = document.getElementById('exportLineThicknessVal')
 if (exportLineThicknessInput && exportLineThicknessVal) {
     exportLineThicknessInput.addEventListener('input', () => {
         exportLineThicknessVal.textContent = parseFloat(exportLineThicknessInput.value).toFixed(1).replace(/\.0$/, '') + '×';
+        if (typeof draw === 'function') draw();
     });
 }
 function getExportLineThickness() {

@@ -28,8 +28,14 @@ function triggerComputation(fullCompute = true) {
     }, 10);
 }
 
+function getLineThickness() {
+    const el = document.getElementById('exportLineThickness');
+    return el ? (parseFloat(el.value) || 1) : 1;
+}
+
 // ========== Drawing ==========
 function draw() {
+    const lineT = getLineThickness();
     // Theme-aware colors
     const bgColor = isDarkTheme ? '#0a0a0f' : '#f5f5f7';
     const gridColor = isDarkTheme ? '#1a1a2e' : '#e0e0e0';
@@ -57,7 +63,7 @@ function draw() {
     if (cachedCurveData && cachedCurveData.length > 0) {
         if (document.getElementById('showFocal').checked && cachedFocalData) {
             ctx.strokeStyle = focalColor;
-            ctx.lineWidth = 1.5 / view.scale;
+            ctx.lineWidth = 1.5 * lineT / view.scale;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             for (const branch of cachedFocalData.branches) {
@@ -73,7 +79,7 @@ function draw() {
         if (document.getElementById('showSS').checked && cachedSSData) {
             if (cachedSSData.branches && cachedSSData.branches.length > 0) {
                 ctx.strokeStyle = ssColor;
-                ctx.lineWidth = 1.5 / view.scale;
+                ctx.lineWidth = 1.5 * lineT / view.scale;
                 ctx.lineJoin = 'round';
                 ctx.lineCap = 'round';
                 for (const branch of cachedSSData.branches) {
@@ -92,7 +98,7 @@ function draw() {
 
         if (document.getElementById('showCurve').checked) {
             ctx.strokeStyle = curveColor;
-            ctx.lineWidth = 2.5 / view.scale;
+            ctx.lineWidth = 2.5 * lineT / view.scale;
             
             let currentId = -1;
             ctx.beginPath();

@@ -42,6 +42,10 @@ function draw() {
     const curveColor = isDarkTheme ? '#e0e0e0' : '#171717';
     const focalColor = isDarkTheme ? '#a855f7' : '#7c3aed';
     const ssColor = isDarkTheme ? '#60a5fa' : '#3b82f6';
+    const focalAnimColor = isDarkTheme ? '#7c3aed' : '#5b21b6';
+    const focalAnimColorAlpha = isDarkTheme ? 'rgba(124, 58, 237, 0.4)' : 'rgba(91, 33, 182, 0.4)';
+    const ssAnimColor = isDarkTheme ? '#2563eb' : '#1d4ed8';
+    const ssAnimColorAlpha = isDarkTheme ? 'rgba(37, 99, 235, 0.4)' : 'rgba(29, 78, 216, 0.4)';
     const vineyardColor = isDarkTheme ? '#991b1b' : '#7f1d1d';
     const controlActive = isDarkTheme ? '#fff' : '#1a1a1a';
     const controlInactive = isDarkTheme ? '#666' : '#888';
@@ -127,8 +131,8 @@ function draw() {
             const pt = cachedCurveData[focalAnimIdx];
             
             ctx.save();
-            ctx.strokeStyle = '#046908';
-            ctx.fillStyle = '#046908';
+            ctx.strokeStyle = focalAnimColor;
+            ctx.fillStyle = focalAnimColor;
             ctx.lineWidth = 4 / view.scale;
 
             const s = 18 / view.scale;
@@ -152,7 +156,7 @@ function draw() {
                     ctx.lineTo(ex, ey);
                     ctx.stroke();
 
-                    ctx.strokeStyle = 'rgba(4, 105, 8, 0.4)';
+                    ctx.strokeStyle = focalAnimColorAlpha;
                     ctx.lineWidth = 3 / view.scale;
                     ctx.beginPath();
                     ctx.arc(ex, ey, Math.abs(R), 0, Math.PI * 2);
@@ -167,8 +171,8 @@ function draw() {
             const sp = cachedSSData[sortedSSIndices[ssAnimIdx]];
 
             ctx.save();
-            ctx.fillStyle = '#b91c1c';
-            ctx.strokeStyle = '#b91c1c';
+            ctx.fillStyle = ssAnimColor;
+            ctx.strokeStyle = ssAnimColor;
             ctx.lineWidth = 4 / view.scale;
 
             const s = 18 / view.scale;
@@ -203,7 +207,7 @@ function draw() {
 
                 // Bitangent circle
                 if (sp.r != null && sp.r < R_MAX) {
-                    ctx.strokeStyle = 'rgba(185, 28, 28, 0.4)';
+                    ctx.strokeStyle = ssAnimColorAlpha;
                     ctx.lineWidth = 3 / view.scale;
                     ctx.beginPath();
                     ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);

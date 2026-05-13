@@ -119,14 +119,14 @@ function exportCanvasAsPNG() {
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
                     exportCtx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     exportCtx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+            if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); }
         }
     }
 
@@ -236,7 +236,8 @@ function exportCanvasAsSVG() {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
                     if (pathData) {
-                        svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
+                        const closeMark = curveOpen[currentId] ? '' : ' Z';
+                        svg += `<path d="${pathData}${closeMark}" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
                     }
                     pathData = `M ${pt.p.x} ${pt.p.y}`;
                     currentId = pt.curveId;
@@ -245,7 +246,8 @@ function exportCanvasAsSVG() {
                 }
             }
             if (pathData) {
-                svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
+                const closeMark = curveOpen[currentId] ? '' : ' Z';
+                svg += `<path d="${pathData}${closeMark}" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
             }
         }
     }
@@ -472,14 +474,14 @@ function exportCanvasAsPDF() {
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
                     exportCtx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     exportCtx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+            if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); }
         }
     }
 
@@ -833,14 +835,14 @@ async function exportAllAsPDF() {
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
                     exportCtx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     exportCtx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+            if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); }
         }
     }
     if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {

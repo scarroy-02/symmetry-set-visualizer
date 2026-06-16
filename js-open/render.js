@@ -33,6 +33,51 @@ function getLineThickness() {
     return el ? (parseFloat(el.value) || 1) : 1;
 }
 
+// Draw birth/death persistence circles for the current vineyard center onto a
+// world-space-transformed context (live canvas or export). Independent of the
+// Observation Loop toggle; controlled only by the Birth/Death Circles toggle.
+function drawBirthDeathCircles(targetCtx) {
+    if (!document.getElementById('showBirthDeathCircles').checked || !vineyardData ||
+        vineyardCenters.length === 0 || vineyardAnimIdx >= vineyardCenters.length) return;
+
+    const curr = vineyardCenters[vineyardAnimIdx];
+    const filt = arr => (arr || []).filter(d => d.centerIdx === vineyardAnimIdx);
+    const groups = [
+        [filt(vineyardData.ord0), 'rgba(239, 68, 68, 0.8)', 'rgba(239, 68, 68, 0.5)', 2],
+        [filt(vineyardData.rel0), 'rgba(249, 115, 22, 0.9)', 'rgba(249, 115, 22, 0.6)', 2.5],
+        [filt(vineyardData.ext0), 'rgba(234, 179, 8, 0.9)', 'rgba(234, 179, 8, 0.6)', 3],
+        [filt(vineyardData.ord1), 'rgba(59, 130, 246, 0.8)', 'rgba(59, 130, 246, 0.5)', 2],
+        [filt(vineyardData.rel1), 'rgba(6, 182, 212, 0.9)', 'rgba(6, 182, 212, 0.6)', 2.5],
+        [filt(vineyardData.ext1), 'rgba(153, 27, 27, 0.9)', 'rgba(153, 27, 27, 0.6)', 3],
+    ];
+
+    for (const [pts, birthColor, deathColor, lineWidth] of groups) {
+        for (const pt of pts) {
+            const birthR = Math.sqrt(pt.birth);
+            const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
+
+            // Birth circle
+            targetCtx.strokeStyle = birthColor;
+            targetCtx.lineWidth = lineWidth / view.scale;
+            targetCtx.setLineDash([]);
+            targetCtx.beginPath();
+            targetCtx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
+            targetCtx.stroke();
+
+            // Death circle
+            if (deathR !== null) {
+                targetCtx.strokeStyle = deathColor;
+                targetCtx.lineWidth = (lineWidth * 0.75) / view.scale;
+                targetCtx.setLineDash([4 / view.scale, 4 / view.scale]);
+                targetCtx.beginPath();
+                targetCtx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
+                targetCtx.stroke();
+            }
+        }
+    }
+    targetCtx.setLineDash([]);
+}
+
 // ========== Drawing ==========
 function draw() {
     const lineT = getLineThickness();
@@ -351,93 +396,33 @@ function draw() {
                 const c = vineyardCenters[i];
                 ctx.fillRect(c.x - s/2, c.y - s/2, s, s);
             }
-            
-            if (vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                ctx.fillStyle = '#fbbf24';
+        }
+    }
+
+    // Current vineyard position marker (+ distance fan) — drawn independently of
+    // the Observation Loop toggle, so the yellow point stays when the loop is hidden.
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (cachedCurveData && cachedCurveData.length > 0 && !document.getElementById('showBirthDeathCircles').checked) {
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
+            ctx.lineWidth = 0.5 / view.scale;
+            const step = Math.max(1, Math.floor(cachedCurveData.length / 50));
+            for (let i = 0; i < cachedCurveData.length; i += step) {
                 ctx.beginPath();
-                ctx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Draw birth/death circles if enabled
-                if (document.getElementById('showBirthDeathCircles').checked && vineyardData) {
-                    const ord0 = (vineyardData.ord0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
-                    const rel0 = (vineyardData.rel0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
-                    const ext0 = (vineyardData.ext0 || []).filter(d => d.centerIdx === vineyardAnimIdx);
-                    const ord1 = (vineyardData.ord1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
-                    const rel1 = (vineyardData.rel1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
-                    const ext1 = (vineyardData.ext1 || []).filter(d => d.centerIdx === vineyardAnimIdx);
-                    
-                    // Helper function to draw birth/death circles
-                    const drawBDCircle = (pt, birthColor, deathColor, lineWidth, prefix) => {
-                        const birthR = Math.sqrt(pt.birth);
-                        const deathR = pt.isInfinite ? null : Math.sqrt(pt.death);
-                        
-                        // Birth circle
-                        ctx.strokeStyle = birthColor;
-                        ctx.lineWidth = lineWidth / view.scale;
-                        ctx.setLineDash([]);
-                        ctx.beginPath();
-                        ctx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
-                        ctx.stroke();
-                        
-                        // Death circle
-                        if (deathR !== null) {
-                            ctx.strokeStyle = deathColor;
-                            ctx.lineWidth = (lineWidth * 0.75) / view.scale;
-                            ctx.setLineDash([4 / view.scale, 4 / view.scale]);
-                            ctx.beginPath();
-                            ctx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);
-                            ctx.stroke();
-                            ctx.setLineDash([]);
-                        }
-                    };
-                    
-                    // Draw Ordinary H0 (red, thin)
-                    for (const pt of ord0) {
-                        drawBDCircle(pt, 'rgba(239, 68, 68, 0.8)', 'rgba(239, 68, 68, 0.5)', 2, '');
-                    }
-                    
-                    // Draw Relative H0 (orange, medium)
-                    for (const pt of rel0) {
-                        drawBDCircle(pt, 'rgba(249, 115, 22, 0.9)', 'rgba(249, 115, 22, 0.6)', 2.5, 'R');
-                    }
-                    
-                    // Draw Extended H0 (yellow, thick)
-                    for (const pt of ext0) {
-                        drawBDCircle(pt, 'rgba(234, 179, 8, 0.9)', 'rgba(234, 179, 8, 0.6)', 3, 'E');
-                    }
-                    
-                    // Draw Ordinary H1 (blue, thin)
-                    for (const pt of ord1) {
-                        drawBDCircle(pt, 'rgba(59, 130, 246, 0.8)', 'rgba(59, 130, 246, 0.5)', 2, '');
-                    }
-                    
-                    // Draw Relative H1 (cyan, medium)
-                    for (const pt of rel1) {
-                        drawBDCircle(pt, 'rgba(6, 182, 212, 0.9)', 'rgba(6, 182, 212, 0.6)', 2.5, 'R');
-                    }
-                    
-                    // Draw Extended H1 (purple, thick)
-                    for (const pt of ext1) {
-                        drawBDCircle(pt, 'rgba(153, 27, 27, 0.9)', 'rgba(153, 27, 27, 0.6)', 3, 'E');
-                    }
-                }
-                
-                if (cachedCurveData && cachedCurveData.length > 0 && !document.getElementById('showBirthDeathCircles').checked) {
-                    ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
-                    ctx.lineWidth = 0.5 / view.scale;
-                    const step = Math.max(1, Math.floor(cachedCurveData.length / 50));
-                    for (let i = 0; i < cachedCurveData.length; i += step) {
-                        ctx.beginPath();
-                        ctx.moveTo(curr.x, curr.y);
-                        ctx.lineTo(cachedCurveData[i].p.x, cachedCurveData[i].p.y);
-                        ctx.stroke();
-                    }
-                }
+                ctx.moveTo(curr.x, curr.y);
+                ctx.lineTo(cachedCurveData[i].p.x, cachedCurveData[i].p.y);
+                ctx.stroke();
             }
         }
     }
+
+    // Birth/Death circles — drawn independently of the Observation Loop toggle
+    drawBirthDeathCircles(ctx);
 
     if (document.getElementById('showControls').checked) {
         const baseSize = 7 / view.scale;

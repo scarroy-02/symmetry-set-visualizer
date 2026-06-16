@@ -153,17 +153,20 @@ function exportCanvasAsPNG() {
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
             }
-            
-            // Yellow animated center marker
-            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                exportCtx.fillStyle = '#f59e0b';
-                exportCtx.beginPath();
-                exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
-                exportCtx.fill();
-            }
         }
     }
+
+    // Current vineyard position marker — independent of the Observation Loop toggle
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        exportCtx.fillStyle = '#f59e0b';
+        exportCtx.beginPath();
+        exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+        exportCtx.fill();
+    }
+
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    drawBirthDeathCircles(exportCtx);
 
     // Control points - dark gray/black
     if (document.getElementById('showControls').checked) {
@@ -263,11 +266,36 @@ function exportCanvasAsSVG() {
             for (const c of vineyardCenters) {
                 svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(127,29,29,0.5)"/>`;
             }
-            
-            // Yellow animated center marker
-            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${8/view.scale}" fill="#f59e0b"/>`;
+        }
+    }
+
+    // Current vineyard position marker — independent of the Observation Loop toggle
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${8/view.scale}" fill="#f59e0b"/>`;
+    }
+
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    if (document.getElementById('showBirthDeathCircles').checked && vineyardData &&
+        vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        const filt = arr => (arr || []).filter(d => d.centerIdx === vineyardAnimIdx);
+        const groups = [
+            [filt(vineyardData.ord0), 'rgba(239,68,68,0.8)', 'rgba(239,68,68,0.5)', 2],
+            [filt(vineyardData.rel0), 'rgba(249,115,22,0.9)', 'rgba(249,115,22,0.6)', 2.5],
+            [filt(vineyardData.ext0), 'rgba(234,179,8,0.9)', 'rgba(234,179,8,0.6)', 3],
+            [filt(vineyardData.ord1), 'rgba(59,130,246,0.8)', 'rgba(59,130,246,0.5)', 2],
+            [filt(vineyardData.rel1), 'rgba(6,182,212,0.9)', 'rgba(6,182,212,0.6)', 2.5],
+            [filt(vineyardData.ext1), 'rgba(153,27,27,0.9)', 'rgba(153,27,27,0.6)', 3],
+        ];
+        for (const [pts, birthColor, deathColor, lineWidth] of groups) {
+            for (const pt of pts) {
+                const birthR = Math.sqrt(pt.birth);
+                svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${birthR}" stroke="${birthColor}" stroke-width="${lineWidth/view.scale}" fill="none"/>`;
+                if (!pt.isInfinite) {
+                    const deathR = Math.sqrt(pt.death);
+                    svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${deathR}" stroke="${deathColor}" stroke-width="${(lineWidth*0.75)/view.scale}" fill="none" stroke-dasharray="${4/view.scale} ${4/view.scale}"/>`;
+                }
             }
         }
     }
@@ -507,17 +535,20 @@ function exportCanvasAsPDF() {
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
             }
-            
-            // Yellow animated center marker
-            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                exportCtx.fillStyle = '#f59e0b';
-                exportCtx.beginPath();
-                exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
-                exportCtx.fill();
-            }
         }
     }
+
+    // Current vineyard position marker — independent of the Observation Loop toggle
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        exportCtx.fillStyle = '#f59e0b';
+        exportCtx.beginPath();
+        exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+        exportCtx.fill();
+    }
+
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    drawBirthDeathCircles(exportCtx);
 
     if (document.getElementById('showControls').checked) {
         const baseSize = 7 / view.scale;
@@ -851,6 +882,9 @@ async function exportAllAsPDF() {
         exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
         exportCtx.fill();
     }
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    drawBirthDeathCircles(exportCtx);
+
     if (document.getElementById('showControls').checked) {
         const baseSize = 7 / view.scale;
         for (let c = 0; c < curves.length; c++) {

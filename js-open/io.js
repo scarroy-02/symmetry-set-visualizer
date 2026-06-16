@@ -194,7 +194,7 @@ document.getElementById('vineyardModeBtn').addEventListener('click', () => {
     vineyardMode = !vineyardMode;
     if (vineyardMode) {
         customLoopMode = false;
-        document.getElementById('drawLoopBtn').classList.remove('active');
+        updateDrawLoopBtn();
     }
     updateModeIndicator();
     const btn = document.getElementById('vineyardModeBtn');
@@ -257,7 +257,7 @@ document.getElementById('vineyardLoopType').addEventListener('change', e => {
         circularControls.style.display = 'block';
         customControls.style.display = 'none';
         customLoopMode = false;
-        document.getElementById('drawLoopBtn').classList.remove('active');
+        updateDrawLoopBtn();
     } else {
         circularControls.style.display = 'none';
         customControls.style.display = 'block';
@@ -267,10 +267,17 @@ document.getElementById('vineyardLoopType').addEventListener('change', e => {
     draw();
 });
 
+// Keep the Draw Loop button's label + active state in sync with drawing mode.
+function updateDrawLoopBtn() {
+    const btn = document.getElementById('drawLoopBtn');
+    btn.classList.toggle('active', customLoopMode);
+    btn.innerText = customLoopMode ? '⏹ Stop Drawing' : '✏️ Draw Loop';
+}
+
 // Draw loop button
 document.getElementById('drawLoopBtn').addEventListener('click', () => {
     customLoopMode = !customLoopMode;
-    document.getElementById('drawLoopBtn').classList.toggle('active', customLoopMode);
+    updateDrawLoopBtn();
     if (customLoopMode) {
         vineyardMode = false;
         document.getElementById('vineyardModeBtn').classList.remove('active');

@@ -396,7 +396,7 @@ window.addEventListener('keydown', e => {
         updateModeIndicator();
         document.getElementById('vineyardModeBtn').classList.remove('active');
         document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
-        document.getElementById('drawLoopBtn').classList.remove('active');
+        updateDrawLoopBtn();
         draw();
     }
 });
@@ -432,7 +432,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     // Clear custom loop
     customLoopPoints = [];
     customLoopMode = false;
-    document.getElementById('drawLoopBtn').classList.remove('active');
+    updateDrawLoopBtn();
     updateLoopStatus();
     
     stopVineyardAnim();

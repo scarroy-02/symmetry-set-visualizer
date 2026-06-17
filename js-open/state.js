@@ -59,6 +59,7 @@ let vineyardDragging = false;
 let vineyardLoopType = 'circular'; // 'circular' or 'custom'
 let customLoopMode = false;
 let customLoopPoints = []; // Control points for the custom loop spline
+let customLoopOpen = false; // true = open arc, false = closed loop (mirrors curveOpen)
 let customLoopDragIdx = -1;
 let customLoopHoverIdx = -1;
 

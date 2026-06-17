@@ -267,19 +267,19 @@ function draw() {
     if (document.getElementById('showVineyardCircle').checked) {
         // Draw custom loop if exists
         if (customLoopPoints.length > 0) {
-            // Draw spline curve through control points (auto-closed when 3+ points)
+            // Draw spline curve through control points (closed loop or open arc when 3+ points)
             if (customLoopPoints.length >= 3) {
                 const loopSamples = sampleCustomLoop(200);
                 if (loopSamples.length > 0) {
                     ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
                     ctx.lineWidth = 2 / view.scale;
-                    
+
                     ctx.beginPath();
                     ctx.moveTo(loopSamples[0].x, loopSamples[0].y);
                     for (let i = 1; i < loopSamples.length; i++) {
                         ctx.lineTo(loopSamples[i].x, loopSamples[i].y);
                     }
-                    ctx.closePath();
+                    if (!customLoopOpen) ctx.closePath();
                     ctx.stroke();
                 }
             } else if (customLoopPoints.length === 2) {

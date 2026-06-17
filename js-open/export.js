@@ -338,7 +338,8 @@ function exportPlotlyAsPNG(plotId, filename) {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        showlegend: false,
+        showlegend: plotId === 'persistencePlot',
+        legend: plotId === 'persistencePlot' ? { font: { color: '#1a1a1a', size: 9 }, bgcolor: 'rgba(255,255,255,0.7)', bordercolor: '#cccccc', borderwidth: 1 } : undefined,
         scene: plotId === 'vineyardPlot' ? {
             xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
@@ -362,7 +363,8 @@ function exportPlotlyAsPNG(plotId, filename) {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                showlegend: false,
+                showlegend: plotId === 'persistencePlot',
+                legend: plotId === 'persistencePlot' ? { font: { color: '#ccc', size: 8 }, bgcolor: 'rgba(0,0,0,0.6)' } : undefined,
                 scene: plotId === 'vineyardPlot' ? {
                     xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
                     yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
@@ -394,7 +396,8 @@ function exportPlotlyAsSVG(plotId, filename) {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        showlegend: false,
+        showlegend: plotId === 'persistencePlot',
+        legend: plotId === 'persistencePlot' ? { font: { color: '#1a1a1a', size: 9 }, bgcolor: 'rgba(255,255,255,0.7)', bordercolor: '#cccccc', borderwidth: 1 } : undefined,
         scene: plotId === 'vineyardPlot' ? {
             xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
@@ -417,7 +420,8 @@ function exportPlotlyAsSVG(plotId, filename) {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                showlegend: false,
+                showlegend: plotId === 'persistencePlot',
+                legend: plotId === 'persistencePlot' ? { font: { color: '#ccc', size: 8 }, bgcolor: 'rgba(0,0,0,0.6)' } : undefined,
                 scene: plotId === 'vineyardPlot' ? {
                     xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
                     yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
@@ -590,7 +594,8 @@ function exportPlotlyAsPDF(plotId, filename) {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        showlegend: false,
+        showlegend: plotId === 'persistencePlot',
+        legend: plotId === 'persistencePlot' ? { font: { color: '#1a1a1a', size: 9 }, bgcolor: 'rgba(255,255,255,0.7)', bordercolor: '#cccccc', borderwidth: 1 } : undefined,
         scene: plotId === 'vineyardPlot' ? {
             xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
@@ -621,7 +626,8 @@ function exportPlotlyAsPDF(plotId, filename) {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                showlegend: false,
+                showlegend: plotId === 'persistencePlot',
+                legend: plotId === 'persistencePlot' ? { font: { color: '#ccc', size: 8 }, bgcolor: 'rgba(0,0,0,0.6)' } : undefined,
                 scene: plotId === 'vineyardPlot' ? {
                     xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
                     yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },

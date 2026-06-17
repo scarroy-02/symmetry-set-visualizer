@@ -293,6 +293,13 @@ document.getElementById('clearLoopBtn').addEventListener('click', () => {
     draw();
 });
 
+// Open/closed toggle for the custom loop (mirrors the per-curve Open checkbox).
+// Affects the drawn loop and the centers sampled on the next Compute Vineyard.
+document.getElementById('customLoopOpen').addEventListener('change', e => {
+    customLoopOpen = e.target.checked;
+    draw();
+});
+
 function updateLoopStatus() {
     const status = document.getElementById('loopStatus');
     if (customLoopPoints.length === 0) {
@@ -312,28 +319,43 @@ function sampleCustomLoop(numSamples) {
     if (customLoopPoints.length < 3) return [];
     
     const pts = customLoopPoints;
-    const C = solveControlPoints(pts);
+    const isOpen = !!customLoopOpen;
+    const C = isOpen ? solveControlPointsOpen(pts) : solveControlPoints(pts);
     const n = C.length;
-    // For closed loop, wrap around
-    const drawC = [C[n-1], ...C, C[0], C[1]];
-    
-    const numSegments = pts.length;
+    // Closed: wrap control points for cyclic continuity.
+    // Open: phantom endpoints from natural-spline boundary (same as open curves).
+    const drawC = isOpen
+        ? [
+            new Point(2 * C[0].x - C[1].x, 2 * C[0].y - C[1].y),
+            ...C,
+            new Point(2 * C[n - 1].x - C[n - 2].x, 2 * C[n - 1].y - C[n - 2].y)
+          ]
+        : [C[n-1], ...C, C[0], C[1]];
+
+    const numSegments = isOpen ? (pts.length - 1) : pts.length;
     const pointsPerSeg = Math.ceil(numSamples / numSegments);
     const samples = [];
-    
+
     for (let i = 0; i < numSegments; i++) {
         const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
-        
-        const segSamples = (i === numSegments - 1) ? 
+
+        const segSamples = (i === numSegments - 1) ?
             numSamples - samples.length : pointsPerSeg;
-        
+
         for (let j = 0; j < segSamples; j++) {
             const t = j / segSamples;
             const P = bSplineEval(p0, p1, p2, p3, t);
             samples.push({ x: P.x, y: P.y });
         }
     }
-    
+
+    // Open arc: append the final endpoint so the spline reaches its last point.
+    if (isOpen) {
+        const i = numSegments - 1;
+        const P = bSplineEval(drawC[i], drawC[i+1], drawC[i+2], drawC[i+3], 1.0);
+        samples.push({ x: P.x, y: P.y });
+    }
+
     return samples;
 }
 

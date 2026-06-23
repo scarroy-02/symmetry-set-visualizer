@@ -321,6 +321,31 @@ function exportCanvasAsSVG() {
     exportMenu.classList.remove('active');
 }
 
+// Persistence-diagram export: temporarily fatten the markers and the diagonal/
+// infinity reference lines (these are trace props, not layout) so they read clearly
+// at print resolution. Returns the saved originals; pass them to the restore helper.
+function thickenPersistenceForExport(plotId) {
+    if (plotId !== 'persistencePlot') return null;
+    const gd = document.getElementById(plotId);
+    if (!gd || !gd.data) return null;
+
+    const markerIdx = [], markerSizes = [];
+    const lineIdx = [], lineWidths = [];
+    gd.data.forEach((t, i) => {
+        if (t.marker && t.marker.size != null) { markerIdx.push(i); markerSizes.push(t.marker.size); }
+        if (t.line && t.line.width != null) { lineIdx.push(i); lineWidths.push(t.line.width); }
+    });
+    if (markerIdx.length) Plotly.restyle(plotId, { 'marker.size': markerSizes.map(s => s * 1.8) }, markerIdx);
+    if (lineIdx.length) Plotly.restyle(plotId, { 'line.width': lineWidths.map(w => Math.max(3.5, w * 3.5)) }, lineIdx);
+    return { markerIdx, markerSizes, lineIdx, lineWidths };
+}
+
+function restorePersistenceAfterExport(plotId, saved) {
+    if (!saved) return;
+    if (saved.markerIdx.length) Plotly.restyle(plotId, { 'marker.size': saved.markerSizes }, saved.markerIdx);
+    if (saved.lineIdx.length) Plotly.restyle(plotId, { 'line.width': saved.lineWidths }, saved.lineIdx);
+}
+
 function exportPlotlyAsPNG(plotId, filename) {
     // Get the plot element and save current camera state
     const plotDiv = document.getElementById(plotId);
@@ -347,14 +372,17 @@ function exportPlotlyAsPNG(plotId, filename) {
             bgcolor: '#ffffff',
             camera: savedCamera // Preserve camera position
         } : undefined,
-        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
-        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: false, title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: false, title: { text: 'Death', font: { color: '#333' } } } : undefined,
         title: { font: { color: '#333' } }
     };
     
+    const savedStyle = thickenPersistenceForExport(plotId);
+
     Plotly.relayout(plotId, lightLayout).then(() => {
         return Plotly.toImage(plotId, { format: 'png', width: exportSize, height: exportSize, scale: 2 });
     }).then(dataURL => {
+        restorePersistenceAfterExport(plotId, savedStyle);
         downloadDataURL(dataURL, filename);
         exportMenu.classList.remove('active');
         // Restore dark theme and camera position if needed
@@ -405,14 +433,17 @@ function exportPlotlyAsSVG(plotId, filename) {
             bgcolor: '#ffffff',
             camera: savedCamera
         } : undefined,
-        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
-        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Death', font: { color: '#333' } } } : undefined,
         title: { font: { color: '#333' } }
     };
     
+    const savedStyle = thickenPersistenceForExport(plotId);
+
     Plotly.relayout(plotId, lightLayout).then(() => {
         return Plotly.toImage(plotId, { format: 'svg', width: exportSize, height: exportSize });
     }).then(dataURL => {
+        restorePersistenceAfterExport(plotId, savedStyle);
         downloadDataURL(dataURL, filename);
         exportMenu.classList.remove('active');
         if (isDarkTheme) {
@@ -603,15 +634,18 @@ function exportPlotlyAsPDF(plotId, filename) {
             bgcolor: '#ffffff',
             camera: savedCamera
         } : undefined,
-        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
-        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Death', font: { color: '#333' } } } : undefined,
         title: { font: { color: '#333' } }
     };
     
+    const savedStyle = thickenPersistenceForExport(plotId);
+
     Plotly.relayout(plotId, lightLayout).then(() => {
         // Use PNG format for better quality
         return Plotly.toImage(plotId, { format: 'png', width: exportSize, height: exportSize, scale: 2 });
     }).then(dataURL => {
+        restorePersistenceAfterExport(plotId, savedStyle);
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
             orientation: 'portrait',

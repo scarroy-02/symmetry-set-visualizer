@@ -336,7 +336,7 @@ function updatePersistenceDiagram(centerIdx) {
         mode: 'markers',
         type: 'scatter',
         name: 'Ord H₀',
-        marker: { size: 8, color: '#ef4444', symbol: 'circle' }
+        marker: { size: 10, color: '#ef4444', symbol: 'circle' }
     };
 
     // Relative H0 - orange squares
@@ -356,7 +356,7 @@ function updatePersistenceDiagram(centerIdx) {
         mode: 'markers',
         type: 'scatter',
         name: 'Ext H₀',
-        marker: { size: 12, color: '#eab308', symbol: 'diamond' }
+        marker: { size: 11, color: '#eab308', symbol: 'diamond' }
     };
 
     // Ordinary H1 - blue triangles
@@ -366,7 +366,7 @@ function updatePersistenceDiagram(centerIdx) {
         mode: 'markers',
         type: 'scatter',
         name: 'Ord H₁',
-        marker: { size: 8, color: '#3b82f6', symbol: 'triangle-up' }
+        marker: { size: 10, color: '#3b82f6', symbol: 'triangle-up' }
     };
 
     // Relative H1 - cyan squares
@@ -386,7 +386,7 @@ function updatePersistenceDiagram(centerIdx) {
         mode: 'markers',
         type: 'scatter',
         name: 'Ext H₁',
-        marker: { size: 12, color: '#a855f7', symbol: 'diamond' }
+        marker: { size: 11, color: '#a855f7', symbol: 'diamond' }
     };
     
     const diagonal = {

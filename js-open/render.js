@@ -58,7 +58,7 @@ function drawBirthDeathCircles(targetCtx) {
 
             // Birth circle
             targetCtx.strokeStyle = birthColor;
-            targetCtx.lineWidth = lineWidth / view.scale;
+            targetCtx.lineWidth = (lineWidth * 2.75) / view.scale;
             targetCtx.setLineDash([]);
             targetCtx.beginPath();
             targetCtx.arc(curr.x, curr.y, birthR, 0, Math.PI * 2);
@@ -67,7 +67,7 @@ function drawBirthDeathCircles(targetCtx) {
             // Death circle
             if (deathR !== null) {
                 targetCtx.strokeStyle = deathColor;
-                targetCtx.lineWidth = (lineWidth * 0.75) / view.scale;
+                targetCtx.lineWidth = (lineWidth * 2.3) / view.scale;
                 targetCtx.setLineDash([4 / view.scale, 4 / view.scale]);
                 targetCtx.beginPath();
                 targetCtx.arc(curr.x, curr.y, deathR, 0, Math.PI * 2);

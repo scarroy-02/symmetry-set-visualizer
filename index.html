@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Symmetry Set Visualizer + Vineyard</title>
+    <title>Symmetry Set Visualizer + Vineyard (Open Curves Test)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -150,6 +150,7 @@
                 <div id="customLoopControls" style="display: none;">
                     <button class="btn btn-purple" id="drawLoopBtn" style="width: 100%; margin-bottom: 4px;">✏️ Draw Loop</button>
                     <button class="btn btn-secondary" id="clearLoopBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Clear Loop</button>
+                    <div class="toggle-row" style="margin: 4px 0;"><span style="font-size: 9px;">Open Loop (arc)</span><input type="checkbox" id="customLoopOpen"></div>
                     <div style="font-size: 9px; color: var(--text-muted); text-align: center;" id="loopStatus">No loop drawn</div>
                 </div>
                 <div class="slider-row">
@@ -261,6 +262,20 @@
     
     <!-- Right Sidebar -->
     <div class="sidebar-right">
+        <!-- Curves (per-curve open/closed) -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Curves</span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div id="curveList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                <div style="font-size: 9px; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
+                    Check <b>Open</b> to treat a curve as a non-closed arc. Click a row to make it active.
+                </div>
+            </div>
+        </div>
+
         <!-- Display Toggles -->
         <div class="section">
             <div class="section-header">
@@ -272,7 +287,7 @@
                 <div class="toggle-row"><span>Control Points</span><input type="checkbox" id="showControls" checked></div>
                 <div class="toggle-row"><span>Focal Set</span><input type="checkbox" id="showFocal" checked></div>
                 <div class="toggle-row"><span>Symmetry Set</span><input type="checkbox" id="showSS" checked></div>
-                <div class="toggle-row"><span>Vineyard Circle</span><input type="checkbox" id="showVineyardCircle" checked></div>
+                <div class="toggle-row"><span>Observation Loop</span><input type="checkbox" id="showVineyardCircle" checked></div>
                 <div class="toggle-row"><span>Birth/Death Circles</span><input type="checkbox" id="showBirthDeathCircles"></div>
             </div>
         </div>
@@ -335,17 +350,17 @@
     <div class="export-menu-item" id="exportAllPDF">Export All (PDF)</div>
 </div>
 
-<script src="js/state.js"></script>
-<script src="js/panels.js"></script>
-<script src="js/history.js"></script>
-<script src="js/geometry.js"></script>
-<script src="js/persistence.js"></script>
-<script src="js/presets.js"></script>
-<script src="js/events.js"></script>
-<script src="js/io.js"></script>
-<script src="js/animations.js"></script>
-<script src="js/render.js"></script>
-<script src="js/export.js"></script>
-<script src="js/init.js"></script>
+<script src="js-open/state.js"></script>
+<script src="js-open/panels.js"></script>
+<script src="js-open/history.js"></script>
+<script src="js-open/geometry.js"></script>
+<script src="js-open/persistence.js"></script>
+<script src="js-open/presets.js"></script>
+<script src="js-open/events.js"></script>
+<script src="js-open/io.js"></script>
+<script src="js-open/animations.js"></script>
+<script src="js-open/render.js"></script>
+<script src="js-open/export.js"></script>
+<script src="js-open/init.js"></script>
 </body>
 </html>

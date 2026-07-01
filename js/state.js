@@ -22,6 +22,7 @@ const LAMBDA_MAX = 10000.0;
 const R_MAX = 100000.0;
 
 let curves = [[]];
+let curveOpen = [false]; // parallel to curves; true = non-closed (open) curve. Default: closed.
 let activeCurveIdx = 0;
 
 let cachedCurveData = null;
@@ -58,6 +59,7 @@ let vineyardDragging = false;
 let vineyardLoopType = 'circular'; // 'circular' or 'custom'
 let customLoopMode = false;
 let customLoopPoints = []; // Control points for the custom loop spline
+let customLoopOpen = false; // true = open arc, false = closed loop (mirrors curveOpen)
 let customLoopDragIdx = -1;
 let customLoopHoverIdx = -1;
 

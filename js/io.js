@@ -4,6 +4,7 @@ document.getElementById('saveFigBtn').addEventListener('click', () => {
         format: 'symmetry-set-spline',
         version: 1,
         curves: curves.map(c => c.map(p => ({ x: p.x, y: p.y }))),
+        curveOpen: curveOpen.slice(),
         activeCurveIdx: activeCurveIdx,
         view: { x: view.x, y: view.y, scale: view.scale }
     };
@@ -101,38 +102,52 @@ function parseCSV(csvText) {
 
 function loadCSVCurve(points) {
     saveState();
-    
-    // Enable fixed curve mode for CSV data
+
+    // Enable fixed curve mode for CSV data; respect the active curve's open flag.
     fixedCurveMode = true;
+    const isOpen = !!curveOpen[activeCurveIdx];
     curves = [[]];
+    curveOpen = [isOpen];
     activeCurveIdx = 0;
-    
+
     // Generate curve data from CSV points
     const n = points.length;
     cachedCurveData = [];
-    
+
     for (let i = 0; i < n; i++) {
-        const prev = points[(i - 1 + n) % n];
-        const curr = points[i];
-        const next = points[(i + 1) % n];
-        
-        // Approximate tangent using central difference
+        // Open: forward/backward differences at the endpoints; central inside.
+        // Closed: cyclic central difference everywhere.
+        let prev, curr, next;
+        if (isOpen && i === 0) {
+            prev = points[0]; curr = points[0]; next = points[1];
+        } else if (isOpen && i === n - 1) {
+            prev = points[n - 2]; curr = points[n - 1]; next = points[n - 1];
+        } else {
+            prev = points[(i - 1 + n) % n];
+            curr = points[i];
+            next = points[(i + 1) % n];
+        }
+
         const dx = (next.x - prev.x) / 2;
         const dy = (next.y - prev.y) / 2;
         const vel = Math.sqrt(dx*dx + dy*dy);
-        
+
         if (vel < 1e-10) continue;
-        
+
         const Tx = dx / vel;
         const Ty = dy / vel;
         const Nx = -Ty;
         const Ny = Tx;
-        
-        // Approximate curvature using second derivative
-        const ddx = next.x - 2*curr.x + prev.x;
-        const ddy = next.y - 2*curr.y + prev.y;
-        const curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
-        
+
+        // Curvature from second difference (skip endpoints in open mode — no
+        // meaningful 2nd derivative there).
+        let curvature = 0;
+        if (!(isOpen && (i === 0 || i === n - 1))) {
+            const ddx = next.x - 2*curr.x + prev.x;
+            const ddy = next.y - 2*curr.y + prev.y;
+            curvature = (dx * ddy - dy * ddx) / (vel * vel * vel);
+        }
+
         cachedCurveData.push({
             p: new Point(curr.x, curr.y),
             T: new Point(Tx, Ty),
@@ -179,7 +194,7 @@ document.getElementById('vineyardModeBtn').addEventListener('click', () => {
     vineyardMode = !vineyardMode;
     if (vineyardMode) {
         customLoopMode = false;
-        document.getElementById('drawLoopBtn').classList.remove('active');
+        updateDrawLoopBtn();
     }
     updateModeIndicator();
     const btn = document.getElementById('vineyardModeBtn');
@@ -242,7 +257,7 @@ document.getElementById('vineyardLoopType').addEventListener('change', e => {
         circularControls.style.display = 'block';
         customControls.style.display = 'none';
         customLoopMode = false;
-        document.getElementById('drawLoopBtn').classList.remove('active');
+        updateDrawLoopBtn();
     } else {
         circularControls.style.display = 'none';
         customControls.style.display = 'block';
@@ -252,10 +267,17 @@ document.getElementById('vineyardLoopType').addEventListener('change', e => {
     draw();
 });
 
+// Keep the Draw Loop button's label + active state in sync with drawing mode.
+function updateDrawLoopBtn() {
+    const btn = document.getElementById('drawLoopBtn');
+    btn.classList.toggle('active', customLoopMode);
+    btn.innerText = customLoopMode ? '⏹ Stop Drawing' : '✏️ Draw Loop';
+}
+
 // Draw loop button
 document.getElementById('drawLoopBtn').addEventListener('click', () => {
     customLoopMode = !customLoopMode;
-    document.getElementById('drawLoopBtn').classList.toggle('active', customLoopMode);
+    updateDrawLoopBtn();
     if (customLoopMode) {
         vineyardMode = false;
         document.getElementById('vineyardModeBtn').classList.remove('active');
@@ -268,6 +290,13 @@ document.getElementById('drawLoopBtn').addEventListener('click', () => {
 document.getElementById('clearLoopBtn').addEventListener('click', () => {
     customLoopPoints = [];
     updateLoopStatus();
+    draw();
+});
+
+// Open/closed toggle for the custom loop (mirrors the per-curve Open checkbox).
+// Affects the drawn loop and the centers sampled on the next Compute Vineyard.
+document.getElementById('customLoopOpen').addEventListener('change', e => {
+    customLoopOpen = e.target.checked;
     draw();
 });
 
@@ -290,28 +319,43 @@ function sampleCustomLoop(numSamples) {
     if (customLoopPoints.length < 3) return [];
     
     const pts = customLoopPoints;
-    const C = solveControlPoints(pts);
+    const isOpen = !!customLoopOpen;
+    const C = isOpen ? solveControlPointsOpen(pts) : solveControlPoints(pts);
     const n = C.length;
-    // For closed loop, wrap around
-    const drawC = [C[n-1], ...C, C[0], C[1]];
-    
-    const numSegments = pts.length;
+    // Closed: wrap control points for cyclic continuity.
+    // Open: phantom endpoints from natural-spline boundary (same as open curves).
+    const drawC = isOpen
+        ? [
+            new Point(2 * C[0].x - C[1].x, 2 * C[0].y - C[1].y),
+            ...C,
+            new Point(2 * C[n - 1].x - C[n - 2].x, 2 * C[n - 1].y - C[n - 2].y)
+          ]
+        : [C[n-1], ...C, C[0], C[1]];
+
+    const numSegments = isOpen ? (pts.length - 1) : pts.length;
     const pointsPerSeg = Math.ceil(numSamples / numSegments);
     const samples = [];
-    
+
     for (let i = 0; i < numSegments; i++) {
         const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
-        
-        const segSamples = (i === numSegments - 1) ? 
+
+        const segSamples = (i === numSegments - 1) ?
             numSamples - samples.length : pointsPerSeg;
-        
+
         for (let j = 0; j < segSamples; j++) {
             const t = j / segSamples;
             const P = bSplineEval(p0, p1, p2, p3, t);
             samples.push({ x: P.x, y: P.y });
         }
     }
-    
+
+    // Open arc: append the final endpoint so the spline reaches its last point.
+    if (isOpen) {
+        const i = numSegments - 1;
+        const P = bSplineEval(drawC[i], drawC[i+1], drawC[i+2], drawC[i+3], 1.0);
+        samples.push({ x: P.x, y: P.y });
+    }
+
     return samples;
 }
 

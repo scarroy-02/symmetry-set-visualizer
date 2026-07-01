@@ -119,14 +119,14 @@ function exportCanvasAsPNG() {
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
                     exportCtx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     exportCtx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+            if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); }
         }
     }
 
@@ -153,17 +153,20 @@ function exportCanvasAsPNG() {
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
             }
-            
-            // Yellow animated center marker
-            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                exportCtx.fillStyle = '#f59e0b';
-                exportCtx.beginPath();
-                exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
-                exportCtx.fill();
-            }
         }
     }
+
+    // Current vineyard position marker — independent of the Observation Loop toggle
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        exportCtx.fillStyle = '#f59e0b';
+        exportCtx.beginPath();
+        exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+        exportCtx.fill();
+    }
+
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    drawBirthDeathCircles(exportCtx);
 
     // Control points - dark gray/black
     if (document.getElementById('showControls').checked) {
@@ -236,7 +239,8 @@ function exportCanvasAsSVG() {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
                     if (pathData) {
-                        svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
+                        const closeMark = curveOpen[currentId] ? '' : ' Z';
+                        svg += `<path d="${pathData}${closeMark}" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
                     }
                     pathData = `M ${pt.p.x} ${pt.p.y}`;
                     currentId = pt.curveId;
@@ -245,7 +249,8 @@ function exportCanvasAsSVG() {
                 }
             }
             if (pathData) {
-                svg += `<path d="${pathData} Z" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
+                const closeMark = curveOpen[currentId] ? '' : ' Z';
+                svg += `<path d="${pathData}${closeMark}" stroke="#171717" stroke-width="${2.5*t/view.scale}" fill="none"/>`;
             }
         }
     }
@@ -261,11 +266,36 @@ function exportCanvasAsSVG() {
             for (const c of vineyardCenters) {
                 svg += `<rect x="${c.x - s/2}" y="${c.y - s/2}" width="${s}" height="${s}" fill="rgba(127,29,29,0.5)"/>`;
             }
-            
-            // Yellow animated center marker
-            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${8/view.scale}" fill="#f59e0b"/>`;
+        }
+    }
+
+    // Current vineyard position marker — independent of the Observation Loop toggle
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${8/view.scale}" fill="#f59e0b"/>`;
+    }
+
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    if (document.getElementById('showBirthDeathCircles').checked && vineyardData &&
+        vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        const filt = arr => (arr || []).filter(d => d.centerIdx === vineyardAnimIdx);
+        const groups = [
+            [filt(vineyardData.ord0), 'rgba(239,68,68,0.8)', 'rgba(239,68,68,0.5)', 2],
+            [filt(vineyardData.rel0), 'rgba(249,115,22,0.9)', 'rgba(249,115,22,0.6)', 2.5],
+            [filt(vineyardData.ext0), 'rgba(234,179,8,0.9)', 'rgba(234,179,8,0.6)', 3],
+            [filt(vineyardData.ord1), 'rgba(59,130,246,0.8)', 'rgba(59,130,246,0.5)', 2],
+            [filt(vineyardData.rel1), 'rgba(6,182,212,0.9)', 'rgba(6,182,212,0.6)', 2.5],
+            [filt(vineyardData.ext1), 'rgba(153,27,27,0.9)', 'rgba(153,27,27,0.6)', 3],
+        ];
+        for (const [pts, birthColor, deathColor, lineWidth] of groups) {
+            for (const pt of pts) {
+                const birthR = Math.sqrt(pt.birth);
+                svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${birthR}" stroke="${birthColor}" stroke-width="${lineWidth/view.scale}" fill="none"/>`;
+                if (!pt.isInfinite) {
+                    const deathR = Math.sqrt(pt.death);
+                    svg += `<circle cx="${curr.x}" cy="${curr.y}" r="${deathR}" stroke="${deathColor}" stroke-width="${(lineWidth*0.75)/view.scale}" fill="none" stroke-dasharray="${4/view.scale} ${4/view.scale}"/>`;
+                }
             }
         }
     }
@@ -291,6 +321,31 @@ function exportCanvasAsSVG() {
     exportMenu.classList.remove('active');
 }
 
+// Persistence-diagram export: temporarily fatten the markers and the diagonal/
+// infinity reference lines (these are trace props, not layout) so they read clearly
+// at print resolution. Returns the saved originals; pass them to the restore helper.
+function thickenPersistenceForExport(plotId) {
+    if (plotId !== 'persistencePlot') return null;
+    const gd = document.getElementById(plotId);
+    if (!gd || !gd.data) return null;
+
+    const markerIdx = [], markerSizes = [];
+    const lineIdx = [], lineWidths = [];
+    gd.data.forEach((t, i) => {
+        if (t.marker && t.marker.size != null) { markerIdx.push(i); markerSizes.push(t.marker.size); }
+        if (t.line && t.line.width != null) { lineIdx.push(i); lineWidths.push(t.line.width); }
+    });
+    if (markerIdx.length) Plotly.restyle(plotId, { 'marker.size': markerSizes.map(s => s * 1.8) }, markerIdx);
+    if (lineIdx.length) Plotly.restyle(plotId, { 'line.width': lineWidths.map(w => Math.max(3.5, w * 3.5)) }, lineIdx);
+    return { markerIdx, markerSizes, lineIdx, lineWidths };
+}
+
+function restorePersistenceAfterExport(plotId, saved) {
+    if (!saved) return;
+    if (saved.markerIdx.length) Plotly.restyle(plotId, { 'marker.size': saved.markerSizes }, saved.markerIdx);
+    if (saved.lineIdx.length) Plotly.restyle(plotId, { 'line.width': saved.lineWidths }, saved.lineIdx);
+}
+
 function exportPlotlyAsPNG(plotId, filename) {
     // Get the plot element and save current camera state
     const plotDiv = document.getElementById(plotId);
@@ -308,7 +363,8 @@ function exportPlotlyAsPNG(plotId, filename) {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        showlegend: false,
+        showlegend: plotId === 'persistencePlot',
+        legend: plotId === 'persistencePlot' ? { font: { color: '#1a1a1a', size: 9 }, bgcolor: 'rgba(255,255,255,0.7)', bordercolor: '#cccccc', borderwidth: 1 } : undefined,
         scene: plotId === 'vineyardPlot' ? {
             xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
@@ -316,14 +372,17 @@ function exportPlotlyAsPNG(plotId, filename) {
             bgcolor: '#ffffff',
             camera: savedCamera // Preserve camera position
         } : undefined,
-        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
-        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: false, title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: false, title: { text: 'Death', font: { color: '#333' } } } : undefined,
         title: { font: { color: '#333' } }
     };
     
+    const savedStyle = thickenPersistenceForExport(plotId);
+
     Plotly.relayout(plotId, lightLayout).then(() => {
         return Plotly.toImage(plotId, { format: 'png', width: exportSize, height: exportSize, scale: 2 });
     }).then(dataURL => {
+        restorePersistenceAfterExport(plotId, savedStyle);
         downloadDataURL(dataURL, filename);
         exportMenu.classList.remove('active');
         // Restore dark theme and camera position if needed
@@ -332,7 +391,8 @@ function exportPlotlyAsPNG(plotId, filename) {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                showlegend: false,
+                showlegend: plotId === 'persistencePlot',
+                legend: plotId === 'persistencePlot' ? { font: { color: '#ccc', size: 8 }, bgcolor: 'rgba(0,0,0,0.6)' } : undefined,
                 scene: plotId === 'vineyardPlot' ? {
                     xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
                     yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
@@ -364,7 +424,8 @@ function exportPlotlyAsSVG(plotId, filename) {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        showlegend: false,
+        showlegend: plotId === 'persistencePlot',
+        legend: plotId === 'persistencePlot' ? { font: { color: '#1a1a1a', size: 9 }, bgcolor: 'rgba(255,255,255,0.7)', bordercolor: '#cccccc', borderwidth: 1 } : undefined,
         scene: plotId === 'vineyardPlot' ? {
             xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
@@ -372,14 +433,17 @@ function exportPlotlyAsSVG(plotId, filename) {
             bgcolor: '#ffffff',
             camera: savedCamera
         } : undefined,
-        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
-        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Death', font: { color: '#333' } } } : undefined,
         title: { font: { color: '#333' } }
     };
     
+    const savedStyle = thickenPersistenceForExport(plotId);
+
     Plotly.relayout(plotId, lightLayout).then(() => {
         return Plotly.toImage(plotId, { format: 'svg', width: exportSize, height: exportSize });
     }).then(dataURL => {
+        restorePersistenceAfterExport(plotId, savedStyle);
         downloadDataURL(dataURL, filename);
         exportMenu.classList.remove('active');
         if (isDarkTheme) {
@@ -387,7 +451,8 @@ function exportPlotlyAsSVG(plotId, filename) {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                showlegend: false,
+                showlegend: plotId === 'persistencePlot',
+                legend: plotId === 'persistencePlot' ? { font: { color: '#ccc', size: 8 }, bgcolor: 'rgba(0,0,0,0.6)' } : undefined,
                 scene: plotId === 'vineyardPlot' ? {
                     xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
                     yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
@@ -472,14 +537,14 @@ function exportCanvasAsPDF() {
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
                     exportCtx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     exportCtx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+            if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); }
         }
     }
 
@@ -505,17 +570,20 @@ function exportCanvasAsPDF() {
             for (const c of vineyardCenters) {
                 exportCtx.fillRect(c.x - s/2, c.y - s/2, s, s);
             }
-            
-            // Yellow animated center marker
-            if (typeof vineyardAnimIdx !== 'undefined' && vineyardAnimIdx < vineyardCenters.length) {
-                const curr = vineyardCenters[vineyardAnimIdx];
-                exportCtx.fillStyle = '#f59e0b';
-                exportCtx.beginPath();
-                exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
-                exportCtx.fill();
-            }
         }
     }
+
+    // Current vineyard position marker — independent of the Observation Loop toggle
+    if (vineyardCenters.length > 0 && vineyardAnimIdx < vineyardCenters.length) {
+        const curr = vineyardCenters[vineyardAnimIdx];
+        exportCtx.fillStyle = '#f59e0b';
+        exportCtx.beginPath();
+        exportCtx.arc(curr.x, curr.y, 8 / view.scale, 0, Math.PI * 2);
+        exportCtx.fill();
+    }
+
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    drawBirthDeathCircles(exportCtx);
 
     if (document.getElementById('showControls').checked) {
         const baseSize = 7 / view.scale;
@@ -557,7 +625,8 @@ function exportPlotlyAsPDF(plotId, filename) {
         paper_bgcolor: '#ffffff',
         plot_bgcolor: '#ffffff',
         font: { color: '#1a1a1a' },
-        showlegend: false,
+        showlegend: plotId === 'persistencePlot',
+        legend: plotId === 'persistencePlot' ? { font: { color: '#1a1a1a', size: 9 }, bgcolor: 'rgba(255,255,255,0.7)', bordercolor: '#cccccc', borderwidth: 1 } : undefined,
         scene: plotId === 'vineyardPlot' ? {
             xaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Birth', font: { color: '#333' } } },
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
@@ -565,15 +634,18 @@ function exportPlotlyAsPDF(plotId, filename) {
             bgcolor: '#ffffff',
             camera: savedCamera
         } : undefined,
-        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Birth', font: { color: '#333' } } } : undefined,
-        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', title: { text: 'Death', font: { color: '#333' } } } : undefined,
+        xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Birth', font: { color: '#333' } } } : undefined,
+        yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: true, title: { text: 'Death', font: { color: '#333' } } } : undefined,
         title: { font: { color: '#333' } }
     };
     
+    const savedStyle = thickenPersistenceForExport(plotId);
+
     Plotly.relayout(plotId, lightLayout).then(() => {
         // Use PNG format for better quality
         return Plotly.toImage(plotId, { format: 'png', width: exportSize, height: exportSize, scale: 2 });
     }).then(dataURL => {
+        restorePersistenceAfterExport(plotId, savedStyle);
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
             orientation: 'portrait',
@@ -588,7 +660,8 @@ function exportPlotlyAsPDF(plotId, filename) {
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: plotId === 'persistencePlot' ? 'rgba(10,10,15,0.5)' : 'rgba(0,0,0,0)',
                 font: { color: '#ccc' },
-                showlegend: false,
+                showlegend: plotId === 'persistencePlot',
+                legend: plotId === 'persistencePlot' ? { font: { color: '#ccc', size: 8 }, bgcolor: 'rgba(0,0,0,0.6)' } : undefined,
                 scene: plotId === 'vineyardPlot' ? {
                     xaxis: { color: '#888', gridcolor: '#333', title: { text: 'Birth', font: { color: '#aaa' } } },
                     yaxis: { color: '#888', gridcolor: '#333', title: { text: 'Death', font: { color: '#aaa' } } },
@@ -833,14 +906,14 @@ async function exportAllAsPDF() {
             for (let i = 0; i < cachedCurveData.length; i++) {
                 const pt = cachedCurveData[i];
                 if (pt.curveId !== currentId) {
-                    if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
+                    if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); exportCtx.beginPath(); }
                     exportCtx.moveTo(pt.p.x, pt.p.y);
                     currentId = pt.curveId;
                 } else {
                     exportCtx.lineTo(pt.p.x, pt.p.y);
                 }
             }
-            if (currentId !== -1) { exportCtx.closePath(); exportCtx.stroke(); }
+            if (currentId !== -1) { if (!curveOpen[currentId]) exportCtx.closePath(); exportCtx.stroke(); }
         }
     }
     if (document.getElementById('showVineyardCircle').checked && vineyardCenter) {
@@ -849,6 +922,9 @@ async function exportAllAsPDF() {
         exportCtx.arc(vineyardCenter.x, vineyardCenter.y, 6 / view.scale, 0, Math.PI * 2);
         exportCtx.fill();
     }
+    // Birth/Death circles — same as on-canvas, independent of the Observation Loop toggle
+    drawBirthDeathCircles(exportCtx);
+
     if (document.getElementById('showControls').checked) {
         const baseSize = 7 / view.scale;
         for (let c = 0; c < curves.length; c++) {

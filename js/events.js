@@ -1,3 +1,48 @@
+// ========== Per-curve list (open/closed checkbox per curve) ==========
+function rebuildCurveList() {
+    const host = document.getElementById('curveList');
+    if (!host) return;
+    host.innerHTML = '';
+    for (let i = 0; i < curves.length; i++) {
+        const row = document.createElement('div');
+        row.className = 'toggle-row';
+        row.style.cursor = 'pointer';
+
+        const label = document.createElement('span');
+        label.innerText = `Curve ${i}` + (i === activeCurveIdx ? ' ★' : '');
+        label.style.flex = '1';
+        label.addEventListener('click', () => {
+            activeCurveIdx = i;
+            selectedInfo = null;
+            updateUI();
+            updateStatus();
+            draw();
+        });
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!curveOpen[i];
+        cb.title = 'Open (non-closed) curve';
+        cb.addEventListener('change', () => {
+            saveState();
+            curveOpen[i] = cb.checked;
+            triggerComputation(true);
+            rebuildCurveList();
+        });
+
+        const tag = document.createElement('span');
+        tag.innerText = 'Open';
+        tag.style.fontSize = '9px';
+        tag.style.color = 'var(--text-muted)';
+        tag.style.marginRight = '4px';
+
+        row.appendChild(label);
+        row.appendChild(tag);
+        row.appendChild(cb);
+        host.appendChild(row);
+    }
+}
+
 // ========== UI Helpers ==========
 function updateStatus(msg) {
     const pts = curves[activeCurveIdx] || [];
@@ -6,6 +51,10 @@ function updateStatus(msg) {
 
 function updateUI() {
     document.getElementById('curveCountBadge').innerText = curves.length;
+    // Keep curveOpen[] length in sync with curves[]
+    while (curveOpen.length < curves.length) curveOpen.push(false);
+    if (curveOpen.length > curves.length) curveOpen.length = curves.length;
+    if (typeof rebuildCurveList === 'function') rebuildCurveList();
 }
 
 function updateModeIndicator() {
@@ -60,21 +109,25 @@ function pointToSegmentDistSq(p, v, w) {
 
 function insertPointSmart(newPt) {
     const pts = curves[activeCurveIdx];
-    
+    const isOpen = !!curveOpen[activeCurveIdx];
+
     if (pts.length < 3) {
         pts.push(newPt);
         selectedInfo = { cIdx: activeCurveIdx, pIdx: pts.length - 1 };
         return;
     }
 
+    // Open: only score real segments (i, i+1) — no wrap.
+    // Closed: include the closing segment (n-1, 0).
+    const lastSegIdx = isOpen ? pts.length - 2 : pts.length - 1;
     let bestIdx = -1, minDistSq = Infinity;
-    for (let i = 0; i < pts.length; i++) {
+    for (let i = 0; i <= lastSegIdx; i++) {
         const p1 = pts[i];
         const p2 = pts[(i + 1) % pts.length];
         const distSq = pointToSegmentDistSq(newPt, p1, p2);
         if (distSq < minDistSq) { minDistSq = distSq; bestIdx = i; }
     }
-    
+
     pts.splice(bestIdx + 1, 0, newPt);
     selectedInfo = { cIdx: activeCurveIdx, pIdx: bestIdx + 1 };
 }
@@ -326,6 +379,7 @@ window.addEventListener('keydown', e => {
                 pts.splice(selectedInfo.pIdx, 1);
                 if (pts.length === 0 && curves.length > 1) {
                     curves.splice(selectedInfo.cIdx, 1);
+                    curveOpen.splice(selectedInfo.cIdx, 1);
                     activeCurveIdx = Math.max(0, activeCurveIdx - 1);
                 }
                 selectedInfo = null;
@@ -342,7 +396,7 @@ window.addEventListener('keydown', e => {
         updateModeIndicator();
         document.getElementById('vineyardModeBtn').classList.remove('active');
         document.getElementById('vineyardModeBtn').innerText = '⬡ Place Center';
-        document.getElementById('drawLoopBtn').classList.remove('active');
+        updateDrawLoopBtn();
         draw();
     }
 });
@@ -353,6 +407,7 @@ document.getElementById('undoBtn').addEventListener('click', performUndo);
 document.getElementById('newCurveBtn').addEventListener('click', () => {
     saveState();
     curves.push([]);
+    curveOpen.push(false);
     activeCurveIdx = curves.length - 1;
     selectedInfo = null;
     updateUI();
@@ -363,6 +418,7 @@ document.getElementById('newCurveBtn').addEventListener('click', () => {
 document.getElementById('clearBtn').addEventListener('click', () => {
     saveState();
     curves = [[]];
+    curveOpen = [false];
     activeCurveIdx = 0;
     selectedInfo = null;
     cachedCurveData = null;
@@ -376,7 +432,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     // Clear custom loop
     customLoopPoints = [];
     customLoopMode = false;
-    document.getElementById('drawLoopBtn').classList.remove('active');
+    updateDrawLoopBtn();
     updateLoopStatus();
     
     stopVineyardAnim();

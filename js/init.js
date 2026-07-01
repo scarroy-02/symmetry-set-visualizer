@@ -8,4 +8,5 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-updateStatus('Click to add points or load a preset');
+updateUI();
+updateStatus('Click to add points or load a preset (Open Curves test build)');

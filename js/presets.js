@@ -29,6 +29,13 @@ function applyFigureData(data) {
     saveState();
     curves = data.curves.map(c => c.map(p => new Point(p.x, p.y)));
     if (curves.length === 0) curves = [[]];
+    // Default existing presets to open=false so their geometry matches the
+    // original closed-curve renderings; user can flip via the Curves panel.
+    if (Array.isArray(data.curveOpen) && data.curveOpen.length === curves.length) {
+        curveOpen = data.curveOpen.map(Boolean);
+    } else {
+        curveOpen = curves.map(() => false);
+    }
     activeCurveIdx = Math.min(data.activeCurveIdx ?? 0, curves.length - 1);
     if (data.view) {
         view.x = data.view.x;

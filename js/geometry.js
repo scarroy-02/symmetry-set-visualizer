@@ -28,6 +28,26 @@ function solveControlPoints(points) {
     return Array.from({length: n}, (_, i) => new Point(solX[i], solY[i]));
 }
 
+// Natural cubic B-spline interpolation for an open curve.
+// Endpoints pinned: C[0] = P[0], C[n-1] = P[n-1].
+// Interior knots: C[i-1] + 4*C[i] + C[i+1] = 6*P[i]   (i = 1..n-2)
+// Phantom controls used at draw time: C[-1] = 2*C[0]-C[1], C[n] = 2*C[n-1]-C[n-2].
+function solveControlPointsOpen(points) {
+    const n = points.length;
+    if (n < 3) return points;
+
+    const solX = new Float64Array(n);
+    const solY = new Float64Array(n);
+    for (let i = 0; i < n; i++) { solX[i] = points[i].x; solY[i] = points[i].y; }
+    for (let iter = 0; iter < 30; iter++) {
+        for (let i = 1; i < n - 1; i++) {
+            solX[i] = (6.0 * points[i].x - solX[i - 1] - solX[i + 1]) * 0.25;
+            solY[i] = (6.0 * points[i].y - solY[i - 1] - solY[i + 1]) * 0.25;
+        }
+    }
+    return Array.from({ length: n }, (_, i) => new Point(solX[i], solY[i]));
+}
+
 function bSplineEval(p0, p1, p2, p3, t) {
     const t2 = t*t, t3 = t2*t;
     const b0 = (-t3 + 3*t2 - 3*t + 1)/6;
@@ -61,11 +81,20 @@ function computeSplineData() {
         const pts = curves[cIdx];
         if (pts.length < 3) continue;
 
-        const C = solveControlPoints(pts);
+        const isOpen = !!curveOpen[cIdx];
+        const C = isOpen ? solveControlPointsOpen(pts) : solveControlPoints(pts);
         const n = C.length;
-        const drawC = [C[n-1], ...C, C[0], C[1]];
+        // Closed: wrap C[n-1], C[0], C[1] for cyclic continuity.
+        // Open: phantom endpoints from natural-spline boundary (C''=0).
+        const drawC = isOpen
+            ? [
+                new Point(2 * C[0].x - C[1].x, 2 * C[0].y - C[1].y),
+                ...C,
+                new Point(2 * C[n - 1].x - C[n - 2].x, 2 * C[n - 1].y - C[n - 2].y)
+              ]
+            : [C[n-1], ...C, C[0], C[1]];
 
-        const numSegments = pts.length;
+        const numSegments = isOpen ? (pts.length - 1) : pts.length;
         const budget = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
         const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
 
@@ -88,6 +117,24 @@ function computeSplineData() {
                 allData.push({ p: P, T: T, N: N, curvature: k, curveId: cIdx });
             }
         }
+
+        // For open curves, add the t=1 endpoint of the final segment
+        // so the sample list reaches the last data point.
+        if (isOpen) {
+            const i = numSegments - 1;
+            const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+            const t = 1.0;
+            const P = bSplineEval(p0, p1, p2, p3, t);
+            const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
+            const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
+            const velSq = d1.dot(d1);
+            if (velSq >= 1e-15) {
+                const T = d1.normalize();
+                const N = new Point(-T.y, T.x);
+                const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
+                allData.push({ p: P, T: T, N: N, curvature: k, curveId: cIdx });
+            }
+        }
     }
     return allData;
 }
@@ -107,9 +154,11 @@ function computeSymmetrySet(data, stepSize) {
         groups.get(cId).push(i);
     }
 
-    // Self-symmetry of each closed curve
-    for (const indices of groups.values()) {
-        for (const br of _ssTraceSelf(data, indices)) {
+    const openOf = (cId) => !!(typeof curveOpen !== 'undefined' && curveOpen[cId]);
+
+    // Self-symmetry of each curve
+    for (const [cId, indices] of groups.entries()) {
+        for (const br of _ssTraceSelf(data, indices, openOf(cId))) {
             out.branches.push(br);
             for (const p of br) out.push(p);
         }
@@ -119,7 +168,8 @@ function computeSymmetrySet(data, stepSize) {
     const curveIds = [...groups.keys()];
     for (let i = 0; i < curveIds.length; i++) {
         for (let j = i + 1; j < curveIds.length; j++) {
-            for (const br of _ssTraceCross(data, groups.get(curveIds[i]), groups.get(curveIds[j]))) {
+            const cA = curveIds[i], cB = curveIds[j];
+            for (const br of _ssTraceCross(data, groups.get(cA), groups.get(cB), openOf(cA), openOf(cB))) {
                 out.branches.push(br);
                 for (const p of br) out.push(p);
             }
@@ -272,7 +322,7 @@ function _ssStitch(segments) {
     return branches;
 }
 
-function _ssTraceSelf(data, idx) {
+function _ssTraceSelf(data, idx, isOpen) {
     const n = idx.length;
     if (n < 10) return [];
     const MIN_ARC = Math.max(3, Math.floor(n * 0.02));
@@ -280,16 +330,25 @@ function _ssTraceSelf(data, idx) {
     const DOTT_GUARD = 0.9999;
     const segsP = [], segsM = [];
 
-    for (let a = 0; a < n; a++) {
-        for (let b = 0; b < n; b++) {
-            const a1 = (a + 1) % n, b1 = (b + 1) % n;
-            // Fundamental domain: MIN_ARC < (a - b) mod n <= n/2 at every corner.
-            // (Antisymmetry F(a,b) = -F(b,a) means each real branch would otherwise
-            //  appear twice; the half-strip picks one copy.)
+    const aHi = isOpen ? n - 1 : n;
+    const bHi = isOpen ? n - 1 : n;
+
+    for (let a = 0; a < aHi; a++) {
+        for (let b = 0; b < bHi; b++) {
+            const a1 = isOpen ? a + 1 : (a + 1) % n;
+            const b1 = isOpen ? b + 1 : (b + 1) % n;
+            // Fundamental domain.
+            // Closed: MIN_ARC < (a - b) mod n <= n/2 at every corner (half-strip).
+            // Open  : (b - a) > MIN_ARC at every corner (lower triangle, no wrap).
             let ok = true;
             for (const [ca, cb] of [[a,b],[a1,b],[a1,b1],[a,b1]]) {
-                const fwd = ((ca - cb) % n + n) % n;
-                if (fwd <= MIN_ARC || fwd > halfN) { ok = false; break; }
+                if (isOpen) {
+                    const d = cb - ca;
+                    if (d <= MIN_ARC) { ok = false; break; }
+                } else {
+                    const fwd = ((ca - cb) % n + n) % n;
+                    if (fwd <= MIN_ARC || fwd > halfN) { ok = false; break; }
+                }
             }
             if (!ok) continue;
 
@@ -327,14 +386,17 @@ function _ssTraceSelf(data, idx) {
     return [..._ssStitch(segsP), ..._ssStitch(segsM)];
 }
 
-function _ssTraceCross(data, idxA, idxB) {
+function _ssTraceCross(data, idxA, idxB, openA, openB) {
     const nA = idxA.length, nB = idxB.length;
     if (nA < 4 || nB < 4) return [];
     const DOTT_GUARD = 0.9999;
     const segsP = [], segsM = [];
-    for (let a = 0; a < nA; a++) {
-        for (let b = 0; b < nB; b++) {
-            const a1 = (a + 1) % nA, b1 = (b + 1) % nB;
+    const aHi = openA ? nA - 1 : nA;
+    const bHi = openB ? nB - 1 : nB;
+    for (let a = 0; a < aHi; a++) {
+        for (let b = 0; b < bHi; b++) {
+            const a1 = openA ? a + 1 : (a + 1) % nA;
+            const b1 = openB ? b + 1 : (b + 1) % nB;
             const d00 = _ssDotT(data, idxA[a],  idxB[b]);
             const d10 = _ssDotT(data, idxA[a1], idxB[b]);
             const d11 = _ssDotT(data, idxA[a1], idxB[b1]);
@@ -404,9 +466,10 @@ function computeFocalSet(data) {
     const MAX_JUMP_SQ = diag * diag;
     const MIN_K = 1.0 / R_MAX;
 
-    for (const indices of groups.values()) {
+    for (const [cId, indices] of groups.entries()) {
         const n = indices.length;
         if (n < 3) continue;
+        const isOpen = !!(typeof curveOpen !== 'undefined' && curveOpen[cId]);
 
         // Per-sample focal point (or null if ill-defined)
         const foc = new Array(n);
@@ -434,6 +497,8 @@ function computeFocalSet(data) {
             const dx = b.x - a.x, dy = b.y - a.y;
             if (dx*dx + dy*dy > MAX_JUMP_SQ) { brk[k] = true; }
         }
+        // For open curves, the wraparound from k=n-1 to k=0 is not real geometry.
+        if (isOpen) brk[n - 1] = true;
 
         const closed = !brk.some(b => b);
 

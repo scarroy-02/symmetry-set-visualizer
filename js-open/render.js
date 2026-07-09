@@ -82,18 +82,18 @@ function drawBirthDeathCircles(targetCtx) {
 function draw() {
     const lineT = getLineThickness();
     // Theme-aware colors
-    const bgColor = isDarkTheme ? '#0a0a0f' : '#f5f5f7';
-    const gridColor = isDarkTheme ? '#1a1a2e' : '#e0e0e0';
-    const curveColor = isDarkTheme ? '#e0e0e0' : '#171717';
-    const focalColor = isDarkTheme ? '#a855f7' : '#7c3aed';
-    const ssColor = isDarkTheme ? '#60a5fa' : '#3b82f6';
-    const focalAnimColor = isDarkTheme ? '#7c3aed' : '#5b21b6';
-    const focalAnimColorAlpha = isDarkTheme ? 'rgba(124, 58, 237, 0.4)' : 'rgba(91, 33, 182, 0.4)';
-    const ssAnimColor = isDarkTheme ? '#2563eb' : '#1d4ed8';
-    const ssAnimColorAlpha = isDarkTheme ? 'rgba(37, 99, 235, 0.4)' : 'rgba(29, 78, 216, 0.4)';
-    const vineyardColor = isDarkTheme ? '#991b1b' : '#7f1d1d';
-    const controlActive = isDarkTheme ? '#fff' : '#1a1a1a';
-    const controlInactive = isDarkTheme ? '#666' : '#888';
+    const bgColor = '#f5f5f7';
+    const gridColor = '#e0e0e0';
+    const curveColor = '#171717';
+    const focalColor = '#7c3aed';
+    const ssColor = '#3b82f6';
+    const focalAnimColor = '#5b21b6';
+    const focalAnimColorAlpha = 'rgba(91, 33, 182, 0.4)';
+    const ssAnimColor = '#1d4ed8';
+    const ssAnimColorAlpha = 'rgba(29, 78, 216, 0.4)';
+    const vineyardColor = '#7f1d1d';
+    const controlActive = '#1a1a1a';
+    const controlInactive = '#888';
     
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -271,8 +271,8 @@ function draw() {
             if (customLoopPoints.length >= 3) {
                 const loopSamples = sampleCustomLoop(200);
                 if (loopSamples.length > 0) {
-                    ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
-                    ctx.lineWidth = 2 / view.scale;
+                    ctx.strokeStyle = 'rgba(127, 29, 29, 0.8)';
+                    ctx.lineWidth = 2 * lineT / view.scale;
 
                     ctx.beginPath();
                     ctx.moveTo(loopSamples[0].x, loopSamples[0].y);
@@ -284,8 +284,8 @@ function draw() {
                 }
             } else if (customLoopPoints.length === 2) {
                 // Draw line between 2 points
-                ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.5)' : 'rgba(127, 29, 29, 0.6)';
-                ctx.lineWidth = 1.5 / view.scale;
+                ctx.strokeStyle = 'rgba(127, 29, 29, 0.6)';
+                ctx.lineWidth = 1.5 * lineT / view.scale;
                 ctx.setLineDash([5 / view.scale, 5 / view.scale]);
                 ctx.beginPath();
                 ctx.moveTo(customLoopPoints[0].x, customLoopPoints[0].y);
@@ -329,8 +329,8 @@ function draw() {
             ctx.fill();
             
             // Main vineyard radius - purple dashed
-            ctx.strokeStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.7)' : 'rgba(127, 29, 29, 0.8)';
-            ctx.lineWidth = 2 / view.scale;
+            ctx.strokeStyle = 'rgba(127, 29, 29, 0.8)';
+            ctx.lineWidth = 2 * lineT / view.scale;
             ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.beginPath();
             ctx.arc(vineyardCenter.x, vineyardCenter.y, vineyardRadius, 0, Math.PI * 2);
@@ -343,7 +343,7 @@ function draw() {
             const rLabelX = (vineyardCenter.x + vineyardRadius) * view.scale + view.x + canvas.width / 2;
             const rLabelY = canvas.height / 2 - vineyardCenter.y * view.scale + view.y;
             ctx.font = '10px JetBrains Mono, monospace';
-            ctx.fillStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.9)' : 'rgba(127, 29, 29, 1)';
+            ctx.fillStyle = 'rgba(127, 29, 29, 1)';
             ctx.fillText(`R=${vineyardRadius.toFixed(2)}`, rLabelX + 5, rLabelY);
             ctx.restore();
             
@@ -353,7 +353,7 @@ function draw() {
                 const endR = parseFloat(document.getElementById('radiusEnd').value) || 5;
                 
                 // Start radius - cyan/teal dashed
-                ctx.strokeStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.6)' : 'rgba(6, 182, 212, 0.7)';
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
                 ctx.lineWidth = 1.5 / view.scale;
                 ctx.setLineDash([3 / view.scale, 3 / view.scale]);
                 ctx.beginPath();
@@ -366,12 +366,12 @@ function draw() {
                 const startLabelX = (vineyardCenter.x + startR * 0.707) * view.scale + view.x + canvas.width / 2;
                 const startLabelY = canvas.height / 2 - (vineyardCenter.y + startR * 0.707) * view.scale + view.y;
                 ctx.font = '9px JetBrains Mono, monospace';
-                ctx.fillStyle = isDarkTheme ? 'rgba(34, 211, 238, 0.9)' : 'rgba(6, 182, 212, 1)';
+                ctx.fillStyle = 'rgba(6, 182, 212, 1)';
                 ctx.fillText(`Start=${startR.toFixed(2)}`, startLabelX + 3, startLabelY - 3);
                 ctx.restore();
                 
                 // End radius - orange dashed
-                ctx.strokeStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.6)' : 'rgba(234, 88, 12, 0.7)';
+                ctx.strokeStyle = 'rgba(234, 88, 12, 0.7)';
                 ctx.beginPath();
                 ctx.arc(vineyardCenter.x, vineyardCenter.y, endR, 0, Math.PI * 2);
                 ctx.stroke();
@@ -383,14 +383,14 @@ function draw() {
                 const endLabelX = (vineyardCenter.x + endR * 0.707) * view.scale + view.x + canvas.width / 2;
                 const endLabelY = canvas.height / 2 - (vineyardCenter.y + endR * 0.707) * view.scale + view.y;
                 ctx.font = '9px JetBrains Mono, monospace';
-                ctx.fillStyle = isDarkTheme ? 'rgba(251, 146, 60, 0.9)' : 'rgba(234, 88, 12, 1)';
+                ctx.fillStyle = 'rgba(234, 88, 12, 1)';
                 ctx.fillText(`End=${endR.toFixed(2)}`, endLabelX + 3, endLabelY - 3);
                 ctx.restore();
             }
         }
         
         if (vineyardCenters.length > 0) {
-            ctx.fillStyle = isDarkTheme ? 'rgba(153, 27, 27, 0.4)' : 'rgba(127, 29, 29, 0.5)';
+            ctx.fillStyle = 'rgba(127, 29, 29, 0.5)';
             const s = 3 / view.scale;
             for (let i = 0; i < vineyardCenters.length; i++) {
                 const c = vineyardCenters[i];

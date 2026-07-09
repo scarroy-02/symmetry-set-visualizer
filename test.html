@@ -6,7 +6,6 @@
     <title>Symmetry Set Visualizer + Vineyard (Open Curves Test)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -71,18 +70,12 @@
             </button>
         </div>
 
-        <div class="toolbar-section">
+        <div class="toolbar-section" style="border-right: none;">
             <button class="btn btn-secondary" id="saveFigBtn" title="Save spline configuration (.sspl)">Save</button>
             <button class="btn btn-secondary" id="loadFigBtn" title="Load spline configuration (.sspl)">Load</button>
             <input type="file" id="loadFigInput" accept=".sspl,application/json" style="display: none;">
         </div>
-        
-        <div class="toolbar-section" style="border-right: none;">
-            <button class="btn btn-secondary" id="themeToggleBtn" title="Toggle Light/Dark Theme">
-                ☀️
-            </button>
-        </div>
-        
+
     </div>
     
     <!-- Left Sidebar -->
@@ -333,21 +326,14 @@
 <!-- Export Menu (positioned fixed via JS) -->
 <div id="exportMenu" class="export-menu">
     <div class="export-menu-item" id="exportCanvas">Export Canvas (PNG)</div>
-    <div class="export-menu-item" id="exportCanvasSVG">Export Canvas (SVG)</div>
-    <div class="export-menu-item" id="exportCanvasPDF">Export Canvas (PDF)</div>
     <div class="export-menu-divider"></div>
     <div class="export-menu-item" id="exportVineyard">Export Vineyard 3D (PNG)</div>
-    <div class="export-menu-item" id="exportVineyardSVG">Export Vineyard 3D (SVG)</div>
-    <div class="export-menu-item" id="exportVineyardPDF">Export Vineyard 3D (PDF)</div>
     <div class="export-menu-item" id="exportVineyardOBJ">Export Vineyard 3D (OBJ)</div>
     <div class="export-menu-item" id="exportVineyardPLY">Export Vineyard 3D (PLY)</div>
     <div class="export-menu-divider"></div>
     <div class="export-menu-item" id="exportPD">Export Persistence Diagram (PNG)</div>
-    <div class="export-menu-item" id="exportPDSVG">Export Persistence Diagram (SVG)</div>
-    <div class="export-menu-item" id="exportPDPDF">Export Persistence Diagram (PDF)</div>
     <div class="export-menu-divider"></div>
     <div class="export-menu-item" id="exportAllPNG">Export All (PNG)</div>
-    <div class="export-menu-item" id="exportAllPDF">Export All (PDF)</div>
 </div>
 
 <script src="js-open/state.js"></script>

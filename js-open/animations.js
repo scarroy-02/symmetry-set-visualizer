@@ -357,13 +357,19 @@ function updateRadiusSweepVineyardPlot() {
         hoverinfo: 'skip'
     };
     
+    // Preserve the user's current 3D camera so the sweep animation doesn't reset the view.
+    const gd = document.getElementById('vineyardPlot');
+    const savedCamera = (gd && gd.layout && gd.layout.scene && gd.layout.scene.camera)
+        ? gd.layout.scene.camera
+        : { eye: { x: 1.6, y: 1.6, z: 1.0 } };
+
     const layout = {
         scene: {
             xaxis: { title: { text: 'Birth', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
             yaxis: { title: { text: 'Death', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
             zaxis: { title: { text: 'Time', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, vineyardSamples - 1], showspikes: false },
             bgcolor: 'rgba(0,0,0,0)',
-            camera: { eye: { x: 1.6, y: 1.6, z: 1.0 } },
+            camera: savedCamera,
             aspectmode: 'cube'
         },
         paper_bgcolor: 'rgba(0,0,0,0)',
@@ -372,8 +378,9 @@ function updateRadiusSweepVineyardPlot() {
         showlegend: false,
         title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
     };
-    
-    Plotly.newPlot('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
+
+    // react() updates in place (preserves the camera); newPlot() would re-init and snap the view back.
+    Plotly.react('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
 }
 
 function updateRadiusSweepPersistenceDiagram() {

@@ -1,7 +1,7 @@
-// ========== Persistence Computation via Python API ==========
-// All persistence is computed by the GUDHI-based Python server
+// ========== Persistence Computation via C++ API ==========
+// All persistence is computed by the GUDHI-based C++ server
 
-// Call Python API for vineyard computation
+// Call C++ API for vineyard computation
 async function computeVineyardAPI(centers, curveData) {
     const response = await fetch(`${PERSISTENCE_API_URL}/vineyard`, {
         method: 'POST',
@@ -128,7 +128,7 @@ async function computeVineyard() {
         
     } catch (err) {
         console.error('API error:', err);
-        updateStatus(`Error: ${err.message}. Is the Python server running?`);
+        updateStatus(`Error: ${err.message}. Is the C++ server running?`);
     }
 }
 

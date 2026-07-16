@@ -13,7 +13,7 @@ class Point {
 // For GitHub Pages: Set this to your deployed Python server URL
 // For local development: Use 'http://localhost:5000'
 // For hosting: 'https://scarroy.eu.pythonanywhere.com/' 'https://scarroy-persistence-endpoint.hf.space/'
-const PERSISTENCE_API_URL = 'https://scarroy-persistence-endpoint.hf.space/';
+const PERSISTENCE_API_URL = 'https://scarroy-persistence-endpoint.hf.space';
 // const PERSISTENCE_API_URL = 'http://localhost:5000';
 
 // ========== Global State ==========

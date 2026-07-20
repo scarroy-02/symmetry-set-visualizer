@@ -268,80 +268,27 @@ function updateRadiusSweepDisplay() {
     // Don't update persistence diagram during radius sweep - only vineyard changes
 }
 
-function updateRadiusSweepVineyardPlot() {
-    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
-    
-    const currentVineyard = radiusSweepData.vineyards[radiusSweepIdx];
-    const r = currentVineyard.radius;
-    const maxVal = currentVineyard.infinityY;
-    
-    const ord0 = currentVineyard.ord0 || [];
-    const rel0 = currentVineyard.rel0 || [];
-    const ext0 = currentVineyard.ext0 || [];
-    const ord1 = currentVineyard.ord1 || [];
-    const rel1 = currentVineyard.rel1 || [];
-    const ext1 = currentVineyard.ext1 || [];
-    
-    // Six traces for extended persistence types
-    const traceOrd0 = {
-        x: ord0.map(d => d.birth),
-        y: ord0.map(d => d.death),
-        z: ord0.map(d => d.centerIdx),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Ord H₀',
-        marker: { size: 3, color: '#ef4444', opacity: 0.7 }
-    };
+// Shared 3D vineyard renderer for sweeps (radius sweep + spline sweep).
+// Preserves the current camera and updates in place, so animating never resets the view.
+function renderSweepVineyardPlot(v, maxVal, titleText, titleColor) {
+    const mk = (arr, name, size, color, symbol) => ({
+        x: (arr || []).map(d => d.birth),
+        y: (arr || []).map(d => d.death),
+        z: (arr || []).map(d => d.centerIdx),
+        mode: "markers",
+        type: "scatter3d",
+        name: name,
+        marker: symbol
+            ? { size: size, color: color, opacity: 0.7, symbol: symbol }
+            : { size: size, color: color, opacity: 0.7 }
+    });
 
-    const traceRel0 = {
-        x: rel0.map(d => d.birth),
-        y: rel0.map(d => d.death),
-        z: rel0.map(d => d.centerIdx),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Rel H₀',
-        marker: { size: 2.1, color: '#f97316', opacity: 0.7, symbol: 'square' }
-    };
-
-    const traceExt0 = {
-        x: ext0.map(d => d.birth),
-        y: ext0.map(d => d.death),
-        z: ext0.map(d => d.centerIdx),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Ext H₀',
-        marker: { size: 2.1, color: '#eab308', opacity: 0.7, symbol: 'diamond' }
-    };
-
-    const traceOrd1 = {
-        x: ord1.map(d => d.birth),
-        y: ord1.map(d => d.death),
-        z: ord1.map(d => d.centerIdx),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Ord H₁',
-        marker: { size: 3, color: '#3b82f6', opacity: 0.7 }
-    };
-
-    const traceRel1 = {
-        x: rel1.map(d => d.birth),
-        y: rel1.map(d => d.death),
-        z: rel1.map(d => d.centerIdx),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Rel H₁',
-        marker: { size: 2.1, color: '#06b6d4', opacity: 0.7, symbol: 'square' }
-    };
-
-    const traceExt1 = {
-        x: ext1.map(d => d.birth),
-        y: ext1.map(d => d.death),
-        z: ext1.map(d => d.centerIdx),
-        mode: 'markers',
-        type: 'scatter3d',
-        name: 'Ext H₁',
-        marker: { size: 2.1, color: '#a855f7', opacity: 0.7, symbol: 'diamond' }
-    };
+    const traceOrd0 = mk(v.ord0, "Ord H₀", 3, "#ef4444", null);
+    const traceRel0 = mk(v.rel0, "Rel H₀", 2.1, "#f97316", "square");
+    const traceExt0 = mk(v.ext0, "Ext H₀", 2.1, "#eab308", "diamond");
+    const traceOrd1 = mk(v.ord1, "Ord H₁", 3, "#3b82f6", null);
+    const traceRel1 = mk(v.rel1, "Rel H₁", 2.1, "#06b6d4", "square");
+    const traceExt1 = mk(v.ext1, "Ext H₁", 2.1, "#a855f7", "diamond");
 
     const diagPoints = {
         x: [0, maxVal, maxVal, 0],
@@ -350,37 +297,43 @@ function updateRadiusSweepVineyardPlot() {
         i: [0, 0],
         j: [1, 2],
         k: [2, 3],
-        type: 'mesh3d',
-        name: 'Diagonal',
-        color: 'rgba(100,100,100,0.1)',
+        type: "mesh3d",
+        name: "Diagonal",
+        color: "rgba(100,100,100,0.1)",
         showscale: false,
-        hoverinfo: 'skip'
+        hoverinfo: "skip"
     };
-    
-    // Preserve the user's current 3D camera so the sweep animation doesn't reset the view.
-    const gd = document.getElementById('vineyardPlot');
+
+    // Preserve the user's current 3D camera so the sweep animation does not reset the view.
+    const gd = document.getElementById("vineyardPlot");
     const savedCamera = (gd && gd.layout && gd.layout.scene && gd.layout.scene.camera)
         ? gd.layout.scene.camera
         : { eye: { x: 1.6, y: 1.6, z: 1.0 } };
 
     const layout = {
         scene: {
-            xaxis: { title: { text: 'Birth', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
-            yaxis: { title: { text: 'Death', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, maxVal], showspikes: false },
-            zaxis: { title: { text: 'Time', font: { size: 10 } }, color: '#888', gridcolor: '#333', range: [0, vineyardSamples - 1], showspikes: false },
-            bgcolor: 'rgba(0,0,0,0)',
+            xaxis: { title: { text: "Birth", font: { size: 10 } }, color: "#888", gridcolor: "#333", range: [0, maxVal], showspikes: false },
+            yaxis: { title: { text: "Death", font: { size: 10 } }, color: "#888", gridcolor: "#333", range: [0, maxVal], showspikes: false },
+            zaxis: { title: { text: "Time", font: { size: 10 } }, color: "#888", gridcolor: "#333", range: [0, vineyardSamples - 1], showspikes: false },
+            bgcolor: "rgba(0,0,0,0)",
             camera: savedCamera,
-            aspectmode: 'cube'
+            aspectmode: "cube"
         },
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
         margin: { l: 0, r: 0, t: 20, b: 0 },
         showlegend: false,
-        title: { text: `R = ${r.toFixed(2)}`, font: { color: '#c084fc', size: 11 }, x: 0.5 }
+        title: { text: titleText, font: { color: titleColor || "#c084fc", size: 11 }, x: 0.5 }
     };
 
     // react() updates in place (preserves the camera); newPlot() would re-init and snap the view back.
-    Plotly.react('vineyardPlot', [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
+    Plotly.react("vineyardPlot", [diagPoints, traceOrd0, traceRel0, traceExt0, traceOrd1, traceRel1, traceExt1], layout, { displayModeBar: false, responsive: true });
+}
+
+function updateRadiusSweepVineyardPlot() {
+    if (!radiusSweepData || !radiusSweepData.vineyards[radiusSweepIdx]) return;
+    const v = radiusSweepData.vineyards[radiusSweepIdx];
+    renderSweepVineyardPlot(v, v.infinityY, "R = " + v.radius.toFixed(2), "#c084fc");
 }
 
 function updateRadiusSweepPersistenceDiagram() {
@@ -535,3 +488,279 @@ document.getElementById('radiusSweepSlider').addEventListener('input', e => {
     draw();
 });
 
+
+// ========== Spline Sweep ==========
+// Sweeps the OBSERVATION LOOP: continuous deformation from a captured start loop
+// spline to a captured end loop spline. The curve stays fixed; the loop's control
+// points are blended per step, re-sampled into observation centers, and one
+// vineyard is computed per step. (Generalises the radius sweep, which only varies
+// the radius of a circular loop.)
+
+function updateSplineSweepStatus() {
+    const sEl = document.getElementById('splineStartStatus');
+    const eEl = document.getElementById('splineEndStatus');
+
+    if (splineStartPts) {
+        sEl.innerText = `Start loop: ${splineStartPts.length} pts${splineStartOpen ? ' (open)' : ''}`;
+        sEl.style.color = '#22c55e';
+    } else {
+        sEl.innerText = 'No start loop';
+        sEl.style.color = 'var(--text-muted)';
+    }
+
+    if (splineEndPts) {
+        const mismatch = splineStartPts && splineStartPts.length !== splineEndPts.length;
+        eEl.innerText = mismatch
+            ? `End loop: ${splineEndPts.length} pts — must match start (${splineStartPts.length})`
+            : `End loop: ${splineEndPts.length} pts${splineEndOpen ? ' (open)' : ''}`;
+        eEl.style.color = mismatch ? '#f59e0b' : '#22c55e';
+    } else {
+        eEl.innerText = 'No end loop';
+        eEl.style.color = 'var(--text-muted)';
+    }
+}
+
+// Snapshot the current custom observation loop (control points + open/closed flag).
+function captureLoopForSweep() {
+    if (vineyardLoopType !== 'custom') {
+        updateStatus('Switch Loop to "Custom Spline" first');
+        return null;
+    }
+    if (customLoopPoints.length < 3) {
+        updateStatus('Draw a loop with at least 3 points first');
+        return null;
+    }
+    return {
+        pts: customLoopPoints.map(p => new Point(p.x, p.y)),
+        isOpen: !!customLoopOpen
+    };
+}
+
+function lerpControlPoints(a, b, t) {
+    const out = [];
+    for (let i = 0; i < a.length; i++) {
+        out.push(new Point(a[i].x + (b[i].x - a[i].x) * t, a[i].y + (b[i].y - a[i].y) * t));
+    }
+    return out;
+}
+
+// Sample an interpolated loop into the observation centers used for the vineyard
+// (same density rule as buildObservationCenters' custom-loop branch).
+function loopCentersFromPoints(pts, isOpen) {
+    const loopSamples = sampleLoopPoints(pts, isOpen, vineyardSamples * 10);
+    const centers = [];
+    const step = Math.max(1, Math.floor(loopSamples.length / vineyardSamples));
+    for (let i = 0; i < loopSamples.length; i += step) {
+        centers.push(loopSamples[i]);
+    }
+    return centers;
+}
+
+async function computeSplineSweep() {
+    if (!cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need a curve first!');
+        return;
+    }
+    if (!splineStartPts || !splineEndPts) {
+        updateStatus('Capture both a start and an end loop first!');
+        return;
+    }
+    if (splineStartPts.length !== splineEndPts.length) {
+        updateStatus(`Loop control point counts differ (${splineStartPts.length} vs ${splineEndPts.length}) — they must match.`);
+        return;
+    }
+    if (!PERSISTENCE_API_URL) {
+        updateStatus('Error: PERSISTENCE_API_URL not set!');
+        return;
+    }
+
+    saveState(); // sweep overwrites customLoopPoints; Ctrl+Z restores the drawn loop
+
+    const isOpen = splineStartOpen;
+    const steps = splineSweepSteps;
+
+    splineSweepData = { steps: [], infinityY: 0 };
+    let globalInfinityY = 0;
+
+    try {
+        for (let s = 0; s <= steps; s++) {
+            const t = s / steps;
+
+            // Deform the observation loop; the curve is unchanged.
+            const pts = lerpControlPoints(splineStartPts, splineEndPts, t);
+            const centers = loopCentersFromPoints(pts, isOpen);
+
+            if (centers.length === 0) {
+                updateStatus('Could not sample the interpolated loop');
+                return;
+            }
+
+            const apiResult = await computeVineyardAPI(centers, cachedCurveData);
+            const infinityY = apiResult.infinityY;
+
+            const processEntries = (entries, type) => {
+                return (entries || []).map(e => ({
+                    birth: e.birth,
+                    death: e.death,
+                    centerIdx: e.centerIdx,
+                    isInfinite: e.isInfinite || false,
+                    type: type
+                }));
+            };
+
+            const ord0 = processEntries(apiResult.ord0, 'ord');
+            const rel0 = processEntries(apiResult.rel0, 'rel');
+            const ext0 = processEntries(apiResult.ext0, 'ext');
+            const ord1 = processEntries(apiResult.ord1, 'ord');
+            const rel1 = processEntries(apiResult.rel1, 'rel');
+            const ext1 = processEntries(apiResult.ext1, 'ext');
+
+            splineSweepData.steps.push({
+                t: t,
+                pts: pts,
+                centers: centers,
+                h0: [...ord0, ...rel0, ...ext0],
+                h1: [...ord1, ...rel1, ...ext1],
+                ord0, rel0, ext0, ord1, rel1, ext1,
+                infinityY: infinityY
+            });
+
+            if (infinityY > globalInfinityY) globalInfinityY = infinityY;
+
+            if (s % 3 === 0) {
+                updateStatus(`Spline sweep ${Math.round((s / steps) * 100)}%`);
+            }
+        }
+
+        splineSweepData.infinityY = globalInfinityY;
+        vineyardMaxVal = globalInfinityY;
+
+        updateStatus(`Spline sweep done! ${splineSweepData.steps.length} vineyards`);
+
+        splineSweepIdx = 0;
+        updateSplineSweepDisplay();
+
+        document.getElementById('vineyardPanel').classList.add('active');
+        document.getElementById('showVineyardPlot').checked = true;
+        document.getElementById('persistencePanel').classList.remove('active');
+        document.getElementById('showPD').checked = false;
+
+        draw();
+
+    } catch (err) {
+        console.error('API error:', err);
+        updateStatus(`Error: ${err.message}`);
+    }
+}
+
+function updateSplineSweepDisplay() {
+    if (!splineSweepData || !splineSweepData.steps[splineSweepIdx]) return;
+
+    const step = splineSweepData.steps[splineSweepIdx];
+    document.getElementById('currentSplineStep').innerText = `t: ${step.t.toFixed(2)}`;
+
+    // Show the deformed observation loop on the canvas (the curve is untouched).
+    customLoopPoints = step.pts.map(p => new Point(p.x, p.y));
+    customLoopOpen = splineStartOpen;
+    const openCb = document.getElementById('customLoopOpen');
+    if (openCb) openCb.checked = customLoopOpen;
+    updateLoopStatus();
+
+    vineyardCenters = step.centers;
+    if (vineyardAnimIdx >= vineyardCenters.length) vineyardAnimIdx = 0;
+
+    vineyardData = {
+        h0: step.h0,
+        h1: step.h1,
+        ord0: step.ord0,
+        rel0: step.rel0,
+        ext0: step.ext0,
+        ord1: step.ord1,
+        rel1: step.rel1,
+        ext1: step.ext1,
+        infinityY: step.infinityY
+    };
+    vineyardMaxVal = splineSweepData.infinityY;
+
+    // Fixed axis ranges across the whole sweep so the plot doesn't rescale each frame.
+    renderSweepVineyardPlot(step, splineSweepData.infinityY, `t = ${step.t.toFixed(2)}`, '#38bdf8');
+}
+
+function stopSplineSweep() {
+    splineSweepPlaying = false;
+    const btn = document.getElementById('playSplineSweepBtn');
+    btn.innerText = '▶';
+    btn.style.background = '';
+}
+
+function splineSweepAnimLoop() {
+    if (!splineSweepPlaying || !splineSweepData) return;
+
+    splineSweepIdx = (splineSweepIdx + 1) % splineSweepData.steps.length;
+    const pct = splineSweepIdx / (splineSweepData.steps.length - 1);
+    document.getElementById('splineSweepSlider').value = Math.floor(pct * 1000);
+
+    updateSplineSweepDisplay();
+    draw();
+
+    setTimeout(splineSweepAnimLoop, 200);
+}
+
+document.getElementById('splineSweepSteps').addEventListener('input', e => {
+    splineSweepSteps = parseInt(e.target.value);
+    document.getElementById('splineSweepStepsVal').innerText = splineSweepSteps;
+});
+
+document.getElementById('captureSplineStartBtn').addEventListener('click', () => {
+    const c = captureLoopForSweep();
+    if (!c) return;
+    splineStartPts = c.pts;
+    splineStartOpen = c.isOpen;
+    updateSplineSweepStatus();
+    updateStatus(`Captured start loop (${splineStartPts.length} control points)`);
+});
+
+document.getElementById('captureSplineEndBtn').addEventListener('click', () => {
+    const c = captureLoopForSweep();
+    if (!c) return;
+    splineEndPts = c.pts;
+    splineEndOpen = c.isOpen;
+    updateSplineSweepStatus();
+    updateStatus(`Captured end loop (${splineEndPts.length} control points)`);
+});
+
+document.getElementById('computeSplineSweepBtn').addEventListener('click', computeSplineSweep);
+
+document.getElementById('playSplineSweepBtn').addEventListener('click', () => {
+    if (!splineSweepData) return;
+
+    splineSweepPlaying = !splineSweepPlaying;
+    const btn = document.getElementById('playSplineSweepBtn');
+
+    if (splineSweepPlaying) {
+        btn.innerText = '⏸';
+        btn.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+        splineSweepAnimLoop();
+    } else {
+        btn.innerText = '▶';
+        btn.style.background = '';
+    }
+});
+
+document.getElementById('stopSplineSweepBtn').addEventListener('click', () => {
+    stopSplineSweep();
+    splineSweepIdx = 0;
+    document.getElementById('splineSweepSlider').value = 0;
+    if (splineSweepData) {
+        updateSplineSweepDisplay();
+        draw();
+    }
+});
+
+document.getElementById('splineSweepSlider').addEventListener('input', e => {
+    if (!splineSweepData) return;
+    const pct = parseFloat(e.target.value) / 1000;
+    splineSweepIdx = Math.floor(pct * (splineSweepData.steps.length - 1));
+    updateSplineSweepDisplay();
+    draw();
+});

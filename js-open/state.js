@@ -76,6 +76,17 @@ let radiusStart = 0.5;
 let radiusEnd = 5.0;
 let radiusSteps = 30;
 
+// Spline sweep: continuous deformation from a captured start spline to an end spline.
+// Start/End hold snapshots of a curve's control points (blended per step).
+let splineStartPts = null;
+let splineStartOpen = false;
+let splineEndPts = null;
+let splineEndOpen = false;
+let splineSweepSteps = 20;
+let splineSweepData = null;
+let splineSweepIdx = 0;
+let splineSweepPlaying = false;
+
 let fixedCurveMode = false;
 
 const canvas = document.getElementById('mainCanvas');

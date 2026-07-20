@@ -74,66 +74,73 @@ function bSplineDeriv2(p0, p1, p2, p3, t) {
     return new Point(p0.x*dd0 + p1.x*dd1 + p2.x*dd2 + p3.x*dd3, p0.y*dd0 + p1.y*dd1 + p2.y*dd2 + p3.y*dd3);
 }
 
-function computeSplineData() {
-    const allData = [];
-    
-    for (let cIdx = 0; cIdx < curves.length; cIdx++) {
-        const pts = curves[cIdx];
-        if (pts.length < 3) continue;
+// Sample one curve's spline from its control points. Extracted from computeSplineData
+// so callers (e.g. the spline sweep) can build data for arbitrary control points.
+function splineDataForControlPoints(pts, isOpen, curveId, budget) {
+    const out = [];
+    if (!pts || pts.length < 3) return out;
 
-        const isOpen = !!curveOpen[cIdx];
-        const C = isOpen ? solveControlPointsOpen(pts) : solveControlPoints(pts);
-        const n = C.length;
-        // Closed: wrap C[n-1], C[0], C[1] for cyclic continuity.
-        // Open: phantom endpoints from natural-spline boundary (C''=0).
-        const drawC = isOpen
-            ? [
-                new Point(2 * C[0].x - C[1].x, 2 * C[0].y - C[1].y),
-                ...C,
-                new Point(2 * C[n - 1].x - C[n - 2].x, 2 * C[n - 1].y - C[n - 2].y)
-              ]
-            : [C[n-1], ...C, C[0], C[1]];
+    const C = isOpen ? solveControlPointsOpen(pts) : solveControlPoints(pts);
+    const n = C.length;
+    const drawC = isOpen
+        ? [
+            new Point(2 * C[0].x - C[1].x, 2 * C[0].y - C[1].y),
+            ...C,
+            new Point(2 * C[n - 1].x - C[n - 2].x, 2 * C[n - 1].y - C[n - 2].y)
+          ]
+        : [C[n-1], ...C, C[0], C[1]];
 
-        const numSegments = isOpen ? (pts.length - 1) : pts.length;
-        const budget = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
-        const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
+    const numSegments = isOpen ? (pts.length - 1) : pts.length;
+    const pointsPerSeg = Math.floor(budget / Math.max(1, numSegments));
 
-        for (let i = 0; i < numSegments; i++) {
-            const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+    for (let i = 0; i < numSegments; i++) {
+        const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
 
-            for (let j = 0; j < pointsPerSeg; j++) {
-                const t = j / pointsPerSeg;
-                const P = bSplineEval(p0, p1, p2, p3, t);
-                const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
-                const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
-                
-                const velSq = d1.dot(d1);
-                if (velSq < 1e-15) continue;
-
-                const T = d1.normalize();
-                const N = new Point(-T.y, T.x);
-                const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
-
-                allData.push({ p: P, T: T, N: N, curvature: k, curveId: cIdx });
-            }
-        }
-
-        // For open curves, add the t=1 endpoint of the final segment
-        // so the sample list reaches the last data point.
-        if (isOpen) {
-            const i = numSegments - 1;
-            const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
-            const t = 1.0;
+        for (let j = 0; j < pointsPerSeg; j++) {
+            const t = j / pointsPerSeg;
             const P = bSplineEval(p0, p1, p2, p3, t);
             const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
             const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
+
             const velSq = d1.dot(d1);
-            if (velSq >= 1e-15) {
-                const T = d1.normalize();
-                const N = new Point(-T.y, T.x);
-                const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
-                allData.push({ p: P, T: T, N: N, curvature: k, curveId: cIdx });
-            }
+            if (velSq < 1e-15) continue;
+
+            const T = d1.normalize();
+            const N = new Point(-T.y, T.x);
+            const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
+
+            out.push({ p: P, T: T, N: N, curvature: k, curveId: curveId });
+        }
+    }
+
+    // For open curves, add the t=1 endpoint of the final segment
+    // so the sample list reaches the last data point.
+    if (isOpen) {
+        const i = numSegments - 1;
+        const p0 = drawC[i], p1 = drawC[i+1], p2 = drawC[i+2], p3 = drawC[i+3];
+        const t = 1.0;
+        const P = bSplineEval(p0, p1, p2, p3, t);
+        const d1 = bSplineDeriv1(p0, p1, p2, p3, t);
+        const d2 = bSplineDeriv2(p0, p1, p2, p3, t);
+        const velSq = d1.dot(d1);
+        if (velSq >= 1e-15) {
+            const T = d1.normalize();
+            const N = new Point(-T.y, T.x);
+            const k = (d1.x * d2.y - d1.y * d2.x) / Math.pow(velSq, 1.5);
+            out.push({ p: P, T: T, N: N, curvature: k, curveId: curveId });
+        }
+    }
+
+    return out;
+}
+
+function computeSplineData() {
+    const allData = [];
+    const budgetAll = Math.floor(SAMPLING_DENSITY / Math.max(1, curves.length));
+
+    for (let cIdx = 0; cIdx < curves.length; cIdx++) {
+        for (const d of splineDataForControlPoints(curves[cIdx], !!curveOpen[cIdx], cIdx, budgetAll)) {
+            allData.push(d);
         }
     }
     return allData;

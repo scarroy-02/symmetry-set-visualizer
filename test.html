@@ -196,7 +196,39 @@
                 <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #c084fc; margin-top: 2px;" id="currentSweepRadius">R: --</div>
             </div>
         </div>
-        
+
+        <!-- Spline Sweep -->
+        <div class="section" id="splineSweepSection">
+            <div class="section-header">
+                <span class="section-title">
+                    <span class="section-icon" style="background: #38bdf8;"></span>
+                    Spline Sweep
+                </span>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.4;">
+                    Deforms the <b>custom spline observation loop</b> from a start shape to an end shape (curve stays fixed). Set Loop to <b>Custom Spline</b>, draw a loop, then capture.
+                </div>
+                <button class="btn btn-secondary" id="captureSplineStartBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Capture Start Loop</button>
+                <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 4px;" id="splineStartStatus">No start loop</div>
+                <button class="btn btn-secondary" id="captureSplineEndBtn" style="width: 100%; margin-bottom: 4px; font-size: 9px;">Capture End Loop</button>
+                <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 4px;" id="splineEndStatus">No end loop</div>
+                <div class="slider-row">
+                    <label>Steps</label>
+                    <input type="range" id="splineSweepSteps" min="4" max="60" step="2" value="20" style="accent-color: #38bdf8;">
+                    <span class="val" id="splineSweepStepsVal">20</span>
+                </div>
+                <button class="btn" id="computeSplineSweepBtn" style="width: 100%; margin: 5px 0; background: linear-gradient(135deg, #38bdf8, #0284c7); color: white;">Compute Spline Sweep</button>
+                <div class="anim-row">
+                    <button class="btn btn-secondary" id="playSplineSweepBtn" style="width: 44px;">▶</button>
+                    <button class="btn btn-secondary btn-icon" id="stopSplineSweepBtn">◼</button>
+                    <input type="range" id="splineSweepSlider" min="0" max="1000" value="0" style="accent-color: #38bdf8;">
+                </div>
+                <div style="text-align: center; font-family: 'JetBrains Mono'; font-size: 10px; color: #38bdf8; margin-top: 2px;" id="currentSplineStep">t: --</div>
+            </div>
+        </div>
+
         <!-- Quick Keys -->
         <div class="quick-keys">
             <kbd>Click</kbd> Add · <kbd>Drag</kbd> Move · <kbd>Right-drag</kbd> Pan<br>

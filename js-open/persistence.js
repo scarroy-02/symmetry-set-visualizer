@@ -21,26 +21,16 @@ async function computeVineyardAPI(centers, curveData) {
     return await response.json();
 }
 
-async function computeVineyard() {
-    if (!cachedCurveData || cachedCurveData.length === 0) {
-        updateStatus('Need a curve first!');
-        return;
-    }
-    
-    if (!PERSISTENCE_API_URL) {
-        updateStatus('Error: PERSISTENCE_API_URL not set! Edit the HTML to set your server URL.');
-        return;
-    }
-    
-    let centers = [];
-    
+// Build the observation-loop centers from the current loop settings (circular or
+// custom spline). Returns null and sets a status message if the loop isn't ready.
+function buildObservationCenters() {
+    const centers = [];
+
     if (vineyardLoopType === 'circular') {
         if (!vineyardCenter) {
             updateStatus('Need center point! Click "Place Center" first.');
-            return;
+            return null;
         }
-        
-        // Generate circular centers
         for (let i = 0; i < vineyardSamples; i++) {
             const theta = (i / vineyardSamples) * Math.PI * 2;
             centers.push(new Point(
@@ -49,22 +39,36 @@ async function computeVineyard() {
             ));
         }
     } else {
-        // Custom loop mode
         if (customLoopPoints.length < 3) {
             updateStatus('Need at least 3 loop points!');
-            return;
+            return null;
         }
-        
-        // Sample points along the loop
         const loopSamples = sampleCustomLoop(vineyardSamples * 10);
         const step = Math.max(1, Math.floor(loopSamples.length / vineyardSamples));
         for (let i = 0; i < loopSamples.length; i += step) {
             centers.push(loopSamples[i]);
         }
     }
-    
+
+    return centers;
+}
+
+async function computeVineyard() {
+    if (!cachedCurveData || cachedCurveData.length === 0) {
+        updateStatus('Need a curve first!');
+        return;
+    }
+
+    if (!PERSISTENCE_API_URL) {
+        updateStatus('Error: PERSISTENCE_API_URL not set! Edit the HTML to set your server URL.');
+        return;
+    }
+
+    const centers = buildObservationCenters();
+    if (!centers) return;
+
     vineyardCenters = centers;
-    
+
     updateStatus(`Computing vineyard via API (${centers.length} centers, ${cachedCurveData.length} points)...`);
     
     try {

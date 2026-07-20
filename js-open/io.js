@@ -314,12 +314,16 @@ function updateLoopStatus() {
     }
 }
 
-// Sample points along the custom loop spline (auto-closed)
+// Sample points along the current custom loop spline.
 function sampleCustomLoop(numSamples) {
-    if (customLoopPoints.length < 3) return [];
-    
-    const pts = customLoopPoints;
-    const isOpen = !!customLoopOpen;
+    return sampleLoopPoints(customLoopPoints, !!customLoopOpen, numSamples);
+}
+
+// Sample a loop spline from an arbitrary set of control points, so callers (e.g.
+// the spline sweep) can sample interpolated loops that aren't the current one.
+function sampleLoopPoints(pts, isOpen, numSamples) {
+    if (!pts || pts.length < 3) return [];
+
     const C = isOpen ? solveControlPointsOpen(pts) : solveControlPoints(pts);
     const n = C.length;
     // Closed: wrap control points for cyclic continuity.

@@ -216,15 +216,14 @@ function restorePersistenceAfterExport(plotId, saved) {
 }
 
 function exportPlotlyAsPNG(plotId, filename) {
-    // Get the plot element and save current camera state
     const plotDiv = document.getElementById(plotId);
-    let savedCamera = null;
-    
-    // Save 3D camera position if it's a 3D plot
-    if (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera) {
-        savedCamera = JSON.parse(JSON.stringify(plotDiv.layout.scene.camera));
-    }
-    
+    // Read the CURRENT 3D camera (includes any interactive rotation). _fullLayout
+    // reflects live camera changes; plotDiv.layout.scene.camera can be stale, which
+    // is what made the export snap back to the plot's initial orientation.
+    const rawCamera = (plotDiv._fullLayout && plotDiv._fullLayout.scene && plotDiv._fullLayout.scene.camera)
+        || (plotDiv.layout && plotDiv.layout.scene && plotDiv.layout.scene.camera);
+    const savedCamera = rawCamera ? JSON.parse(JSON.stringify(rawCamera)) : undefined;
+
     // Export as square with good quality
     const exportSize = 800;
     
@@ -239,7 +238,7 @@ function exportPlotlyAsPNG(plotId, filename) {
             yaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Death', font: { color: '#333' } } },
             zaxis: { color: '#333', gridcolor: '#ddd', title: { text: 'Time', font: { color: '#333' } } },
             bgcolor: '#ffffff',
-            camera: savedCamera // Preserve camera position
+            camera: savedCamera // preserve the current (interactive) orientation
         } : undefined,
         xaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: false, automargin: true, tickfont: { family: 'Times New Roman, Times, serif', size: 14, color: '#333' }, title: { text: 'Birth', font: { family: 'Times New Roman, Times, serif', size: 20, color: '#333' }, standoff: 30 } } : undefined,
         yaxis: plotId === 'persistencePlot' ? { color: '#333', gridcolor: '#ddd', zerolinecolor: '#999', linecolor: '#333', linewidth: 3, tickwidth: 2, ticklen: 7, zerolinewidth: 2.5, gridwidth: 1.5, showline: false, automargin: true, tickfont: { family: 'Times New Roman, Times, serif', size: 14, color: '#333' }, title: { text: 'Death', font: { family: 'Times New Roman, Times, serif', size: 20, color: '#333' }, standoff: 30 } } : undefined,

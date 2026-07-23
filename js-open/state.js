@@ -14,7 +14,7 @@ class Point {
 // For local development: Use 'http://localhost:5000'
 // For hosting: 'https://scarroy.eu.pythonanywhere.com/' 'https://scarroy-persistence-endpoint.hf.space/'
 const PERSISTENCE_API_URL = 'https://scarroy-persistence-endpoint.hf.space';
-// const PERSISTENCE_API_URL = 'http://localhost:5000';
+// const PERSISTENCE_API_URL = 'http://localhost:7860';
 
 // ========== Global State ==========
 const SAMPLING_DENSITY = 20000;
